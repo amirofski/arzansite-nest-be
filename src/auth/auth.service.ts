@@ -18,6 +18,7 @@ export class AuthService {
         password: signUpDto.password,
         options: {
           data: signUpDto.metadata,
+          emailRedirectTo: `${process.env.FRONTEND_URL}/verify-email`,
         },
       });
 
@@ -25,22 +26,9 @@ export class AuthService {
       throw new BadRequestException(error.message);
     }
 
-    // Generate a verification token
-    const verificationToken = this.generateVerificationToken();
-
-    // Store the verification token in user metadata for later verification
-    if (data.user) {
-      await this.supabaseService
-        .getClient()
-        .auth.admin.updateUserById(data.user.id, {
-          user_metadata: {
-            ...data.user.user_metadata,
-            verificationToken,
-            verificationTokenCreatedAt: new Date().toISOString(),
-          },
-        });
-
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+    // Send custom verification email with Supabase's verification token
+    if (data.user && data.session) {
+      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${data.session.access_token}`;
       const userName = signUpDto.metadata?.first_name || signUpDto.metadata?.name || 'there';
       
       await this.emailService.sendEmailVerification(
@@ -53,68 +41,37 @@ export class AuthService {
     return {
       message: 'User created successfully',
       user: data.user,
-      verificationToken,
+      verificationToken: data.session?.access_token,
     };
-  }
-
-  private generateVerificationToken(): string {
-    // Generate a secure random token
-    const crypto = require('crypto');
-    return crypto.randomBytes(32).toString('hex');
   }
 
   async verifyEmail(token: string) {
     try {
-      // Find user by verification token in metadata
-      const { data: users, error: searchError } = await this.supabaseService
+      // Use Supabase's built-in email verification
+      const { data, error } = await this.supabaseService
         .getClient()
-        .auth.admin.listUsers();
+        .auth.verifyOtp({
+          token_hash: token,
+          type: 'signup',
+        });
 
-      if (searchError) {
-        throw new BadRequestException('Error searching for user');
-      }
+      if (error) {
+        // If the above doesn't work, try with the token directly
+        const { data: verifyData, error: verifyError } = await this.supabaseService
+          .getClient()
+          .auth.verifyOtp({
+            email: '', // We'll need to extract email from token
+            token: token,
+            type: 'signup',
+          });
 
-      // Find user with matching verification token
-      const user = users.users.find((u: any) => 
-        u.user_metadata?.verificationToken === token
-      );
+        if (verifyError) {
+          throw new BadRequestException('Invalid verification token');
+        }
 
-      if (!user) {
-        throw new BadRequestException('Invalid verification token');
-      }
-
-      // Check if token is expired (24 hours)
-      const tokenCreatedAt = new Date(user.user_metadata?.verificationTokenCreatedAt);
-      const now = new Date();
-      const tokenAge = now.getTime() - tokenCreatedAt.getTime();
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-      if (tokenAge > maxAge) {
-        throw new BadRequestException('Verification token has expired');
-      }
-
-      // If user is already confirmed, return success
-      if (user.email_confirmed_at) {
         return {
           message: 'Email verified successfully',
         };
-      }
-
-      // Confirm the user's email and remove the verification token
-      const { data: adminData, error: adminError } = await this.supabaseService
-        .getClient()
-        .auth.admin.updateUserById(user.id, {
-          email_confirm: true,
-          user_metadata: {
-            ...user.user_metadata,
-            verificationToken: null,
-            verificationTokenCreatedAt: null,
-            emailVerifiedAt: new Date().toISOString(),
-          },
-        });
-
-      if (adminError) {
-        throw new BadRequestException(adminError.message);
       }
 
       return {

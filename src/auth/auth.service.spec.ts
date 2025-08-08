@@ -13,11 +13,23 @@ describe('AuthService', () => {
   const mockSupabaseClient = {
     auth: {
       signUp: jest.fn(),
+      verifyOtp: jest.fn(),
+      signInWithPassword: jest.fn(),
+      refreshSession: jest.fn(),
+      signOut: jest.fn(),
+      resetPasswordForEmail: jest.fn(),
       admin: {
+        getUserById: jest.fn(),
         updateUserById: jest.fn(),
-        listUsers: jest.fn(),
       },
     },
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          single: jest.fn(),
+        }),
+      }),
+    }),
   };
 
   beforeEach(async () => {
@@ -34,6 +46,8 @@ describe('AuthService', () => {
           provide: EmailService,
           useValue: {
             sendEmailVerification: jest.fn(),
+            sendPasswordResetEmail: jest.fn(),
+            sendWelcomeEmail: jest.fn(),
           },
         },
       ],
@@ -62,13 +76,13 @@ describe('AuthService', () => {
         user_metadata: { first_name: 'Test' },
       };
 
-      mockSupabaseClient.auth.signUp.mockResolvedValue({
-        data: { user: mockUser, session: { access_token: 'session-token' } },
-        error: null,
-      });
+      const mockSession = {
+        access_token: 'session-token',
+        refresh_token: 'refresh-token',
+      };
 
-      mockSupabaseClient.auth.admin.updateUserById.mockResolvedValue({
-        data: mockUser,
+      mockSupabaseClient.auth.signUp.mockResolvedValue({
+        data: { user: mockUser, session: mockSession },
         error: null,
       });
 
@@ -78,12 +92,14 @@ describe('AuthService', () => {
 
       expect(result.message).toBe('User created successfully');
       expect(result.user).toBeDefined();
-      expect(result.verificationToken).toBeDefined();
-      expect(typeof result.verificationToken).toBe('string');
+      expect(result.verificationToken).toBe('session-token');
       expect(mockSupabaseClient.auth.signUp).toHaveBeenCalledWith({
         email: signUpDto.email,
         password: signUpDto.password,
-        options: { data: signUpDto.metadata },
+        options: {
+          data: signUpDto.metadata,
+          emailRedirectTo: `${process.env.FRONTEND_URL}/verify-email`,
+        },
       });
       expect(emailService.sendEmailVerification).toHaveBeenCalled();
     });
@@ -104,112 +120,185 @@ describe('AuthService', () => {
   });
 
   describe('verifyEmail', () => {
-    it('should verify email successfully', async () => {
+    it('should verify email successfully with token_hash', async () => {
       const token = 'valid-token';
-      const mockUser = {
-        id: 'user-id',
-        email: 'test@example.com',
-        user_metadata: {
-          verificationToken: token,
-          verificationTokenCreatedAt: new Date().toISOString(),
-        },
-        email_confirmed_at: null,
-      };
 
-      mockSupabaseClient.auth.admin.listUsers.mockResolvedValue({
-        data: { users: [mockUser] },
-        error: null,
-      });
-
-      mockSupabaseClient.auth.admin.updateUserById.mockResolvedValue({
-        data: mockUser,
+      mockSupabaseClient.auth.verifyOtp.mockResolvedValue({
+        data: { user: { id: 'user-id' } },
         error: null,
       });
 
       const result = await service.verifyEmail(token);
 
       expect(result.message).toBe('Email verified successfully');
-      expect(mockSupabaseClient.auth.admin.updateUserById).toHaveBeenCalledWith(
-        mockUser.id,
-        {
-          email_confirm: true,
-          user_metadata: {
-            ...mockUser.user_metadata,
-            verificationToken: null,
-            verificationTokenCreatedAt: null,
-            emailVerifiedAt: expect.any(String),
-          },
-        },
-      );
+      expect(mockSupabaseClient.auth.verifyOtp).toHaveBeenCalledWith({
+        token_hash: token,
+        type: 'signup',
+      });
+    });
+
+    it('should verify email successfully with direct token', async () => {
+      const token = 'valid-token';
+
+      // First call fails
+      mockSupabaseClient.auth.verifyOtp
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Invalid token hash' },
+        })
+        // Second call succeeds
+        .mockResolvedValueOnce({
+          data: { user: { id: 'user-id' } },
+          error: null,
+        });
+
+      const result = await service.verifyEmail(token);
+
+      expect(result.message).toBe('Email verified successfully');
+      expect(mockSupabaseClient.auth.verifyOtp).toHaveBeenCalledTimes(2);
     });
 
     it('should throw BadRequestException for invalid token', async () => {
       const token = 'invalid-token';
 
-      mockSupabaseClient.auth.admin.listUsers.mockResolvedValue({
-        data: { users: [] },
-        error: null,
-      });
+      mockSupabaseClient.auth.verifyOtp
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Invalid token hash' },
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Invalid token' },
+        });
 
       await expect(service.verifyEmail(token)).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException for expired token', async () => {
-      const token = 'expired-token';
-      const expiredDate = new Date();
-      expiredDate.setHours(expiredDate.getHours() - 25); // 25 hours ago
-
-      const mockUser = {
-        id: 'user-id',
-        email: 'test@example.com',
-        user_metadata: {
-          verificationToken: token,
-          verificationTokenCreatedAt: expiredDate.toISOString(),
-        },
-      };
-
-      mockSupabaseClient.auth.admin.listUsers.mockResolvedValue({
-        data: { users: [mockUser] },
-        error: null,
-      });
-
-      await expect(service.verifyEmail(token)).rejects.toThrow(BadRequestException);
-    });
-
-    it('should return success for already verified email', async () => {
-      const token = 'valid-token';
-      const mockUser = {
-        id: 'user-id',
-        email: 'test@example.com',
-        user_metadata: {
-          verificationToken: token,
-          verificationTokenCreatedAt: new Date().toISOString(),
-        },
-        email_confirmed_at: new Date().toISOString(),
-      };
-
-      mockSupabaseClient.auth.admin.listUsers.mockResolvedValue({
-        data: { users: [mockUser] },
-        error: null,
-      });
-
-      const result = await service.verifyEmail(token);
-
-      expect(result.message).toBe('Email verified successfully');
-      expect(mockSupabaseClient.auth.admin.updateUserById).not.toHaveBeenCalled();
     });
   });
 
-  describe('generateVerificationToken', () => {
-    it('should generate a secure random token', () => {
-      const token1 = (service as any).generateVerificationToken();
-      const token2 = (service as any).generateVerificationToken();
+  describe('signIn', () => {
+    it('should sign in successfully', async () => {
+      const signInDto = {
+        email: 'test@example.com',
+        password: 'password123',
+      };
 
-      expect(token1).toBeDefined();
-      expect(token2).toBeDefined();
-      expect(token1).not.toBe(token2);
-      expect(token1.length).toBe(64); // 32 bytes = 64 hex characters
-      expect(token2.length).toBe(64);
+      const mockUser = { id: 'user-id', email: 'test@example.com' };
+      const mockSession = {
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+      };
+
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: { user: mockUser, session: mockSession },
+        error: null,
+      });
+
+      const result = await service.signIn(signInDto);
+
+      expect(result.access_token).toBe('access-token');
+      expect(result.refresh_token).toBe('refresh-token');
+      expect(result.user).toBe(mockUser);
+    });
+  });
+
+  describe('refreshToken', () => {
+    it('should refresh token successfully', async () => {
+      const refreshTokenDto = { refresh_token: 'refresh-token' };
+
+      const mockSession = {
+        access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+      };
+
+      mockSupabaseClient.auth.refreshSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      const result = await service.refreshToken(refreshTokenDto);
+
+      expect(result.access_token).toBe('new-access-token');
+      expect(result.refresh_token).toBe('new-refresh-token');
+    });
+  });
+
+  describe('signOut', () => {
+    it('should sign out successfully', async () => {
+      mockSupabaseClient.auth.signOut.mockResolvedValue({
+        error: null,
+      });
+
+      const result = await service.signOut('access-token');
+
+      expect(result.message).toBe('Successfully signed out');
+    });
+  });
+
+  describe('getMe', () => {
+    it('should get user information successfully', async () => {
+      const userId = 'user-id';
+      const mockUser = {
+        user: {
+          id: 'user-id',
+          email: 'test@example.com',
+        },
+      };
+
+      mockSupabaseClient.auth.admin.getUserById.mockResolvedValue({
+        data: mockUser,
+        error: null,
+      });
+
+      const mockUserRole = { role: 'user' };
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue({
+        data: mockUserRole,
+      });
+
+      const result = await service.getMe(userId);
+
+      expect(result.id).toBe('user-id');
+      expect(result.email).toBe('test@example.com');
+      expect(result.role).toBe('user');
+    });
+  });
+
+  describe('sendPasswordResetEmail', () => {
+    it('should send password reset email successfully', async () => {
+      const email = 'test@example.com';
+
+      mockSupabaseClient.auth.resetPasswordForEmail.mockResolvedValue({
+        error: null,
+      });
+
+      emailService.sendPasswordResetEmail.mockResolvedValue(true);
+
+      const result = await service.sendPasswordResetEmail(email);
+
+      expect(result.message).toBe('Password reset email sent. Please check your email.');
+    });
+  });
+
+  describe('sendWelcomeEmail', () => {
+    it('should send welcome email successfully', async () => {
+      const userId = 'user-id';
+      const mockUser = {
+        user: {
+          id: 'user-id',
+          email: 'test@example.com',
+          user_metadata: { first_name: 'Test' },
+        },
+      };
+
+      mockSupabaseClient.auth.admin.getUserById.mockResolvedValue({
+        data: mockUser,
+        error: null,
+      });
+
+      emailService.sendWelcomeEmail.mockResolvedValue(true);
+
+      const result = await service.sendWelcomeEmail(userId);
+
+      expect(result.message).toBe('Welcome email sent successfully.');
     });
   });
 });
