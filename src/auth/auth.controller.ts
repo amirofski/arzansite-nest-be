@@ -10,7 +10,7 @@ import {
   Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { SignUpDto, SignInDto, RefreshTokenDto } from './dto/auth.dto';
+import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto } from './dto/auth.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
 
@@ -21,6 +21,12 @@ export class AuthController {
   @Post('signup')
   async signUp(@Body() signUpDto: SignUpDto) {
     return this.authService.signUp(signUpDto);
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.authService.verifyEmail(verifyEmailDto.token);
   }
 
   @Post('login')

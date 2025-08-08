@@ -24,3 +24,8 @@ export class RefreshTokenDto {
   @IsString()
   refresh_token: string;
 }
+
+export class VerifyEmailDto {
+  @IsString()
+  token: string;
+}

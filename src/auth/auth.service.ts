@@ -25,9 +25,22 @@ export class AuthService {
       throw new BadRequestException(error.message);
     }
 
-    // Send custom verification email
+    // Generate a verification token
+    const verificationToken = this.generateVerificationToken();
+
+    // Store the verification token in user metadata for later verification
     if (data.user) {
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${data.session?.access_token}`;
+      await this.supabaseService
+        .getClient()
+        .auth.admin.updateUserById(data.user.id, {
+          user_metadata: {
+            ...data.user.user_metadata,
+            verificationToken,
+            verificationTokenCreatedAt: new Date().toISOString(),
+          },
+        });
+
+      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
       const userName = signUpDto.metadata?.first_name || signUpDto.metadata?.name || 'there';
       
       await this.emailService.sendEmailVerification(
@@ -38,9 +51,81 @@ export class AuthService {
     }
 
     return {
-      message: 'Verification email sent. Please check your email to confirm your account.',
+      message: 'User created successfully',
       user: data.user,
+      verificationToken,
     };
+  }
+
+  private generateVerificationToken(): string {
+    // Generate a secure random token
+    const crypto = require('crypto');
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  async verifyEmail(token: string) {
+    try {
+      // Find user by verification token in metadata
+      const { data: users, error: searchError } = await this.supabaseService
+        .getClient()
+        .auth.admin.listUsers();
+
+      if (searchError) {
+        throw new BadRequestException('Error searching for user');
+      }
+
+      // Find user with matching verification token
+      const user = users.users.find((u: any) => 
+        u.user_metadata?.verificationToken === token
+      );
+
+      if (!user) {
+        throw new BadRequestException('Invalid verification token');
+      }
+
+      // Check if token is expired (24 hours)
+      const tokenCreatedAt = new Date(user.user_metadata?.verificationTokenCreatedAt);
+      const now = new Date();
+      const tokenAge = now.getTime() - tokenCreatedAt.getTime();
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+      if (tokenAge > maxAge) {
+        throw new BadRequestException('Verification token has expired');
+      }
+
+      // If user is already confirmed, return success
+      if (user.email_confirmed_at) {
+        return {
+          message: 'Email verified successfully',
+        };
+      }
+
+      // Confirm the user's email and remove the verification token
+      const { data: adminData, error: adminError } = await this.supabaseService
+        .getClient()
+        .auth.admin.updateUserById(user.id, {
+          email_confirm: true,
+          user_metadata: {
+            ...user.user_metadata,
+            verificationToken: null,
+            verificationTokenCreatedAt: null,
+            emailVerifiedAt: new Date().toISOString(),
+          },
+        });
+
+      if (adminError) {
+        throw new BadRequestException(adminError.message);
+      }
+
+      return {
+        message: 'Email verified successfully',
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Invalid verification token');
+    }
   }
 
   async signIn(signInDto: SignInDto) {
