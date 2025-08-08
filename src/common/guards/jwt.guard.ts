@@ -8,6 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { UserPayload } from '../decorators/user.decorator';
 
+// Import jwks-client with proper TypeScript support
+import * as jwksClient from 'jwks-client';
+const JwksClient = jwksClient.default || jwksClient;
+
 @Injectable()
 export class JwtGuard implements CanActivate {
   private jwksClient: any;
@@ -21,7 +25,6 @@ export class JwtGuard implements CanActivate {
 
   private async initializeJwksClient() {
     try {
-      const { JwksClient } = await import('jwks-client');
       this.jwksClient = new JwksClient({
         jwksUri: this.jwksUrl,
         cache: true,

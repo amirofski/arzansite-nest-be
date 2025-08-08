@@ -12,6 +12,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SiteConfigModule } from './site-config/site-config.module';
 import { DomainsModule } from './domains/domains.module';
+import { EmailModule } from './email/email.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -36,6 +37,7 @@ import { HealthController } from './health/health.controller';
     PaymentsModule,
     SiteConfigModule,
     DomainsModule,
+    EmailModule,
   ],
   controllers: [HealthController],
 })

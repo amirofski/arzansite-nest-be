@@ -7,6 +7,7 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignUpDto, SignInDto, RefreshTokenDto } from './dto/auth.dto';
@@ -46,5 +47,18 @@ export class AuthController {
   @UseGuards(JwtGuard)
   async getMe(@User() user: UserPayload) {
     return this.authService.getMe(user.id);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() body: { email: string }) {
+    return this.authService.sendPasswordResetEmail(body.email);
+  }
+
+  @Post('welcome-email/:userId')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  async sendWelcomeEmail(@Param('userId') userId: string) {
+    return this.authService.sendWelcomeEmail(userId);
   }
 }

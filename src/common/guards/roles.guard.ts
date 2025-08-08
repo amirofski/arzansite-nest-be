@@ -11,7 +11,13 @@ import { UserPayload } from '../decorators/user.decorator';
 export const ROLES_KEY = 'roles';
 export const Roles = (...roles: string[]) => {
   return (target: any, key?: string, descriptor?: any) => {
-    Reflect.defineMetadata(ROLES_KEY, roles, descriptor.value);
+    if (descriptor && descriptor.value) {
+      // Method decorator
+      Reflect.defineMetadata(ROLES_KEY, roles, descriptor.value);
+    } else {
+      // Class decorator
+      Reflect.defineMetadata(ROLES_KEY, roles, target);
+    }
     return descriptor;
   };
 };
@@ -24,10 +30,18 @@ export class RolesGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+    // Check for roles at method level first, then class level
+    const methodRoles = this.reflector.get<string[]>(
       ROLES_KEY,
-      [context.getHandler(), context.getClass()],
+      context.getHandler(),
     );
+    
+    const classRoles = this.reflector.get<string[]>(
+      ROLES_KEY,
+      context.getClass(),
+    );
+
+    const requiredRoles = methodRoles || classRoles;
 
     if (!requiredRoles) {
       return true;
