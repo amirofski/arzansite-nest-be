@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  arzansite-be:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: arzansite-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_JWKS_URL=${SUPABASE_JWKS_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - ZARINPAL_MERCHANT_ID=${ZARINPAL_MERCHANT_ID}
+      - PORT=3000
+    env_file:
+      - .env
+    networks:
+      - arzansite-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: PostgreSQL for local development
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: arzansite-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     - POSTGRES_DB=arzansite
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - arzansite-network
+
+networks:
+  arzansite-network:
+    driver: bridge
+
+# volumes:
+#   postgres_data:
