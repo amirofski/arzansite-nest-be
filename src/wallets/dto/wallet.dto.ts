@@ -1,8 +1,24 @@
-import { IsString, IsNumber, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsObject, IsEnum } from 'class-validator';
+
+export enum TransactionType {
+  DEPOSIT = 'deposit',
+  WITHDRAWAL = 'withdrawal',
+  PAYMENT = 'payment',
+  REFUND = 'refund',
+  CREDIT = 'credit',
+  DEBIT = 'debit'
+}
+
+export enum TransactionStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled'
+}
 
 export class CreateTransactionDto {
-  @IsString()
-  type: string;
+  @IsEnum(TransactionType)
+  type: TransactionType;
 
   @IsNumber()
   amount: number;

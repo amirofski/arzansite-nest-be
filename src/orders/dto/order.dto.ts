@@ -1,14 +1,27 @@
 import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
 
+export enum OrderStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled'
+}
+
 export class CreateOrderDto {
   @IsString()
   title: string;
 
+  @IsOptional()
   @IsString()
-  description: string;
+  description?: string;
 
+  @IsOptional()
   @IsNumber()
-  price: number;
+  price?: number;
+
+  @IsOptional()
+  @IsString()
+  comments?: string;
 
   @IsOptional()
   @IsNumber()
@@ -34,7 +47,11 @@ export class UpdateOrderDto {
 
   @IsOptional()
   @IsString()
-  status?: string;
+  comments?: string;
+
+  @IsOptional()
+  @IsEnum(OrderStatus)
+  status?: OrderStatus;
 
   @IsOptional()
   @IsString()

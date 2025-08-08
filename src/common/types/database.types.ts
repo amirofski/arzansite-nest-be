@@ -2,9 +2,10 @@ export interface Order {
   id: string;
   user_id: string;
   title: string;
-  description: string;
-  price: number;
-  status: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  price?: number;
+  comments?: string;
   payment_status?: string;
   zarinpal_authority?: string;
   zarinpal_ref_id?: string;
@@ -32,11 +33,11 @@ export interface PaymentTransaction {
   id: string;
   order_id: string;
   user_id: string;
-  transaction_type: string;
+  transaction_type: 'payment_request' | 'payment_verification' | 'refund' | 'cancellation';
   zarinpal_authority?: string;
   zarinpal_ref_id?: string;
   amount: number;
-  status: string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
   gateway_response?: any;
   metadata?: any;
   created_at: string;
@@ -80,8 +81,8 @@ export interface Transaction {
   id: string;
   wallet_id: string;
   user_id: string;
-  type: string;
-  status: string;
+  type: 'deposit' | 'withdrawal' | 'payment' | 'refund' | 'credit' | 'debit';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
   amount: number;
   balance_before: number;
   balance_after: number;

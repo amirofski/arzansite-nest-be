@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { Wallet, Transaction } from '../common/types/database.types';
-import { CreateTransactionDto, RefundOrderDto } from './dto/wallet.dto';
+import { CreateTransactionDto, RefundOrderDto, TransactionType } from './dto/wallet.dto';
 
 @Injectable()
 export class WalletsService {
@@ -109,7 +109,7 @@ export class WalletsService {
 
   async creditWallet(userId: string, amount: number, description?: string): Promise<Wallet> {
     await this.createTransaction(userId, {
-      type: 'credit',
+      type: TransactionType.CREDIT,
       amount,
       description: description || 'Admin credit',
       referenceType: 'admin_credit',
@@ -120,7 +120,7 @@ export class WalletsService {
 
   async debitWallet(userId: string, amount: number, description?: string): Promise<Wallet> {
     await this.createTransaction(userId, {
-      type: 'debit',
+      type: TransactionType.DEBIT,
       amount,
       description: description || 'Admin debit',
       referenceType: 'admin_debit',

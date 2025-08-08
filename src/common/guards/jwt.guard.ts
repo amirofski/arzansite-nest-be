@@ -69,7 +69,8 @@ export class JwtGuard implements CanActivate {
     return {
       id: payload.sub,
       email: payload.email,
-      role: payload.role,
+      // Role will be fetched separately by the roles guard when needed
+      role: undefined,
     };
   }
 
