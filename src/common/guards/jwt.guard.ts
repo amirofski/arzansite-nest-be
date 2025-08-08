@@ -8,9 +8,8 @@ import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { UserPayload } from '../decorators/user.decorator';
 
-// Import jwks-client with proper TypeScript support
-import * as jwksClient from 'jwks-client';
-const JwksClient = jwksClient.default || jwksClient;
+// Import jwks-client using dynamic import for ES module compatibility
+let JwksClient: any;
 
 @Injectable()
 export class JwtGuard implements CanActivate {
@@ -20,11 +19,16 @@ export class JwtGuard implements CanActivate {
 
   constructor(private configService: ConfigService) {
     this.jwksUrl = this.configService.get<string>('SUPABASE_JWKS_URL');
-    this.initializeJwksClient();
   }
 
   private async initializeJwksClient() {
     try {
+      // Dynamic import for ES module compatibility
+      if (!JwksClient) {
+        const jwksClientModule = await import('jwks-client');
+        JwksClient = jwksClientModule.default;
+      }
+      
       this.jwksClient = new JwksClient({
         jwksUri: this.jwksUrl,
         cache: true,
@@ -93,6 +97,10 @@ export class JwtGuard implements CanActivate {
 
     if (!this.jwksClient) {
       await this.initializeJwksClient();
+    }
+
+    if (!this.jwksClient) {
+      throw new Error('Failed to initialize JWKS client');
     }
 
     const key = await this.jwksClient.getSigningKey(kid);

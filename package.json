@@ -2,7 +2,7 @@
   "name": "arzansite-be",
   "version": "1.0.0",
   "description": "NestJS backend for Arzansite replacing direct supabase-js usage",
-  "author": "",
+  "author": "Amirdevel",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
