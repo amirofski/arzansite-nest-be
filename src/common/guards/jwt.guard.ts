@@ -5,23 +5,32 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwksClient } from 'jwks-client';
 import * as jwt from 'jsonwebtoken';
 import { UserPayload } from '../decorators/user.decorator';
 
 @Injectable()
 export class JwtGuard implements CanActivate {
-  private jwksClient: JwksClient;
+  private jwksClient: any;
   private keyCache: Map<string, string> = new Map();
+  private jwksUrl: string;
 
   constructor(private configService: ConfigService) {
-    const jwksUrl = this.configService.get<string>('SUPABASE_JWKS_URL');
-    this.jwksClient = new JwksClient({
-      jwksUri: jwksUrl,
-      cache: true,
-      cacheMaxEntries: 5,
-      cacheMaxAge: 600000, // 10 minutes
-    });
+    this.jwksUrl = this.configService.get<string>('SUPABASE_JWKS_URL');
+    this.initializeJwksClient();
+  }
+
+  private async initializeJwksClient() {
+    try {
+      const { JwksClient } = await import('jwks-client');
+      this.jwksClient = new JwksClient({
+        jwksUri: this.jwksUrl,
+        cache: true,
+        cacheMaxEntries: 5,
+        cacheMaxAge: 600000, // 10 minutes
+      });
+    } catch (error) {
+      console.error('Failed to initialize JWKS client:', error);
+    }
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -77,6 +86,10 @@ export class JwtGuard implements CanActivate {
   private async getSigningKey(kid: string): Promise<string> {
     if (this.keyCache.has(kid)) {
       return this.keyCache.get(kid)!;
+    }
+
+    if (!this.jwksClient) {
+      await this.initializeJwksClient();
     }
 
     const key = await this.jwksClient.getSigningKey(kid);
