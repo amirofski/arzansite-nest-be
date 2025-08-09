@@ -1,7 +1,7 @@
 # Frontend Implementation Prompt for ArzanSite Authentication
 
 ## Overview
-You need to implement a complete authentication system for ArzanSite frontend that integrates with the NestJS backend API. The backend now uses Supabase's native authentication system with custom email verification.
+You need to implement a complete authentication system for ArzanSite frontend that integrates with the NestJS backend API. The backend uses Supabase authentication with custom SMTP email templates handled by the backend (no Supabase default emails).
 
 ## Backend API Endpoints
 
@@ -30,15 +30,14 @@ Request Body:
 
 Response:
 {
-  "message": "User created successfully",
+  "message": "User created successfully. Verification email sent.",
   "user": {
     "id": "uuid",
     "email": "user@example.com",
     "user_metadata": { ... },
     "email_confirmed_at": null,
     "created_at": "2024-01-01T00:00:00.000Z"
-  },
-  "verificationToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
 }
 ```
 
@@ -49,7 +48,7 @@ Content-Type: application/json
 
 Request Body:
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "token": "token or token_hash from action link"
 }
 
 Response:
@@ -331,8 +330,8 @@ export const VerifyEmailPage: React.FC
 
 ## Notes
 
-1. The backend uses Supabase's native authentication system
-2. Email verification tokens are JWT tokens from Supabase
+1. The backend uses Supabase authentication and generates action links via Admin API
+2. Verification tokens are consumed via `/auth/verify-email` and not returned from signup
 3. All API responses are wrapped in a standard format
 4. The backend includes comprehensive Swagger documentation
 5. CORS is configured for development and production domains

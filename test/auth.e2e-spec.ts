@@ -16,7 +16,7 @@ describe('AuthController (e2e)', () => {
   });
 
   describe('/auth/signup (POST)', () => {
-    it('should create a new user and return verification token', () => {
+    it('should create a new user and send verification email', () => {
       const signUpData = {
         email: 'test@example.com',
         password: 'password123',
@@ -31,10 +31,8 @@ describe('AuthController (e2e)', () => {
         .send(signUpData)
         .expect(201)
         .expect((res) => {
-          expect(res.body.message).toBe('User created successfully');
+          expect(res.body.message).toContain('User created successfully');
           expect(res.body.user).toBeDefined();
-          expect(res.body.verificationToken).toBeDefined();
-          expect(typeof res.body.verificationToken).toBe('string');
           expect(res.body.user.email).toBe(signUpData.email);
         });
     });
@@ -66,33 +64,6 @@ describe('AuthController (e2e)', () => {
   });
 
   describe('/auth/verify-email (POST)', () => {
-    let verificationToken: string;
-
-    beforeEach(async () => {
-      // Create a test user first
-      const signUpData = {
-        email: 'verify@example.com',
-        password: 'password123',
-        metadata: {},
-      };
-
-      const response = await request(app.getHttpServer())
-        .post('/auth/signup')
-        .send(signUpData);
-
-      verificationToken = response.body.verificationToken;
-    });
-
-    it('should verify email with valid token', () => {
-      return request(app.getHttpServer())
-        .post('/auth/verify-email')
-        .send({ token: verificationToken })
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.message).toBe('Email verified successfully');
-        });
-    });
-
     it('should return error for invalid token', () => {
       return request(app.getHttpServer())
         .post('/auth/verify-email')

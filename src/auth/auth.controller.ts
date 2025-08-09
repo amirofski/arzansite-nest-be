@@ -49,7 +49,6 @@ export class AuthController {
             created_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
           },
         },
-        verificationToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
       },
     },
   })

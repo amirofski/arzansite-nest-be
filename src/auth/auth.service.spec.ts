@@ -21,6 +21,8 @@ describe('AuthService', () => {
       admin: {
         getUserById: jest.fn(),
         updateUserById: jest.fn(),
+        createUser: jest.fn(),
+        generateLink: jest.fn(),
       },
     },
     from: jest.fn().mockReturnValue({
@@ -76,13 +78,13 @@ describe('AuthService', () => {
         user_metadata: { first_name: 'Test' },
       };
 
-      const mockSession = {
-        access_token: 'session-token',
-        refresh_token: 'refresh-token',
-      };
+      mockSupabaseClient.auth.admin.createUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
 
-      mockSupabaseClient.auth.signUp.mockResolvedValue({
-        data: { user: mockUser, session: mockSession },
+      mockSupabaseClient.auth.admin.generateLink.mockResolvedValue({
+        data: { properties: { action_link: 'https://example.com/verify?token=abc' } },
         error: null,
       });
 
@@ -90,16 +92,19 @@ describe('AuthService', () => {
 
       const result = await service.signUp(signUpDto);
 
-      expect(result.message).toBe('User created successfully');
+      expect(result.message).toContain('User created successfully');
       expect(result.user).toBeDefined();
-      expect(result.verificationToken).toBe('session-token');
-      expect(mockSupabaseClient.auth.signUp).toHaveBeenCalledWith({
+      expect(mockSupabaseClient.auth.admin.createUser).toHaveBeenCalledWith({
         email: signUpDto.email,
         password: signUpDto.password,
-        options: {
-          data: signUpDto.metadata,
-          emailRedirectTo: `${process.env.FRONTEND_URL}/verify-email`,
-        },
+        user_metadata: signUpDto.metadata,
+        email_confirm: false,
+      });
+      expect(mockSupabaseClient.auth.admin.generateLink).toHaveBeenCalledWith({
+        type: 'signup',
+        email: signUpDto.email,
+        password: signUpDto.password,
+        options: { redirectTo: `${process.env.FRONTEND_URL}/verify-email` },
       });
       expect(emailService.sendEmailVerification).toHaveBeenCalled();
     });
@@ -110,8 +115,8 @@ describe('AuthService', () => {
         password: 'password123',
       };
 
-      mockSupabaseClient.auth.signUp.mockResolvedValue({
-        data: { user: null, session: null },
+      mockSupabaseClient.auth.admin.createUser.mockResolvedValue({
+        data: { user: null },
         error: { message: 'Email already exists' },
       });
 
@@ -266,7 +271,8 @@ describe('AuthService', () => {
     it('should send password reset email successfully', async () => {
       const email = 'test@example.com';
 
-      mockSupabaseClient.auth.resetPasswordForEmail.mockResolvedValue({
+      mockSupabaseClient.auth.admin.generateLink.mockResolvedValue({
+        data: { properties: { action_link: 'https://example.com/reset?token=xyz' } },
         error: null,
       });
 

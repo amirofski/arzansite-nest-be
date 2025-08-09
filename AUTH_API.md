@@ -1,6 +1,6 @@
 # Authentication API Endpoints
 
-This document describes the authentication endpoints implemented in the NestJS backend using Supabase's native authentication system.
+This document describes the authentication endpoints implemented in the NestJS backend. User emails (verification/reset) are sent using custom SMTP templates managed by the backend, not Supabase default emails.
 
 ## API Documentation
 
@@ -10,7 +10,7 @@ This document describes the authentication endpoints implemented in the NestJS b
 
 ### POST /api/auth/signup
 
-Creates a new user account and sends a verification email using Supabase's native authentication.
+Creates a new user account and sends a verification email using custom SMTP templates.
 
 **Request Body:**
 ```json
@@ -28,7 +28,7 @@ Creates a new user account and sends a verification email using Supabase's nativ
 **Response:**
 ```json
 {
-  "message": "User created successfully",
+  "message": "User created successfully. Verification email sent.",
   "user": {
     "id": "uuid",
     "email": "user@example.com",
@@ -39,27 +39,24 @@ Creates a new user account and sends a verification email using Supabase's nativ
     },
     "email_confirmed_at": null,
     "created_at": "2024-01-01T00:00:00.000Z"
-  },
-  "verificationToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
 }
 ```
 
 **Notes:**
 - The `metadata` field is optional and can contain any additional user information
-- A verification email is automatically sent to the user's email address
-- The `verificationToken` is a JWT token from Supabase that should be used to verify the email address
-- The backend uses Supabase's `confirmation_token` field in the `auth.users` table
+- A verification email is automatically sent to the user's email address using the backend's custom templates
 
 ## Email Verification
 
 ### POST /api/auth/verify-email
 
-Verifies a user's email address using the Supabase verification token.
+Verifies a user's email address using the token from the email action link.
 
 **Request Body:**
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "token": "token or token_hash from action link"
 }
 ```
 
@@ -71,9 +68,7 @@ Verifies a user's email address using the Supabase verification token.
 ```
 
 **Notes:**
-- The verification token is a JWT token from Supabase's authentication system
-- Once verified, the user's email is marked as confirmed in the `auth.users` table
-- The verification triggers Supabase's `handle_email_verification()` function
+- The backend uses Supabase Admin API to generate action links and validates the token via `verifyOtp`
 - Users can now log in and access protected resources
 
 ## User Login
