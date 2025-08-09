@@ -82,8 +82,8 @@ export class AuthController {
     status: 400,
     description: 'Bad request - invalid or expired verification token',
   })
-  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
-    return this.authService.verifyEmail(verifyEmailDto.token);
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto & { email?: string }) {
+    return this.authService.verifyEmail(verifyEmailDto.token, verifyEmailDto.email);
   }
 
   @Post('login')

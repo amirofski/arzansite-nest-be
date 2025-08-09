@@ -11,72 +11,85 @@ export class AuthService {
   ) {}
 
   async signUp(signUpDto: SignUpDto) {
-    const { data, error } = await this.supabaseService
+    // 1) Create the user via Admin API (so Supabase doesn't send its own email)
+    const { data: signUpData, error: signUpError } = await this.supabaseService
       .getClient()
-      .auth.signUp({
+      .auth.admin.createUser({
+        email: signUpDto.email,
+        password: signUpDto.password,
+        user_metadata: signUpDto.metadata,
+        email_confirm: false,
+      });
+
+    if (signUpError) {
+      throw new BadRequestException(signUpError.message);
+    }
+
+    // 2) Generate a verification action link/token via Admin API
+    const { data: linkData, error: linkError } = await this.supabaseService
+      .getClient()
+      .auth.admin.generateLink({
+        type: 'signup',
         email: signUpDto.email,
         password: signUpDto.password,
         options: {
-          data: signUpDto.metadata,
-          emailRedirectTo: `${process.env.FRONTEND_URL}/verify-email`,
+          redirectTo: `${process.env.FRONTEND_URL}/verify-email`,
         },
       });
 
-    if (error) {
-      throw new BadRequestException(error.message);
+    if (linkError) {
+      throw new BadRequestException(linkError.message);
     }
 
-    // Send custom verification email with Supabase's verification token
-    if (data.user && data.session) {
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${data.session.access_token}`;
-      const userName = signUpDto.metadata?.first_name || signUpDto.metadata?.name || 'there';
-      
+    const actionLink = (linkData as any)?.properties?.action_link as string | undefined;
+    const userName =
+      signUpDto.metadata?.first_name || signUpDto.metadata?.name || 'there';
+
+    // 3) Send custom verification email using our SMTP service
+    if (actionLink) {
       await this.emailService.sendEmailVerification(
         signUpDto.email,
-        verificationUrl,
+        actionLink,
         userName,
       );
     }
 
     return {
-      message: 'User created successfully',
-      user: data.user,
-      verificationToken: data.session?.access_token,
+      message: 'User created successfully. Verification email sent.',
+      user: signUpData.user,
     };
   }
 
-  async verifyEmail(token: string) {
+  async verifyEmail(token: string, email?: string) {
     try {
-      // Use Supabase's built-in email verification
-      const { data, error } = await this.supabaseService
+      // First try token_hash flow (from action_link redirects)
+      const { error: hashError } = await this.supabaseService
         .getClient()
         .auth.verifyOtp({
           token_hash: token,
           type: 'signup',
         });
 
-      if (error) {
-        // If the above doesn't work, try with the token directly
-        const { data: verifyData, error: verifyError } = await this.supabaseService
+      if (!hashError) {
+        return { message: 'Email verified successfully' };
+      }
+
+      // If token_hash failed, try code + email flow (if email provided)
+      if (email) {
+        const { error: codeError } = await this.supabaseService
           .getClient()
           .auth.verifyOtp({
-            email: '', // We'll need to extract email from token
-            token: token,
+            email,
+            token,
             type: 'signup',
           });
 
-        if (verifyError) {
-          throw new BadRequestException('Invalid verification token');
+        if (!codeError) {
+          return { message: 'Email verified successfully' };
         }
-
-        return {
-          message: 'Email verified successfully',
-        };
       }
 
-      return {
-        message: 'Email verified successfully',
-      };
+      throw new BadRequestException('Invalid verification token');
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -160,24 +173,29 @@ export class AuthService {
   }
 
   async sendPasswordResetEmail(email: string) {
+    // Generate a password recovery action link via Admin API
     const { data, error } = await this.supabaseService
       .getClient()
-      .auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
+      .auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+          redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
+        },
       });
 
     if (error) {
       throw new BadRequestException(error.message);
     }
 
-    // Send custom password reset email
-    // Note: resetPasswordForEmail doesn't return user data, so we use a generic token
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?email=${encodeURIComponent(email)}`;
+    const resetUrl = (data as any)?.properties?.action_link as string | undefined;
+    if (!resetUrl) {
+      throw new BadRequestException('Failed to generate reset link');
+    }
+
     await this.emailService.sendPasswordResetEmail(email, resetUrl);
 
-    return {
-      message: 'Password reset email sent. Please check your email.',
-    };
+    return { message: 'Password reset email sent. Please check your email.' };
   }
 
   async sendWelcomeEmail(userId: string) {
