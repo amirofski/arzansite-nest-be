@@ -64,3 +64,19 @@ export class VerifyEmailDto {
   @IsString()
   token: string;
 }
+
+export class LoginWithJwtDto {
+  @ApiProperty({
+    description: 'Appwrite user email',
+    example: 'user@example.com',
+  })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({
+    description: 'Appwrite Session JWT obtained on the frontend',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  @IsString()
+  jwt: string;
+}

@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { EmailService } from '../email/email.service';
-import { SignUpDto, SignInDto, RefreshTokenDto } from './dto/auth.dto';
+import { SignUpDto, SignInDto, RefreshTokenDto, LoginWithJwtDto } from './dto/auth.dto';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { ID } from 'node-appwrite';
@@ -25,11 +25,7 @@ export class AuthService {
       throw new BadRequestException(e?.message || 'Failed to create user');
     }
 
-    // Create an email verification token via Appwrite magic URL (use createEmailToken + custom URL)
-    // Appwrite email verification should be done from frontend using Account APIs
-
-    const userName = signUpDto.metadata?.first_name || signUpDto.metadata?.name || 'there';
-    await this.emailService.sendWelcomeEmail(signUpDto.email, userName);
+    // Do NOT send welcome email here. Ask frontend to trigger Appwrite email verification.
 
     return { message: 'User created successfully.' };
   }
@@ -45,6 +41,32 @@ export class AuthService {
     // Login should be done from frontend using Appwrite Account to obtain a JWT.
     // Backend does not issue tokens anymore.
     throw new BadRequestException('Use Appwrite account.createEmailSession() on frontend, then send the Appwrite JWT to backend.');
+  }
+
+  async loginWithJwt(dto: LoginWithJwtDto) {
+    const endpoint = this.configService.get<string>('APPWRITE_ENDPOINT');
+    const projectId = this.configService.get<string>('APPWRITE_PROJECT_ID');
+    if (!endpoint || !projectId) throw new BadRequestException('Appwrite not configured');
+    const { Account, Client } = await import('node-appwrite');
+    const client = new Client().setEndpoint(endpoint).setProject(projectId).setJWT(dto.jwt);
+    const account = new Account(client);
+    let me: any;
+    try {
+      me = await account.get();
+    } catch (e: any) {
+      throw new UnauthorizedException('Invalid Appwrite JWT');
+    }
+    if (!me?.emailVerification || me.email !== dto.email) {
+      throw new UnauthorizedException('Email not verified or email mismatch');
+    }
+
+    // Issue backend JWT (stateless) with basic claims
+    const payload = { sub: me.$id, email: me.email };
+    const secret = this.configService.get<string>('JWT_SECRET', 'change_me');
+    const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') });
+    const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, secret, { expiresIn: '7d' });
+
+    return { access_token: accessToken, refresh_token: refreshToken, user: { id: me.$id, email: me.email } };
   }
 
   async refreshToken(refreshTokenDto: RefreshTokenDto) {

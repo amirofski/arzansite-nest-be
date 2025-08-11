@@ -17,7 +17,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto } from './dto/auth.dto';
+import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto, LoginWithJwtDto } from './dto/auth.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
 
@@ -110,6 +110,18 @@ export class AuthController {
   })
   async signIn(@Body() signInDto: SignInDto) {
     return this.authService.signIn(signInDto);
+  }
+
+  @Post('login-with-jwt')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Login with Appwrite JWT',
+    description: 'Verify Appwrite session JWT and issue backend token',
+  })
+  @ApiBody({ type: LoginWithJwtDto })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  async loginWithJwt(@Body() dto: LoginWithJwtDto) {
+    return this.authService.loginWithJwt(dto);
   }
 
   @Post('refresh')
