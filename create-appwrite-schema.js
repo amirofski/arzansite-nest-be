@@ -1,3 +1,24 @@
+// Load environment variables from .env manually (without external deps)
+try {
+  const fs = require('fs');
+  if (fs.existsSync('.env')) {
+    const lines = fs.readFileSync('.env', 'utf8').split(/\r?\n/);
+    for (const line of lines) {
+      if (!line || line.trim().startsWith('#')) continue;
+      const idx = line.indexOf('=');
+      if (idx > 0) {
+        const key = line.slice(0, idx).trim();
+        const val = line.slice(idx + 1);
+        if (key && !(key in process.env)) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+} catch (e) {
+  // ignore env load errors; fall back to existing env
+}
+
 const { schema, databases, client } = require('./appwrite-schema');
 
 // Configuration
@@ -284,7 +305,7 @@ async function createCollection(collectionName, collectionConfig) {
         // Create collection
         const collection = await databases.createCollection(
             APPWRITE_DATABASE_ID,
-            `unique()`,
+            collectionName, // Use stable, human-readable ID equal to the collection name
             name,
             [],
             documentSecurity

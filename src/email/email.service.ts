@@ -88,6 +88,7 @@ export class EmailService {
         success: true,
         service_used: 'custom_smtp',
         template_type: this.getTemplateType(subject),
+        sent_at: new Date().toISOString(),
       });
 
       return true;
@@ -102,6 +103,7 @@ export class EmailService {
         error_message: error.message,
         service_used: 'custom_smtp',
         template_type: this.getTemplateType(subject),
+        sent_at: new Date().toISOString(),
       });
 
       return false;
@@ -124,6 +126,7 @@ export class EmailService {
     error_message?: string;
     service_used: string;
     template_type: string;
+    sent_at: string;
   }) {
     try {
       const databases = this.appwriteService.getDatabases();

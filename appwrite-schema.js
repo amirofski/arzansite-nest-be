@@ -149,6 +149,22 @@ const schema = {
         ]
     },
 
+    // Designs collection (used by backend via APPWRITE_COLLECTION_DESIGNS)
+    designs: {
+        name: 'designs',
+        documentSecurity: false,
+        attributes: [
+            { key: 'order_id', type: 'string', size: 36, required: true, array: false },
+            { key: 'design', type: 'string', size: 8192, required: false, array: false },
+            { key: 'created_at', type: 'datetime', required: true, array: false },
+            { key: 'updated_at', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'order_id_idx', type: 'key', attributes: ['order_id'], orders: ['ASC'] },
+            { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] }
+        ]
+    },
+
     // Payment transactions collection
     payment_transactions: {
         name: 'payment_transactions',
@@ -222,6 +238,21 @@ const schema = {
             { key: 'verification_sent_at_idx', type: 'key', attributes: ['verification_sent_at'], orders: ['DESC'] },
             { key: 'verification_expires_at_idx', type: 'key', attributes: ['verification_expires_at'], orders: ['ASC'] },
             { key: 'success_idx', type: 'key', attributes: ['success'], orders: ['ASC'] }
+        ]
+    }
+    ,
+
+    // Site configuration collection
+    site_config: {
+        name: 'site_config',
+        documentSecurity: false,
+        attributes: [
+            { key: 'mode', type: 'string', size: 50, required: true, array: false, enum: ['normal', 'temporarily_unavailable', 'update_mode', 'development_mode'] },
+            { key: 'created_at', type: 'datetime', required: true, array: false },
+            { key: 'updated_at', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] }
         ]
     }
 };

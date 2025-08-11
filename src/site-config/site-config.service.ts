@@ -15,17 +15,22 @@ export class SiteConfigService {
   ) {}
 
   async getCurrentConfig(): Promise<{ mode: SiteMode }> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG');
-    const { Query } = await import('node-appwrite');
-    const res = await databases.listDocuments(databaseId, collectionId, [
-      Query.orderDesc('created_at'),
-      Query.limit(1),
-    ]);
-    const doc: any = res.documents[0];
-    if (!doc) return { mode: SiteMode.NORMAL };
-    return { mode: doc.mode };
+    try {
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG');
+      const { Query } = await import('node-appwrite');
+      const res = await databases.listDocuments(databaseId, collectionId, [
+        Query.orderDesc('created_at'),
+        Query.limit(1),
+      ]);
+      const doc: any = res.documents[0];
+      if (!doc) return { mode: SiteMode.NORMAL };
+      return { mode: doc.mode };
+    } catch (error) {
+      // If collection is missing or any error occurs, default to NORMAL mode
+      return { mode: SiteMode.NORMAL };
+    }
   }
 
   async updateConfig(updateSiteConfigDto: UpdateSiteConfigDto): Promise<{ mode: SiteMode }> {
@@ -41,7 +46,7 @@ export class SiteConfigService {
     // Broadcast the change via WebSocket
     this.siteConfigGateway.broadcastModeUpdate(updateSiteConfigDto.mode);
 
-    return { mode: data.mode };
+    return { mode: (data as any).mode };
   }
 
   async getConfigHistory(limit: number = 10): Promise<SiteConfig[]> {
