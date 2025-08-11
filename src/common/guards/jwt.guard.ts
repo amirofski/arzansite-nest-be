@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppwriteService } from '../../appwrite/appwrite.service';
 import { Account, Client } from 'node-appwrite';
 import { UserPayload } from '../decorators/user.decorator';
+import * as jsonwebtoken from 'jsonwebtoken';
 
 @Injectable()
 export class JwtGuard implements CanActivate {
@@ -19,9 +20,17 @@ export class JwtGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
-    const user = await this.verifyWithAppwrite(token).catch(() => null);
-    if (!user) throw new UnauthorizedException('Invalid token');
-    request.user = { id: user.$id, email: user.email, role: undefined } as UserPayload;
+    // 1) Try verifying as backend JWT first
+    const backendUser = this.verifyBackendJwt(token);
+    if (backendUser) {
+      request.user = backendUser;
+      return true;
+    }
+
+    // 2) Fallback to Appwrite JWT
+    const appwriteUser = await this.verifyWithAppwrite(token).catch(() => null);
+    if (!appwriteUser) throw new UnauthorizedException('Invalid token');
+    request.user = { id: appwriteUser.$id, email: appwriteUser.email, role: undefined } as UserPayload;
     return true;
   }
 
@@ -37,5 +46,18 @@ export class JwtGuard implements CanActivate {
     const client = new Client().setEndpoint(endpoint).setProject(projectId).setJWT(jwt);
     const account = new Account(client);
     return account.get();
+  }
+
+  private verifyBackendJwt(token: string): UserPayload | null {
+    try {
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) return null;
+      const decoded: any = jsonwebtoken.verify(token, secret);
+      // Expect payload: { sub, email }
+      if (!decoded?.sub || !decoded?.email) return null;
+      return { id: decoded.sub, email: decoded.email, role: undefined } as UserPayload;
+    } catch {
+      return null;
+    }
   }
 }
