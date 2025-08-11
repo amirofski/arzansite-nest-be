@@ -1,10 +1,2 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { SupabaseService } from './supabase.service';
-
-@Module({
-  imports: [ConfigModule],
-  providers: [SupabaseService],
-  exports: [SupabaseService],
-})
+// Deprecated: Supabase module replaced by Appwrite
 export class SupabaseModule {}

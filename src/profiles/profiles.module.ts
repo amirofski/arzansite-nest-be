@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ProfilesController } from './profiles.controller';
 import { ProfilesService } from './profiles.service';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { AppwriteModule } from '../appwrite/appwrite.module';
 
 @Module({
-  imports: [SupabaseModule],
+  imports: [AppwriteModule],
   controllers: [ProfilesController],
   providers: [ProfilesService],
   exports: [ProfilesService],

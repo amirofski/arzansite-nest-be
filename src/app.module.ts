@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 
-import { SupabaseModule } from './supabase/supabase.module';
+import { AppwriteModule } from './appwrite/appwrite.module';
 import { AuthModule } from './auth/auth.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { OrdersModule } from './orders/orders.module';
@@ -27,7 +27,7 @@ import { HealthController } from './health/health.controller';
         limit: parseInt(process.env.THROTTLE_LIMIT || '100'),
       },
     ]),
-    SupabaseModule,
+    AppwriteModule,
     AuthModule,
     ProfilesModule,
     OrdersModule,

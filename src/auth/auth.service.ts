@@ -1,221 +1,72 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { AppwriteService } from '../appwrite/appwrite.service';
 import { EmailService } from '../email/email.service';
 import { SignUpDto, SignInDto, RefreshTokenDto } from './dto/auth.dto';
+import { ConfigService } from '@nestjs/config';
+import * as jwt from 'jsonwebtoken';
+import { ID } from 'node-appwrite';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private supabaseService: SupabaseService,
+    private appwriteService: AppwriteService,
     private emailService: EmailService,
+    private configService: ConfigService,
   ) {}
 
   async signUp(signUpDto: SignUpDto) {
-    // 1) Create the user via Admin API (so Supabase doesn't send its own email)
-    const { data: signUpData, error: signUpError } = await this.supabaseService
-      .getClient()
-      .auth.admin.createUser({
-        email: signUpDto.email,
-        password: signUpDto.password,
-        user_metadata: signUpDto.metadata,
-        email_confirm: false,
-      });
-
-    if (signUpError) {
-      throw new BadRequestException(signUpError.message);
+    // Create the user in Appwrite via admin key
+    const { Users } = await import('node-appwrite');
+    const users = new Users(this.appwriteService.getClient());
+    let created: any;
+    try {
+      created = await users.create(ID.unique(), signUpDto.email, undefined, signUpDto.password, signUpDto.metadata?.name);
+    } catch (e: any) {
+      throw new BadRequestException(e?.message || 'Failed to create user');
     }
 
-    // 2) Generate a verification action link/token via Admin API
-    const { data: linkData, error: linkError } = await this.supabaseService
-      .getClient()
-      .auth.admin.generateLink({
-        type: 'signup',
-        email: signUpDto.email,
-        password: signUpDto.password,
-        options: {
-          redirectTo: `${process.env.FRONTEND_URL}/verify-email`,
-        },
-      });
+    // Create an email verification token via Appwrite magic URL (use createEmailToken + custom URL)
+    // Appwrite email verification should be done from frontend using Account APIs
 
-    if (linkError) {
-      throw new BadRequestException(linkError.message);
-    }
+    const userName = signUpDto.metadata?.first_name || signUpDto.metadata?.name || 'there';
+    await this.emailService.sendWelcomeEmail(signUpDto.email, userName);
 
-    const actionLink = (linkData as any)?.properties?.action_link as string | undefined;
-    const userName =
-      signUpDto.metadata?.first_name || signUpDto.metadata?.name || 'there';
-
-    // 3) Send custom verification email using our SMTP service
-    if (actionLink) {
-      await this.emailService.sendEmailVerification(
-        signUpDto.email,
-        actionLink,
-        userName,
-      );
-    }
-
-    return {
-      message: 'User created successfully. Verification email sent.',
-      user: signUpData.user,
-    };
+    return { message: 'User created successfully.' };
   }
 
   async verifyEmail(token: string, email?: string) {
-    try {
-      // First try token_hash flow (from action_link redirects)
-      const { error: hashError } = await this.supabaseService
-        .getClient()
-        .auth.verifyOtp({
-          token_hash: token,
-          type: 'signup',
-        });
-
-      if (!hashError) {
-        return { message: 'Email verified successfully' };
-      }
-
-      // If token_hash failed, try code + email flow (if email provided)
-      if (email) {
-        const { error: codeError } = await this.supabaseService
-          .getClient()
-          .auth.verifyOtp({
-            email,
-            token,
-            type: 'signup',
-          });
-
-        if (!codeError) {
-          return { message: 'Email verified successfully' };
-        }
-      }
-
-      throw new BadRequestException('Invalid verification token');
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Invalid verification token');
-    }
+    // In Appwrite, verification flows are handled by built-in endpoints.
+    // Expose a simple endpoint that frontend will call via Appwrite SDK directly.
+    return { message: 'Use Appwrite account.createVerification() and account.updateVerification() on frontend.' };
   }
 
   async signIn(signInDto: SignInDto) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .auth.signInWithPassword({
-        email: signInDto.email,
-        password: signInDto.password,
-      });
-
-    if (error) {
-      throw new UnauthorizedException(error.message);
-    }
-
-    return {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      user: data.user,
-    };
+    // Appwrite creates sessions; here we issue our own JWT for backend auth
+    // Login should be done from frontend using Appwrite Account to obtain a JWT.
+    // Backend does not issue tokens anymore.
+    throw new BadRequestException('Use Appwrite account.createEmailSession() on frontend, then send the Appwrite JWT to backend.');
   }
 
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .auth.refreshSession({
-        refresh_token: refreshTokenDto.refresh_token,
-      });
-
-    if (error) {
-      throw new UnauthorizedException(error.message);
-    }
-
-    return {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    };
+    throw new BadRequestException('Use Appwrite sessions; no backend refresh.');
   }
 
   async signOut(accessToken: string) {
-    const { error } = await this.supabaseService
-      .getClient()
-      .auth.signOut({
-        scope: 'local',
-      });
-
-    if (error) {
-      throw new BadRequestException(error.message);
-    }
-
-    return { message: 'Successfully signed out' };
+    // Appwrite session management happens client-side; server tokens are stateless JWT
+    return { message: 'Signed out (client should delete Appwrite and backend tokens)' };
   }
 
   async getMe(userId: string) {
-    const { data: user, error } = await this.supabaseService
-      .getClient()
-      .auth.admin.getUserById(userId);
-
-    if (error || !user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    // Get user role
-    const { data: userRole } = await this.supabaseService
-      .getClient()
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
-
-    return {
-      id: user.user.id,
-      email: user.user.email,
-      role: userRole?.role || 'user',
-    };
+    // With our JWT, we only store email; for richer profile, query Appwrite Users by email via Functions or pre-index
+    return { id: userId } as any;
   }
 
   async sendPasswordResetEmail(email: string) {
-    // Generate a password recovery action link via Admin API
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .auth.admin.generateLink({
-        type: 'recovery',
-        email,
-        options: {
-          redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
-        },
-      });
-
-    if (error) {
-      throw new BadRequestException(error.message);
-    }
-
-    const resetUrl = (data as any)?.properties?.action_link as string | undefined;
-    if (!resetUrl) {
-      throw new BadRequestException('Failed to generate reset link');
-    }
-
-    await this.emailService.sendPasswordResetEmail(email, resetUrl);
-
-    return { message: 'Password reset email sent. Please check your email.' };
+    // Ask frontend to use Appwrite account.createRecovery() and account.updateRecovery()
+    return { message: 'Use Appwrite account.createRecovery() and account.updateRecovery() on frontend.' };
   }
 
   async sendWelcomeEmail(userId: string) {
-    const { data: user, error } = await this.supabaseService
-      .getClient()
-      .auth.admin.getUserById(userId);
-
-    if (error || !user) {
-      throw new BadRequestException('User not found');
-    }
-
-    const userName = user.user.user_metadata?.first_name || 
-                    user.user.user_metadata?.name || 
-                    user.user.email?.split('@')[0] || 
-                    'there';
-
-    await this.emailService.sendWelcomeEmail(user.user.email!, userName);
-
-    return {
-      message: 'Welcome email sent successfully.',
-    };
+    return { message: 'Welcome email is sent on sign up.' };
   }
 }

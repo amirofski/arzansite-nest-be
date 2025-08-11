@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { DomainsController } from './domains.controller';
 import { DomainsService } from './domains.service';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { AppwriteModule } from '../appwrite/appwrite.module';
 
 @Module({
-  imports: [SupabaseModule],
+  imports: [AppwriteModule],
   controllers: [DomainsController],
   providers: [DomainsService],
   exports: [DomainsService],

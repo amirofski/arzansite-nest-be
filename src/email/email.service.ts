@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import { SupabaseService } from '../supabase/supabase.service';
+import { AppwriteService } from '../appwrite/appwrite.service';
+import { ID } from 'node-appwrite';
 
 export interface EmailOptions {
   to: string;
@@ -25,7 +26,7 @@ export class EmailService {
 
   constructor(
     private configService: ConfigService,
-    private supabaseService: SupabaseService,
+    private appwriteService: AppwriteService,
   ) {
     this.initializeTransporter();
   }
@@ -125,14 +126,10 @@ export class EmailService {
     template_type: string;
   }) {
     try {
-      const { error } = await this.supabaseService
-        .getClient()
-        .from('email_logs')
-        .insert(logData);
-
-      if (error) {
-        this.logger.error('Failed to log email to database:', error);
-      }
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS');
+      await databases.createDocument(databaseId, collectionId, ID.unique(), logData as any);
     } catch (error) {
       this.logger.error('Error logging email to database:', error);
     }

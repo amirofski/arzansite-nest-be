@@ -5,7 +5,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { SupabaseService } from '../../supabase/supabase.service';
+import { AppwriteService } from '../../appwrite/appwrite.service';
+import { ConfigService } from '@nestjs/config';
 import { UserPayload } from '../decorators/user.decorator';
 
 export const ROLES_KEY = 'roles';
@@ -26,7 +27,8 @@ export const Roles = (...roles: string[]) => {
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private supabaseService: SupabaseService,
+    private appwriteService: AppwriteService,
+    private configService: ConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,19 +56,23 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // Get user role from database
-    const { data: userRole, error } = await this.supabaseService
-      .getClient()
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
+    // Get user role from Appwrite database
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const userRolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES');
 
-    if (error || !userRole) {
+    const { Query } = await import('node-appwrite');
+    const docs = await databases.listDocuments(databaseId, userRolesCollection, [
+      Query.equal('user_id', user.id),
+      Query.limit(1),
+    ]);
+
+    const roleDoc: any = docs.documents?.[0];
+    if (!roleDoc) {
       throw new ForbiddenException('User role not found');
     }
 
-    const hasRole = requiredRoles.includes(userRole.role);
+    const hasRole = requiredRoles.includes(roleDoc.role);
     if (!hasRole) {
       throw new ForbiddenException(
         `User does not have required role: ${requiredRoles.join(', ')}`,

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SupabaseService } from '../supabase/supabase.service';
+import { AppwriteService } from '../appwrite/appwrite.service';
 import { OrdersService } from '../orders/orders.service';
 import { PaymentTransaction } from '../common/types/database.types';
 import {
@@ -18,7 +18,7 @@ export class PaymentsService {
 
   constructor(
     private configService: ConfigService,
-    private supabaseService: SupabaseService,
+    private appwriteService: AppwriteService,
     private ordersService: OrdersService,
   ) {
     this.merchantId = this.configService.get<string>('ZARINPAL_MERCHANT_ID');
@@ -202,32 +202,26 @@ export class PaymentsService {
     // Verify order ownership
     await this.ordersService.getOrder(orderId, userId);
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('payment_transactions')
-      .select('*')
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error('Failed to fetch payment transactions');
-    }
-
-    return data || [];
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
+    const { Query } = await import('node-appwrite');
+    const res = await databases.listDocuments(databaseId, collectionId, [
+      Query.equal('order_id', orderId),
+      Query.orderDesc('created_at'),
+    ]);
+    return (res.documents as any) || [];
   }
 
   private async logPaymentTransaction(transactionData: Partial<PaymentTransaction>): Promise<void> {
-    const { error } = await this.supabaseService
-      .getClient()
-      .from('payment_transactions')
-      .insert({
-        ...transactionData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.error('Failed to log payment transaction:', error);
-    }
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
+    const { ID } = await import('node-appwrite');
+    await databases.createDocument(databaseId, collectionId, ID.unique(), {
+      ...transactionData,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any);
   }
 }

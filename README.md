@@ -1,10 +1,10 @@
 # Arzansite Backend
 
-A NestJS backend that replaces direct supabase-js usage from the Vite/React frontend while maintaining Supabase as the database and authentication provider.
+A NestJS backend using Appwrite (self-hosted) for authentication, database, storage, functions, and realtime.
 
 ## Features
 
-- **Authentication**: JWT-based auth with Supabase JWKS validation
+- **Authentication**: Appwrite Auth (sessions) + backend-issued JWT
 - **Orders Management**: Full CRUD operations with ownership checks
 - **Design System**: RPC bridge to existing Supabase functions
 - **Wallet System**: Transaction management with RPC integration
@@ -17,8 +17,8 @@ A NestJS backend that replaces direct supabase-js usage from the Vite/React fron
 
 - **Framework**: NestJS (latest)
 - **Language**: TypeScript
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth with JWT
+- **Database**: Appwrite Databases (Collections)
+- **Authentication**: Appwrite Auth + backend JWT
 - **WebSockets**: Socket.io for real-time updates
 - **Payment**: Zarinpal Gateway
 - **Security**: Helmet, CORS, rate limiting
@@ -29,18 +29,29 @@ A NestJS backend that replaces direct supabase-js usage from the Vite/React fron
 - Node.js 18+
 - npm or yarn
 - Docker (for containerized deployment)
-- Supabase project with existing schema and RPC functions
+- Appwrite project with database + collections (see env.example)
 
 ## Environment Variables
 
 Copy `env.example` to `.env` and configure:
 
 ```bash
-# Supabase Configuration
-SUPABASE_URL=https://api.arzansite.com
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
-SUPABASE_ANON_KEY=your_anon_key_here
-SUPABASE_JWKS_URL=https://api.arzansite.com/auth/v1/keys
+# Appwrite Configuration
+APPWRITE_ENDPOINT=http://arzansite-appwrite-c6990a-82-115-13-113.traefik.me/v1
+APPWRITE_PROJECT_ID=6898b35e003067cd7b43
+APPWRITE_API_KEY=standard_2f
+APPWRITE_DATABASE_ID=6898cb8d001acb670f24
+
+# Appwrite Collections
+APPWRITE_COLLECTION_ORDERS=orders
+APPWRITE_COLLECTION_DESIGNS=designs
+APPWRITE_COLLECTION_WALLETS=wallets
+APPWRITE_COLLECTION_TRANSACTIONS=transactions
+APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS=payment_transactions
+APPWRITE_COLLECTION_PROFILES=profiles
+APPWRITE_COLLECTION_USER_ROLES=user_roles
+APPWRITE_COLLECTION_EMAIL_LOGS=email_logs
+APPWRITE_COLLECTION_SITE_CONFIG=site_config
 
 # Frontend and CORS
 FRONTEND_URL=https://arzansite.com
@@ -164,18 +175,18 @@ THROTTLE_LIMIT=100
 
 ## Database Schema
 
-The backend expects the following Supabase tables and RPC functions:
+The backend expects the following Appwrite collections (fields shown in dashboard section):
 
 ### Tables
 
-- `orders` - Order management
-- `design_data` - Design information
-- `payment_transactions` - Payment records
-- `profiles` - User profiles
-- `site_config` - Site configuration
-- `user_roles` - User role management
-- `wallets` - User wallets
-- `transactions` - Wallet transactions
+- `orders`
+- `designs`
+- `payment_transactions`
+- `profiles`
+- `site_config`
+- `user_roles`
+- `wallets`
+- `transactions`
 
 ### RPC Functions
 
@@ -186,7 +197,7 @@ The backend expects the following Supabase tables and RPC functions:
 
 ## Security Features
 
-- **JWT Validation**: Supabase JWKS-based token verification
+- **JWT Validation**: Backend secret-based JWT verification
 - **Role-based Access**: Admin/user role enforcement
 - **Ownership Checks**: Users can only access their own resources
 - **Input Validation**: Class-validator for request validation
@@ -277,8 +288,8 @@ src/
 
 ### Common Issues
 
-1. **JWT Validation Errors**: Check `SUPABASE_JWKS_URL` configuration
-2. **Database Connection**: Verify Supabase credentials
+1. **JWT Validation Errors**: Check `JWT_SECRET` configuration
+2. **Appwrite Connection**: Verify Appwrite credentials
 3. **WebSocket Issues**: Ensure proxy configuration supports WebSockets
 4. **CORS Errors**: Check `CORS_ORIGINS` configuration
 

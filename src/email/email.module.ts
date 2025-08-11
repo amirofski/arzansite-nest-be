@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { EmailController } from './email.controller';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { AppwriteModule } from '../appwrite/appwrite.module';
 
 @Module({
-  imports: [SupabaseModule],
+  imports: [AppwriteModule],
   providers: [EmailService],
   controllers: [EmailController],
   exports: [EmailService],

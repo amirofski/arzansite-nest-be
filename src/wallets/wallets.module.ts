@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { WalletsController } from './wallets.controller';
 import { WalletsService } from './wallets.service';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { AppwriteModule } from '../appwrite/appwrite.module';
 
 @Module({
-  imports: [SupabaseModule],
+  imports: [AppwriteModule],
   controllers: [WalletsController],
   providers: [WalletsService],
   exports: [WalletsService],

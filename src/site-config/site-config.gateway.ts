@@ -8,8 +8,6 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { UseGuards } from '@nestjs/common';
-import { JwtGuard } from '../common/guards/jwt.guard';
 import { SiteMode } from './dto/site-config.dto';
 
 @WebSocketGateway({

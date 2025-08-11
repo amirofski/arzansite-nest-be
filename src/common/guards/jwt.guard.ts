@@ -1,44 +1,15 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as jwt from 'jsonwebtoken';
+import { AppwriteService } from '../../appwrite/appwrite.service';
+import { Account, Client } from 'node-appwrite';
 import { UserPayload } from '../decorators/user.decorator';
-
-// Import jwks-client using dynamic import for ES module compatibility
-let JwksClient: any;
 
 @Injectable()
 export class JwtGuard implements CanActivate {
-  private jwksClient: any;
-  private keyCache: Map<string, string> = new Map();
-  private jwksUrl: string;
-
-  constructor(private configService: ConfigService) {
-    this.jwksUrl = this.configService.get<string>('SUPABASE_JWKS_URL');
-  }
-
-  private async initializeJwksClient() {
-    try {
-      // Dynamic import for ES module compatibility
-      if (!JwksClient) {
-        const jwksClientModule = await import('jwks-client');
-        JwksClient = jwksClientModule.default;
-      }
-      
-      this.jwksClient = new JwksClient({
-        jwksUri: this.jwksUrl,
-        cache: true,
-        cacheMaxEntries: 5,
-        cacheMaxAge: 600000, // 10 minutes
-      });
-    } catch (error) {
-      console.error('Failed to initialize JWKS client:', error);
-    }
-  }
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly appwriteService: AppwriteService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -48,13 +19,10 @@ export class JwtGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
-    try {
-      const payload = await this.verifyToken(token);
-      request.user = payload;
-      return true;
-    } catch (error) {
-      throw new UnauthorizedException('Invalid token');
-    }
+    const user = await this.verifyWithAppwrite(token).catch(() => null);
+    if (!user) throw new UnauthorizedException('Invalid token');
+    request.user = { id: user.$id, email: user.email, role: undefined } as UserPayload;
+    return true;
   }
 
   private extractTokenFromHeader(request: any): string | undefined {
@@ -62,51 +30,12 @@ export class JwtGuard implements CanActivate {
     return type === 'Bearer' ? token : undefined;
   }
 
-  private async verifyToken(token: string): Promise<UserPayload> {
-    const decoded = jwt.decode(token, { complete: true }) as any;
-    
-    if (!decoded || !decoded.header.kid) {
-      throw new Error('Invalid token format');
-    }
-
-    const key = await this.getSigningKey(decoded.header.kid);
-    
-    const payload = jwt.verify(token, key, {
-      algorithms: ['RS256'],
-      issuer: this.configService.get<string>('SUPABASE_URL'),
-      audience: 'authenticated',
-    }) as any;
-
-    // Check if token is expired
-    if (payload.exp && Date.now() >= payload.exp * 1000) {
-      throw new Error('Token expired');
-    }
-
-    return {
-      id: payload.sub,
-      email: payload.email,
-      // Role will be fetched separately by the roles guard when needed
-      role: undefined,
-    };
-  }
-
-  private async getSigningKey(kid: string): Promise<string> {
-    if (this.keyCache.has(kid)) {
-      return this.keyCache.get(kid)!;
-    }
-
-    if (!this.jwksClient) {
-      await this.initializeJwksClient();
-    }
-
-    if (!this.jwksClient) {
-      throw new Error('Failed to initialize JWKS client');
-    }
-
-    const key = await this.jwksClient.getSigningKey(kid);
-    const publicKey = key.getPublicKey();
-    this.keyCache.set(kid, publicKey);
-    
-    return publicKey;
+  private async verifyWithAppwrite(jwt: string): Promise<any> {
+    const endpoint = this.configService.get<string>('APPWRITE_ENDPOINT');
+    const projectId = this.configService.get<string>('APPWRITE_PROJECT_ID');
+    if (!endpoint || !projectId) throw new Error('Appwrite not configured');
+    const client = new Client().setEndpoint(endpoint).setProject(projectId).setJWT(jwt);
+    const account = new Account(client);
+    return account.get();
   }
 }

@@ -1,41 +1,37 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { AppwriteService } from '../appwrite/appwrite.service';
+import { ConfigService } from '@nestjs/config';
+import { ID } from 'node-appwrite';
 import { Order } from '../common/types/database.types';
 import { CreateOrderDto, UpdateOrderDto } from './dto/order.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(
+    private appwriteService: AppwriteService,
+    private configService: ConfigService,
+  ) {}
 
   async getOrders(userId: string, isAdmin: boolean = false): Promise<Order[]> {
-    let query = this.supabaseService
-      .getClient()
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    const { Query } = await import('node-appwrite');
 
-    if (!isAdmin) {
-      query = query.eq('user_id', userId);
-    }
+    const queries: string[] = [Query.orderDesc('created_at')];
+    if (!isAdmin) queries.push(Query.equal('user_id', userId));
 
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error('Failed to fetch orders');
-    }
-
-    return data || [];
+    const result = await databases.listDocuments(databaseId, ordersCollection, queries);
+    return (result.documents as any) || [];
   }
 
   async getOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<Order> {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .single();
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    const data = await databases.getDocument(databaseId, ordersCollection, orderId).catch(() => null);
 
-    if (error || !data) {
+    if (!data) {
       throw new NotFoundException('Order not found');
     }
 
@@ -48,25 +44,20 @@ export class OrdersService {
   }
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .insert({
-        ...createOrderDto,
-        user_id: userId,
-        status: 'pending',
-        payment_status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
 
-    if (error) {
-      throw new Error('Failed to create order');
-    }
+    const orderDoc = await databases.createDocument(databaseId, ordersCollection, ID.unique(), {
+      ...createOrderDto,
+      user_id: userId,
+      status: 'pending',
+      payment_status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any);
 
-    return data;
+    return orderDoc as any;
   }
 
   async updateOrder(
@@ -76,39 +67,27 @@ export class OrdersService {
     isAdmin: boolean = false,
   ): Promise<Order> {
     // Check ownership or admin access
-    const existingOrder = await this.getOrder(orderId, userId, isAdmin);
+    await this.getOrder(orderId, userId, isAdmin);
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .update({
-        ...updateOrderDto,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId)
-      .select()
-      .single();
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
 
-    if (error) {
-      throw new Error('Failed to update order');
-    }
+    const updated = await databases.updateDocument(databaseId, ordersCollection, orderId, {
+      ...updateOrderDto,
+      updated_at: new Date().toISOString(),
+    } as any);
 
-    return data;
+    return updated as any;
   }
 
   async deleteOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<void> {
     // Check ownership or admin access
     await this.getOrder(orderId, userId, isAdmin);
-
-    const { error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .delete()
-      .eq('id', orderId);
-
-    if (error) {
-      throw new Error('Failed to delete order');
-    }
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    await databases.deleteDocument(databaseId, ordersCollection, orderId);
   }
 
   async updateOrderPaymentStatus(
@@ -130,18 +109,10 @@ export class OrdersService {
       updateData.zarinpal_ref_id = zarinpalRefId;
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .update(updateData)
-      .eq('id', orderId)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error('Failed to update order payment status');
-    }
-
-    return data;
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    const updated = await databases.updateDocument(databaseId, ordersCollection, orderId, updateData as any);
+    return updated as any;
   }
 }

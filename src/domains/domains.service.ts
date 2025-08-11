@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { AppwriteService } from '../appwrite/appwrite.service';
+import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
 @Injectable()
 export class DomainsService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(
+    private appwriteService: AppwriteService,
+    private configService: ConfigService,
+  ) {}
 
   async checkDomainAvailability(
     domain: string,
@@ -18,15 +22,17 @@ export class DomainsService {
     const fullDomain = `${domain}${extension}`;
 
     try {
-      // Check if domain exists in recent orders
-      const { data: existingOrder } = await this.supabaseService
-        .getClient()
-        .from('orders')
-        .select('description')
-        .ilike('description', `%${fullDomain}%`)
-        .limit(1);
+      // Check if domain exists in recent orders (Appwrite)
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+      const { Query } = await import('node-appwrite');
+      const existingOrderList = await databases.listDocuments(databaseId, ordersCollection, [
+        Query.search('description', fullDomain),
+        Query.limit(1),
+      ]);
 
-      if (existingOrder && existingOrder.length > 0) {
+      if (existingOrderList.documents && existingOrderList.documents.length > 0) {
         return {
           available: false,
           domain: fullDomain,
@@ -87,23 +93,21 @@ export class DomainsService {
   }
 
   async searchDomains(query: string): Promise<string[]> {
-    // Search for domains in orders that match the query
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .select('description')
-      .ilike('description', `%${query}%`)
-      .limit(10);
-
-    if (error) {
-      throw new Error('Failed to search domains');
-    }
+    // Search for domains in orders that match the query (Appwrite)
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    const { Query } = await import('node-appwrite');
+    const res = await databases.listDocuments(databaseId, ordersCollection, [
+      Query.search('description', query),
+      Query.limit(10),
+    ]);
 
     // Extract domain names from descriptions
     const domains: string[] = [];
     const domainRegex = /[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z]{2,}/g;
 
-    data?.forEach(order => {
+    (res.documents as any)?.forEach((order: any) => {
       const matches = order.description?.match(domainRegex);
       if (matches) {
         domains.push(...matches);

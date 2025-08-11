@@ -1,13 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { AppwriteService } from '../appwrite/appwrite.service';
 import { OrdersService } from '../orders/orders.service';
 import { SaveDesignDto, UpdateDesignOptionsDto, UpdatePreviewUrlDto } from './dto/design.dto';
+import { ConfigService } from '@nestjs/config';
+import { ID, Query } from 'node-appwrite';
 
 @Injectable()
 export class DesignsService {
   constructor(
-    private supabaseService: SupabaseService,
+    private appwriteService: AppwriteService,
     private ordersService: OrdersService,
+    private configService: ConfigService,
   ) {}
 
   async saveDesign(
@@ -19,16 +22,28 @@ export class DesignsService {
     // Check order ownership or admin access
     await this.ordersService.getOrder(orderId, userId, isAdmin);
 
-    // Call the existing RPC function
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .rpc('save_design_data', {
-        p_order_id: orderId,
-        p_design_data: saveDesignDto.design,
-      });
+    // Upsert design document in Appwrite
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
 
-    if (error) {
-      throw new Error(`Failed to save design: ${error.message}`);
+    const existing = await databases.listDocuments(databaseId, designsCollection, [
+      Query.equal('order_id', orderId),
+      Query.limit(1),
+    ]);
+
+    if (existing.documents.length > 0) {
+      await databases.updateDocument(databaseId, designsCollection, existing.documents[0].$id, {
+        design: saveDesignDto.design,
+        updated_at: new Date().toISOString(),
+      } as any);
+    } else {
+      await databases.createDocument(databaseId, designsCollection, ID.unique(), {
+        order_id: orderId,
+        design: saveDesignDto.design,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any);
     }
 
     // Update design options if provided
@@ -47,18 +62,15 @@ export class DesignsService {
     // Check order ownership or admin access
     await this.ordersService.getOrder(orderId, userId, isAdmin);
 
-    // Call the existing RPC function
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .rpc('get_design_data', {
-        p_order_id: orderId,
-      });
-
-    if (error) {
-      throw new Error(`Failed to get design: ${error.message}`);
-    }
-
-    return { design: data };
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
+    const existing = await databases.listDocuments(databaseId, designsCollection, [
+      Query.equal('order_id', orderId),
+      Query.limit(1),
+    ]);
+    const doc: any = existing.documents[0] || null;
+    return { design: doc?.design || null };
   }
 
   async getDesignOptions(
@@ -81,18 +93,13 @@ export class DesignsService {
     // Check order ownership or admin access
     await this.ordersService.getOrder(orderId, userId, isAdmin);
 
-    const { error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .update({
-        design_options: updateDesignOptionsDto.options,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
-
-    if (error) {
-      throw new Error('Failed to update design options');
-    }
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    await databases.updateDocument(databaseId, ordersCollection, orderId, {
+      design_options: updateDesignOptionsDto.options,
+      updated_at: new Date().toISOString(),
+    } as any);
 
     return { ok: true };
   }
@@ -106,18 +113,13 @@ export class DesignsService {
     // Check order ownership or admin access
     await this.ordersService.getOrder(orderId, userId, isAdmin);
 
-    const { error } = await this.supabaseService
-      .getClient()
-      .from('orders')
-      .update({
-        design_preview_url: updatePreviewUrlDto.previewUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
-
-    if (error) {
-      throw new Error('Failed to update preview URL');
-    }
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    await databases.updateDocument(databaseId, ordersCollection, orderId, {
+      design_preview_url: updatePreviewUrlDto.previewUrl,
+      updated_at: new Date().toISOString(),
+    } as any);
 
     return { ok: true };
   }
