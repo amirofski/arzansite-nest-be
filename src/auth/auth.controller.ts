@@ -8,6 +8,8 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +17,7 @@ import {
   ApiResponse,
   ApiBody,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto, LoginWithJwtDto } from './dto/auth.dto';
@@ -29,7 +32,7 @@ export class AuthController {
   @Post('signup')
   @ApiOperation({
     summary: 'User registration',
-    description: 'Create a new user account and send verification email',
+    description: 'Create a new user account, generate verification link, and send confirmation email via custom SMTP',
   })
   @ApiBody({ type: SignUpDto })
   @ApiResponse({
@@ -38,17 +41,17 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'User created successfully' },
+        message: { type: 'string', example: 'User created successfully. Please check your email to verify your account.' },
         user: {
           type: 'object',
           properties: {
             id: { type: 'string', example: 'uuid' },
             email: { type: 'string', example: 'user@example.com' },
-            user_metadata: { type: 'object' },
-            email_confirmed_at: { type: 'string', nullable: true },
-            created_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            emailVerification: { type: 'boolean' },
+            $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
           },
         },
+        verificationEmailSent: { type: 'boolean', example: true },
       },
     },
   })
@@ -60,20 +63,31 @@ export class AuthController {
     return this.authService.signUp(signUpDto);
   }
 
-  @Post('verify-email')
+  @Post('verify')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Email verification',
-    description: 'Verify user email address using verification token',
+    description: 'Verify user email address using verification token and send welcome email via custom SMTP',
   })
-  @ApiBody({ type: VerifyEmailDto })
+  @ApiQuery({ name: 'token', description: 'Verification token from email', required: true })
+  @ApiQuery({ name: 'userId', description: 'User ID to verify', required: true })
   @ApiResponse({
     status: 200,
     description: 'Email verified successfully',
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Email verified successfully' },
+        message: { type: 'string', example: 'Email verified successfully! Welcome email sent.' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'uuid' },
+            email: { type: 'string', example: 'user@example.com' },
+            name: { type: 'string', example: 'John Doe' },
+            emailVerification: { type: 'boolean', example: true },
+          },
+        },
+        welcomeEmailSent: { type: 'boolean', example: true },
       },
     },
   })
@@ -81,8 +95,45 @@ export class AuthController {
     status: 400,
     description: 'Bad request - invalid or expired verification token',
   })
-  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto & { email?: string }) {
-    return this.authService.verifyEmail(verifyEmailDto.token, verifyEmailDto.email);
+  async verifyEmail(
+    @Query('token') token: string,
+    @Query('userId') userId: string,
+  ) {
+    return this.authService.verifyEmail(token, userId);
+  }
+
+  @Post('password-reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request password reset',
+    description: 'Generate password recovery link and send reset email via custom SMTP',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', example: 'user@example.com' },
+      },
+      required: ['email'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Password reset email sent successfully. Please check your email.' },
+        emailSent: { type: 'boolean', example: true },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - email not found or failed to send email',
+  })
+  async sendPasswordReset(@Body() body: { email: string }) {
+    return this.authService.sendPasswordReset(body.email);
   }
 
   @Post('login')
@@ -100,7 +151,20 @@ export class AuthController {
       properties: {
         access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
         refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
-        user: { type: 'object' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'uuid' },
+            email: { type: 'string', example: 'user@example.com' },
+          },
+        },
+        session: {
+          type: 'object',
+          properties: {
+            $id: { type: 'string', example: 'session_id' },
+            userId: { type: 'string', example: 'user_id' },
+          },
+        },
       },
     },
   })
@@ -116,12 +180,33 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Login with Appwrite JWT',
-    description: 'Verify Appwrite session JWT and issue backend token',
+    description: 'Authenticate user using Appwrite session JWT and issue backend JWT',
   })
   @ApiBody({ type: LoginWithJwtDto })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  async loginWithJwt(@Body() dto: LoginWithJwtDto) {
-    return this.authService.loginWithJwt(dto);
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful',
+    schema: {
+      type: 'object',
+      properties: {
+        access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+        refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'uuid' },
+            email: { type: 'string', example: 'user@example.com' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid Appwrite JWT or email not verified',
+  })
+  async loginWithJwt(@Body() loginWithJwtDto: LoginWithJwtDto) {
+    return this.authService.loginWithJwt(loginWithJwtDto);
   }
 
   @Post('refresh')
@@ -138,7 +223,13 @@ export class AuthController {
       type: 'object',
       properties: {
         access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
-        refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'uuid' },
+            email: { type: 'string', example: 'user@example.com' },
+          },
+        },
       },
     },
   })
@@ -152,11 +243,11 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtGuard)
-  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'User logout',
-    description: 'Logout user and invalidate session',
+    description: 'Sign out user and invalidate session',
   })
   @ApiResponse({
     status: 200,
@@ -170,11 +261,15 @@ export class AuthController {
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - invalid or missing token',
+    description: 'Unauthorized - invalid access token',
   })
   async signOut(@Request() req: any) {
-    const token = req.headers.authorization?.split(' ')[1];
-    return this.authService.signOut(token);
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      return this.authService.signOut(token);
+    }
+    throw new UnauthorizedException('No access token provided');
   }
 
   @Get('me')
@@ -182,7 +277,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get current user',
-    description: 'Get current authenticated user information',
+    description: 'Get current user information',
   })
   @ApiResponse({
     status: 200,
@@ -191,79 +286,35 @@ export class AuthController {
       type: 'object',
       properties: {
         id: { type: 'string', example: 'uuid' },
-        email: { type: 'string', example: 'user@example.com' },
-        role: { type: 'string', example: 'user' },
+        message: { type: 'string', example: 'User profile endpoint. Implement additional profile fetching as needed.' },
       },
     },
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - invalid or missing token',
+    description: 'Unauthorized - invalid access token',
   })
   async getMe(@User() user: UserPayload) {
     return this.authService.getMe(user.id);
   }
 
-  @Post('forgot-password')
+  // Legacy endpoint for backward compatibility
+  @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Forgot password',
-    description: 'Send password reset email to user',
+    summary: 'Email verification (legacy)',
+    description: 'Legacy endpoint - use /auth/verify instead',
+    deprecated: true,
   })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        email: { type: 'string', example: 'user@example.com' },
-      },
-      required: ['email'],
-    },
-  })
+  @ApiBody({ type: VerifyEmailDto })
   @ApiResponse({
     status: 200,
-    description: 'Password reset email sent',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string', example: 'Password reset email sent. Please check your email.' },
-      },
-    },
+    description: 'Use /auth/verify endpoint instead',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - invalid email or user not found',
-  })
-  async forgotPassword(@Body() body: { email: string }) {
-    return this.authService.sendPasswordResetEmail(body.email);
-  }
-
-  @Post('welcome-email/:userId')
-  @UseGuards(JwtGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Send welcome email',
-    description: 'Send welcome email to specific user',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Welcome email sent successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string', example: 'Welcome email sent successfully.' },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - user not found',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - invalid or missing token',
-  })
-  async sendWelcomeEmail(@Param('userId') userId: string) {
-    return this.authService.sendWelcomeEmail(userId);
+  async verifyEmailLegacy(@Body() verifyEmailDto: VerifyEmailDto & { email?: string }) {
+    return { 
+      message: 'This endpoint is deprecated. Use /auth/verify with query parameters instead.',
+      redirectTo: '/auth/verify'
+    };
   }
 }

@@ -23,6 +23,8 @@ export interface EmailTemplate {
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter;
+  private readonly maxRetries = 3;
+  private readonly retryDelay = 1000; // 1 second
 
   constructor(
     private configService: ConfigService,
@@ -58,7 +60,7 @@ export class EmailService {
     });
   }
 
-  async sendEmail(options: EmailOptions): Promise<boolean> {
+  async sendEmail(options: EmailOptions, retryCount = 0): Promise<boolean> {
     const {
       to,
       subject,
@@ -93,7 +95,14 @@ export class EmailService {
 
       return true;
     } catch (error) {
-      this.logger.error('Failed to send email:', error);
+      this.logger.error(`Failed to send email (attempt ${retryCount + 1}):`, error);
+      
+      // Retry logic for transient failures
+      if (retryCount < this.maxRetries && this.isRetryableError(error)) {
+        this.logger.log(`Retrying email send in ${this.retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+        return this.sendEmail(options, retryCount + 1);
+      }
       
       // Log failed email to database
       await this.logEmailToDatabase({
@@ -108,6 +117,17 @@ export class EmailService {
 
       return false;
     }
+  }
+
+  private isRetryableError(error: any): boolean {
+    // Retry on network errors, timeouts, and temporary SMTP errors
+    const retryableCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND'];
+    const retryableMessages = ['timeout', 'connection', 'temporary', 'rate limit'];
+    
+    return (
+      retryableCodes.some(code => error.code === code) ||
+      retryableMessages.some(msg => error.message?.toLowerCase().includes(msg))
+    );
   }
 
   private getTemplateType(subject: string): string {
@@ -156,8 +176,14 @@ export class EmailService {
     };
   }
 
-  // Email templates
+  // Enhanced email methods for Appwrite integration
+  async sendConfirmationEmail(to: string, verificationUrl: string, userName?: string): Promise<boolean> {
+    this.logger.log(`Sending confirmation email to ${to} with verification URL`);
+    return this.sendEmailVerification(to, verificationUrl, userName);
+  }
+
   async sendWelcomeEmail(to: string, userName: string): Promise<boolean> {
+    this.logger.log(`Sending welcome email to ${to}`);
     const template = this.getWelcomeTemplate(userName);
     return this.sendEmail({
       to,
@@ -167,8 +193,9 @@ export class EmailService {
     });
   }
 
-  async sendEmailVerification(to: string, verificationUrl: string, userName?: string): Promise<boolean> {
-    const template = this.getEmailVerificationTemplate(verificationUrl, userName);
+  async sendPasswordResetEmail(to: string, resetUrl: string, userName?: string): Promise<boolean> {
+    this.logger.log(`Sending password reset email to ${to}`);
+    const template = this.getPasswordResetTemplate(resetUrl, userName);
     return this.sendEmail({
       to,
       subject: template.subject,
@@ -177,8 +204,9 @@ export class EmailService {
     });
   }
 
-  async sendPasswordResetEmail(to: string, resetUrl: string, userName?: string): Promise<boolean> {
-    const template = this.getPasswordResetTemplate(resetUrl, userName);
+  // Legacy methods for backward compatibility
+  async sendEmailVerification(to: string, verificationUrl: string, userName?: string): Promise<boolean> {
+    const template = this.getEmailVerificationTemplate(verificationUrl, userName);
     return this.sendEmail({
       to,
       subject: template.subject,
