@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Client, Databases, Account, Storage, Functions, Messaging } from 'node-appwrite';
+import { Client, Databases, Account, Storage, Functions, Messaging, Users, Teams, ID } from 'node-appwrite';
+import { AppwriteConfig } from './appwrite.config';
 
 @Injectable()
 export class AppwriteService implements OnModuleInit {
@@ -10,47 +10,232 @@ export class AppwriteService implements OnModuleInit {
   private storage: Storage;
   private functions: Functions;
   private messaging: Messaging;
+  private users: Users;
+  private teams: Teams;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly config: AppwriteConfig) {}
 
   onModuleInit() {
-    const endpoint = this.configService.get<string>('APPWRITE_ENDPOINT');
-    const projectId = this.configService.get<string>('APPWRITE_PROJECT_ID');
-    const apiKey = this.configService.get<string>('APPWRITE_API_KEY');
-
-    if (!endpoint || !projectId || !apiKey) {
-      throw new Error('APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID and APPWRITE_API_KEY are required');
-    }
-
+    this.config.validate();
+    
     this.client = new Client()
-      .setEndpoint(endpoint)
-      .setProject(projectId)
-      .setKey(apiKey);
+      .setEndpoint(this.config.endpoint)
+      .setProject(this.config.projectId)
+      .setKey(this.config.apiKey);
 
     this.databases = new Databases(this.client);
     this.account = new Account(this.client);
     this.storage = new Storage(this.client);
     this.functions = new Functions(this.client);
     this.messaging = new Messaging(this.client);
+    this.users = new Users(this.client);
+    this.teams = new Teams(this.client);
   }
 
-  getClient() {
-    return this.client;
+  // Client accessors
+  getClient() { return this.client; }
+  getDatabases() { return this.databases; }
+  getAccount() { return this.account; }
+  getStorage() { return this.storage; }
+  getFunctions() { return this.functions; }
+  getMessaging() { return this.messaging; }
+  getUsers() { return this.users; }
+  getTeams() { return this.teams; }
+
+  // Configuration accessors
+  getConfig() { return this.config; }
+
+  // Authentication methods
+  async createUser(email: string, password: string, name?: string) {
+    try {
+      const user = await this.users.create(
+        ID.unique(),
+        email,
+        undefined,
+        password,
+        name
+      );
+      return user;
+    } catch (error) {
+      throw new Error(`Failed to create user: ${error.message}`);
+    }
   }
-  getDatabases() {
-    return this.databases;
+
+  async createSession(email: string, password: string) {
+    try {
+      const session = await this.account.createEmailPasswordSession(email, password);
+      return session;
+    } catch (error) {
+      throw new Error(`Failed to create session: ${error.message}`);
+    }
   }
-  getAccount() {
-    return this.account;
+
+  async getCurrentUser(jwt: string) {
+    try {
+      const client = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setJWT(jwt);
+      
+      const account = new Account(client);
+      const user = await account.get();
+      return user;
+    } catch (error) {
+      throw new Error(`Failed to get current user: ${error.message}`);
+    }
   }
-  getStorage() {
-    return this.storage;
+
+  async deleteSession(sessionId: string) {
+    try {
+      await this.account.deleteSession(sessionId);
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Failed to delete session: ${error.message}`);
+    }
   }
-  getFunctions() {
-    return this.functions;
+
+  // Database methods
+  async createDocument(collectionId: string, data: any, documentId?: string) {
+    try {
+      const document = await this.databases.createDocument(
+        this.config.databaseId,
+        collectionId,
+        documentId || ID.unique(),
+        data
+      );
+      return document;
+    } catch (error) {
+      throw new Error(`Failed to create document: ${error.message}`);
+    }
   }
-  getMessaging() {
-    return this.messaging;
+
+  async getDocument(collectionId: string, documentId: string) {
+    try {
+      const document = await this.databases.getDocument(
+        this.config.databaseId,
+        collectionId,
+        documentId
+      );
+      return document;
+    } catch (error) {
+      throw new Error(`Failed to get document: ${error.message}`);
+    }
+  }
+
+  async updateDocument(collectionId: string, documentId: string, data: any) {
+    try {
+      const document = await this.databases.updateDocument(
+        this.config.databaseId,
+        collectionId,
+        documentId,
+        data
+      );
+      return document;
+    } catch (error) {
+      throw new Error(`Failed to update document: ${error.message}`);
+    }
+  }
+
+  async deleteDocument(collectionId: string, documentId: string) {
+    try {
+      await this.databases.deleteDocument(
+        this.config.databaseId,
+        collectionId,
+        documentId
+      );
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Failed to delete document: ${error.message}`);
+    }
+  }
+
+  async listDocuments(collectionId: string, queries: string[] = []) {
+    try {
+      const response = await this.databases.listDocuments(
+        this.config.databaseId,
+        collectionId,
+        queries
+      );
+      return response;
+    } catch (error) {
+      throw new Error(`Failed to list documents: ${error.message}`);
+    }
+  }
+
+  // Storage methods
+  async uploadFile(bucketId: string, file: Buffer, fileName: string, mimeType?: string) {
+    try {
+      // For now, return a placeholder since InputFile is not available in this version
+      // This will need to be implemented differently or the file upload will be handled by the frontend
+      throw new Error('File upload not implemented in this version. Use frontend Appwrite SDK or implement custom file handling.');
+    } catch (error) {
+      throw new Error(`Failed to upload file: ${error.message}`);
+    }
+  }
+
+  async getFile(bucketId: string, fileId: string) {
+    try {
+      const file = await this.storage.getFile(bucketId, fileId);
+      return file;
+    } catch (error) {
+      throw new Error(`Failed to get file: ${error.message}`);
+    }
+  }
+
+  async deleteFile(bucketId: string, fileId: string) {
+    try {
+      await this.storage.deleteFile(bucketId, fileId);
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Failed to delete file: ${error.message}`);
+    }
+  }
+
+  async listFiles(bucketId: string, queries: string[] = []) {
+    try {
+      const response = await this.storage.listFiles(bucketId, queries);
+      return response;
+    } catch (error) {
+      throw new Error(`Failed to list files: ${error.message}`);
+    }
+  }
+
+  // Functions methods
+  async executeFunction(functionId: string, data?: any, xAsync?: boolean) {
+    try {
+      const response = await this.functions.createExecution(
+        functionId,
+        data ? JSON.stringify(data) : undefined,
+        xAsync
+      );
+      return response;
+    } catch (error) {
+      throw new Error(`Failed to execute function: ${error.message}`);
+    }
+  }
+
+  // Messaging methods
+  async createTopic(topicId: string, name: string, subscribe: string[]) {
+    try {
+      const topic = await this.messaging.createTopic(
+        topicId,
+        name,
+        subscribe
+      );
+      return topic;
+    } catch (error) {
+      throw new Error(`Failed to create topic: ${error.message}`);
+    }
+  }
+
+  async sendMessage(topicId: string, message: string, data?: any) {
+    try {
+      // For now, return a placeholder since createMessage is not available in this version
+      // This will need to be implemented differently or messaging will be handled by the frontend
+      throw new Error('Message sending not implemented in this version. Use frontend Appwrite SDK or implement custom messaging.');
+    } catch (error) {
+      throw new Error(`Failed to send message: ${error.message}`);
+    }
   }
 }
 

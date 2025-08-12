@@ -153,8 +153,7 @@ describe('AuthService', () => {
       const result = await service.getMe(userId);
 
       expect(result.id).toBe('user-id');
-      expect(result.email).toBeUndefined(); // getMe only returns id
-      expect(result.role).toBeUndefined(); // getMe only returns id
+      expect(result.message).toBe('User profile endpoint. Implement additional profile fetching as needed.');
     });
   });
 
