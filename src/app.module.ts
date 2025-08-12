@@ -14,6 +14,7 @@ import { SiteConfigModule } from './site-config/site-config.module';
 import { DomainsModule } from './domains/domains.module';
 import { EmailModule } from './email/email.module';
 import { HealthController } from './health/health.controller';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { HealthController } from './health/health.controller';
     SiteConfigModule,
     DomainsModule,
     EmailModule,
+    StorageModule,
   ],
   controllers: [HealthController],
 })

@@ -26,7 +26,7 @@ interface SendTemplateEmailDto {
   data: any;
 }
 
-@Controller('email')
+@Controller('emails')
 @UseGuards(JwtGuard, RolesGuard)
 @Roles('admin')
 export class EmailController {
@@ -108,14 +108,25 @@ export class EmailController {
     @Query('success') success?: string,
     @Query('template_type') templateType?: string,
   ) {
-    // This would typically fetch from your email_logs table
-    // For now, returning a placeholder response
-    return {
-      logs: [],
-      total: 0,
+    return this.emailService.getLogs({
       limit: parseInt(limit),
       offset: parseInt(offset),
-    };
+      success: typeof success === 'string' ? success : undefined,
+      template_type: templateType,
+    });
+  }
+
+  @Post('send')
+  @HttpCode(HttpStatus.OK)
+  async sendGenericEmail(@Body() dto: { to: string; subject: string; html: string; text?: string; replyTo?: string }) {
+    const ok = await this.emailService.sendEmail({
+      to: dto.to,
+      subject: dto.subject,
+      html: dto.html,
+      text: dto.text,
+      replyTo: dto.replyTo,
+    });
+    return { success: ok };
   }
 
   @Get('status')

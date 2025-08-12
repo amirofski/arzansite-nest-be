@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Client, Databases, Account, Storage, Functions } from 'node-appwrite';
+import { Client, Databases, Account, Storage, Functions, Messaging } from 'node-appwrite';
 
 @Injectable()
 export class AppwriteService implements OnModuleInit {
@@ -9,6 +9,7 @@ export class AppwriteService implements OnModuleInit {
   private account: Account;
   private storage: Storage;
   private functions: Functions;
+  private messaging: Messaging;
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -30,6 +31,7 @@ export class AppwriteService implements OnModuleInit {
     this.account = new Account(this.client);
     this.storage = new Storage(this.client);
     this.functions = new Functions(this.client);
+    this.messaging = new Messaging(this.client);
   }
 
   getClient() {
@@ -46,6 +48,9 @@ export class AppwriteService implements OnModuleInit {
   }
   getFunctions() {
     return this.functions;
+  }
+  getMessaging() {
+    return this.messaging;
   }
 }
 

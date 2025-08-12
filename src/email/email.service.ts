@@ -138,6 +138,24 @@ export class EmailService {
     }
   }
 
+  async getLogs(params: { limit: number; offset: number; success?: string; template_type?: string }) {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS');
+    const { Query } = await import('node-appwrite');
+    const filters = [Query.limit(params.limit), Query.offset(params.offset), Query.orderDesc('sent_at')];
+    if (params.success === 'true') filters.push(Query.equal('success', true));
+    if (params.success === 'false') filters.push(Query.equal('success', false));
+    if (params.template_type) filters.push(Query.equal('template_type', params.template_type));
+    const res = await databases.listDocuments(databaseId, collectionId, filters);
+    return {
+      logs: (res.documents as any[]) || [],
+      total: res.total,
+      limit: params.limit,
+      offset: params.offset,
+    };
+  }
+
   // Email templates
   async sendWelcomeEmail(to: string, userName: string): Promise<boolean> {
     const template = this.getWelcomeTemplate(userName);

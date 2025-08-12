@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Post, Body } from '@nestjs/common';
 import { DomainsService } from './domains.service';
 import { JwtGuard } from '../common/guards/jwt.guard';
 
@@ -23,5 +18,10 @@ export class DomainsController {
   @UseGuards(JwtGuard)
   async searchDomains(@Query('q') query: string) {
     return this.domainsService.searchDomains(query);
+  }
+
+  @Post('check')
+  async checkDomainPost(@Body('domain') domain: string, @Body('extension') extension: string = '.ir') {
+    return this.domainsService.checkDomainAvailability(domain, extension);
   }
 }
