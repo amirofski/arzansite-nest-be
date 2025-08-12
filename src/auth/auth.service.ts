@@ -118,12 +118,12 @@ export class AuthService {
     }
   }
 
-  async sendPasswordReset(email: string, password: string) {
+  async sendPasswordReset(email: string) {
     try {
-      // Generate password recovery link via Appwrite using user session
-      const recovery = await this.appwriteService.createRecoveryWithUserSession(
+      // For password reset, we need to use the service account approach
+      // since the user might not remember their password
+      const recovery = await this.appwriteService.getAccount().createRecovery(
         email,
-        password,
         `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/reset-password`
       );
       

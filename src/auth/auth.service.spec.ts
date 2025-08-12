@@ -217,7 +217,6 @@ describe("AuthService", () => {
 
   describe("sendPasswordReset", () => {
     const email = "test@example.com";
-    const password = "password123";
     const mockRecovery = {
       $id: "recovery123",
       $createdAt: "2023-01-01T00:00:00Z",
@@ -228,16 +227,13 @@ describe("AuthService", () => {
     } as any;
 
     it("should send password reset email successfully", async () => {
-      appwriteService.createRecoveryWithUserSession.mockResolvedValue(mockRecovery);
+      appwriteService.getAccount.mockReturnValue({
+        createRecovery: jest.fn().mockResolvedValue(mockRecovery),
+      } as any);
       mockEmailService.sendPasswordResetEmail.mockResolvedValue(true);
 
-      const result = await service.sendPasswordReset(email, password);
+      const result = await service.sendPasswordReset(email);
 
-      expect(appwriteService.createRecoveryWithUserSession).toHaveBeenCalledWith(
-        email,
-        password,
-        "https://arzansite.com/auth/reset-password"
-      );
       expect(result).toEqual({
         message: "Password reset email sent successfully. Please check your email.",
         emailSent: true,
@@ -245,10 +241,12 @@ describe("AuthService", () => {
     });
 
     it("should handle email sending failure", async () => {
-      appwriteService.createRecoveryWithUserSession.mockResolvedValue(mockRecovery);
+      appwriteService.getAccount.mockReturnValue({
+        createRecovery: jest.fn().mockResolvedValue(mockRecovery),
+      } as any);
       mockEmailService.sendPasswordResetEmail.mockResolvedValue(false);
 
-      await expect(service.sendPasswordReset(email, password)).rejects.toThrow(BadRequestException);
+      await expect(service.sendPasswordReset(email)).rejects.toThrow(BadRequestException);
     });
   });
 
