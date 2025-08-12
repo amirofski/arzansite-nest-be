@@ -20,6 +20,8 @@ describe("AuthService", () => {
     createSession: jest.fn(),
     getCurrentUser: jest.fn(),
     deleteSession: jest.fn(),
+    createVerificationWithUserSession: jest.fn(),
+    createRecoveryWithUserSession: jest.fn(),
   };
 
   const mockEmailService = {
@@ -65,6 +67,8 @@ describe("AuthService", () => {
         FRONTEND_URL: "https://arzansite.com",
         JWT_SECRET: "test-secret",
         JWT_EXPIRES_IN: "1h",
+        APPWRITE_ENDPOINT: "http://localhost/v1",
+        APPWRITE_PROJECT_ID: "test-project",
       };
       return config[key] || defaultValue;
     });
@@ -103,13 +107,16 @@ describe("AuthService", () => {
 
     const mockVerification = {
       $id: "verification123",
-    };
+      $createdAt: "2023-01-01T00:00:00Z",
+      userId: "user123",
+      secret: "secret123",
+      expire: "2023-01-08T00:00:00Z",
+      phrase: "verification",
+    } as any;
 
     it("should create user successfully and send verification email", async () => {
       appwriteService.createUser.mockResolvedValue(mockUser);
-      appwriteService.getAccount.mockReturnValue({
-        createVerification: jest.fn().mockResolvedValue(mockVerification),
-      } as any);
+      appwriteService.createVerificationWithUserSession.mockResolvedValue(mockVerification);
       mockEmailService.sendConfirmationEmail.mockResolvedValue(true);
 
       const result = await service.signUp(signUpDto);
@@ -118,6 +125,11 @@ describe("AuthService", () => {
         signUpDto.email,
         signUpDto.password,
         signUpDto.metadata?.name
+      );
+      expect(appwriteService.createVerificationWithUserSession).toHaveBeenCalledWith(
+        signUpDto.email,
+        signUpDto.password,
+        "https://arzansite.com/auth/verify"
       );
       expect(mockEmailService.sendConfirmationEmail).toHaveBeenCalledWith(
         signUpDto.email,
@@ -138,9 +150,7 @@ describe("AuthService", () => {
 
     it("should handle verification creation failure gracefully", async () => {
       appwriteService.createUser.mockResolvedValue(mockUser);
-      appwriteService.getAccount.mockReturnValue({
-        createVerification: jest.fn().mockRejectedValue(new Error("Verification failed")),
-      } as any);
+      appwriteService.createVerificationWithUserSession.mockRejectedValue(new Error("Verification failed"));
 
       const result = await service.signUp(signUpDto);
 
@@ -207,18 +217,27 @@ describe("AuthService", () => {
 
   describe("sendPasswordReset", () => {
     const email = "test@example.com";
+    const password = "password123";
     const mockRecovery = {
       $id: "recovery123",
-    };
+      $createdAt: "2023-01-01T00:00:00Z",
+      userId: "user123",
+      secret: "secret123",
+      expire: "2023-01-08T00:00:00Z",
+      phrase: "recovery",
+    } as any;
 
     it("should send password reset email successfully", async () => {
-      appwriteService.getAccount.mockReturnValue({
-        createRecovery: jest.fn().mockResolvedValue(mockRecovery),
-      } as any);
+      appwriteService.createRecoveryWithUserSession.mockResolvedValue(mockRecovery);
       mockEmailService.sendPasswordResetEmail.mockResolvedValue(true);
 
-      const result = await service.sendPasswordReset(email);
+      const result = await service.sendPasswordReset(email, password);
 
+      expect(appwriteService.createRecoveryWithUserSession).toHaveBeenCalledWith(
+        email,
+        password,
+        "https://arzansite.com/auth/reset-password"
+      );
       expect(result).toEqual({
         message: "Password reset email sent successfully. Please check your email.",
         emailSent: true,
@@ -226,12 +245,10 @@ describe("AuthService", () => {
     });
 
     it("should handle email sending failure", async () => {
-      appwriteService.getAccount.mockReturnValue({
-        createRecovery: jest.fn().mockResolvedValue(mockRecovery),
-      } as any);
+      appwriteService.createRecoveryWithUserSession.mockResolvedValue(mockRecovery);
       mockEmailService.sendPasswordResetEmail.mockResolvedValue(false);
 
-      await expect(service.sendPasswordReset(email)).rejects.toThrow(BadRequestException);
+      await expect(service.sendPasswordReset(email, password)).rejects.toThrow(BadRequestException);
     });
   });
 

@@ -94,6 +94,64 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
+  async createVerificationWithUserSession(email: string, password: string, redirectUrl: string) {
+    try {
+      // Create a session for the user
+      const session = await this.createSession(email, password);
+      
+      // Create a new client instance with the user's session
+      const userClient = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setSession(session.$id);
+
+      const userAccount = new Account(userClient);
+
+      // Create verification using the authenticated user session
+      const verification = await userAccount.createVerification(redirectUrl);
+      
+      // Clean up the session after verification creation
+      try {
+        await this.deleteSession(session.$id);
+      } catch (sessionCleanupError) {
+        console.warn('Failed to clean up session:', sessionCleanupError);
+      }
+
+      return verification;
+    } catch (error) {
+      throw new Error(`Failed to create verification with user session: ${error.message}`);
+    }
+  }
+
+  async createRecoveryWithUserSession(email: string, password: string, redirectUrl: string) {
+    try {
+      // Create a session for the user
+      const session = await this.createSession(email, password);
+      
+      // Create a new client instance with the user's session
+      const userClient = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setSession(session.$id);
+
+      const userAccount = new Account(userClient);
+
+      // Create recovery using the authenticated user session
+      const recovery = await userAccount.createRecovery(email, redirectUrl);
+      
+      // Clean up the session after recovery creation
+      try {
+        await this.deleteSession(session.$id);
+      } catch (sessionCleanupError) {
+        console.warn('Failed to clean up session:', sessionCleanupError);
+      }
+
+      return recovery;
+    } catch (error) {
+      throw new Error(`Failed to create recovery with user session: ${error.message}`);
+    }
+  }
+
   // Database methods
   async createDocument(collectionId: string, data: any, documentId?: string) {
     try {

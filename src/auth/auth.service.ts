@@ -4,7 +4,7 @@ import { EmailService } from '../email/email.service';
 import { SignUpDto, SignInDto, RefreshTokenDto, LoginWithJwtDto } from './dto/auth.dto';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
-import { ID } from 'node-appwrite';
+import { ID, Client, Account } from 'node-appwrite';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +25,10 @@ export class AuthService {
 
       // Generate verification link via Appwrite
       try {
-        const verification = await this.appwriteService.getAccount().createVerification(
+        // Create verification using the new method that handles user authentication
+        const verification = await this.appwriteService.createVerificationWithUserSession(
+          signUpDto.email,
+          signUpDto.password,
           `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify`
         );
         
@@ -115,11 +118,12 @@ export class AuthService {
     }
   }
 
-  async sendPasswordReset(email: string) {
+  async sendPasswordReset(email: string, password: string) {
     try {
-      // Generate password recovery link via Appwrite
-      const recovery = await this.appwriteService.getAccount().createRecovery(
+      // Generate password recovery link via Appwrite using user session
+      const recovery = await this.appwriteService.createRecoveryWithUserSession(
         email,
+        password,
         `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/reset-password`
       );
       
