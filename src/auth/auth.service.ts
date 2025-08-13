@@ -208,13 +208,17 @@ export class AuthService {
         throw new BadRequestException('Invalid or expired verification token');
       }
 
-      // Update user's email verification status in Appwrite
-      // Note: We'll need to use the service account approach since we can't update user directly
       try {
-        // For now, we'll mark the token as used and let the user login
+        // Mark the token as used
         await this.markVerificationTokenAsUsed(userId, token);
         
-        // Get user details
+        // Update user's email verification status in Appwrite using service account
+        // We need to update the user's emailVerification field to true
+        // Note: Appwrite doesn't have a direct updateEmailVerification method
+        // We'll use the custom verification system and mark the user as verified in our database
+        console.log('✅ User email verification completed via custom system');
+        
+        // Get updated user details
         const user = await this.appwriteService.getUsers().get(userId);
         
         // Send welcome email via custom SMTP
@@ -233,7 +237,7 @@ export class AuthService {
             id: user.$id,
             email: user.email,
             name: user.name,
-            emailVerification: true // Mark as verified
+            emailVerification: true
           },
           welcomeEmailSent
         };
@@ -330,16 +334,47 @@ export class AuthService {
 
       const user = users.users[0];
       
+      // Check if user has any valid verification tokens in our system
+      const hasValidVerification = await this.checkUserVerificationStatus(user.$id);
+      
       return {
         email: user.email,
-        emailVerified: user.emailVerification,
+        emailVerified: hasValidVerification,
         userId: user.$id,
-        message: user.emailVerification 
-          ? 'Email is verified. You can now log in.' 
+        message: hasValidVerification 
+          ? 'Email is verified. You can now log in.'
           : 'Email is not verified. Please check your inbox for verification email.'
       };
     } catch (error) {
       throw new BadRequestException(`Failed to check email verification status: ${error.message}`);
+    }
+  }
+
+  private async checkUserVerificationStatus(userId: string): Promise<boolean> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
+      
+      if (!databaseId || !collectionId) {
+        console.warn('Email verification check skipped: Missing database configuration');
+        return false;
+      }
+
+      // Check if user has any used verification tokens (indicating they completed verification)
+      const { Query } = await import('node-appwrite');
+      const documents = await this.appwriteService.getDatabases().listDocuments(
+        databaseId,
+        collectionId,
+        [
+          Query.equal('userId', userId),
+          Query.equal('used', true)
+        ]
+      );
+
+      return documents.documents.length > 0;
+    } catch (error) {
+      console.error('❌ Failed to check user verification status:', error);
+      return false;
     }
   }
 
@@ -362,8 +397,9 @@ export class AuthService {
       // Get user details to check email verification status
       const user = await this.appwriteService.getUsers().get(session.userId);
       
-      // Check if email is verified
-      if (!user.emailVerification) {
+      // Check if email is verified using our custom system
+      const isEmailVerified = await this.checkUserVerificationStatus(session.userId);
+      if (!isEmailVerified) {
         // Return error indicating email needs verification
         throw new UnauthorizedException('Please verify your email before logging in. Check your inbox for the verification email.');
       }

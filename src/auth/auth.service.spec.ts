@@ -347,11 +347,22 @@ describe("AuthService", () => {
         }),
       } as any);
 
+      // Mock the database to return a used verification token (indicating verified)
+      appwriteService.getDatabases.mockReturnValue({
+        listDocuments: jest.fn().mockResolvedValue({
+          documents: [{
+            $id: 'doc123',
+            userId: verifiedUser.$id,
+            used: true
+          }]
+        })
+      } as any);
+
       const result = await service.checkEmailVerificationStatus(email);
 
       expect(result).toEqual({
         email: verifiedUser.email,
-        emailVerified: verifiedUser.emailVerification,
+        emailVerified: true,
         userId: verifiedUser.$id,
         message: "Email is verified. You can now log in.",
       });
@@ -413,6 +424,17 @@ describe("AuthService", () => {
       appwriteService.createSession.mockResolvedValue(mockSession);
       appwriteService.getUsers.mockReturnValue({
         get: jest.fn().mockResolvedValue(mockUser),
+      } as any);
+
+      // Mock the database to return a used verification token (indicating verified)
+      appwriteService.getDatabases.mockReturnValue({
+        listDocuments: jest.fn().mockResolvedValue({
+          documents: [{
+            $id: 'doc123',
+            userId: mockUser.$id,
+            used: true
+          }]
+        })
       } as any);
 
       const result = await service.signIn(signInDto);

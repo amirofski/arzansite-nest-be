@@ -99,6 +99,49 @@ const schema = {
         ]
     },
 
+    // Email logs collection
+    email_logs: {
+        name: 'email_logs',
+        documentSecurity: false,
+        attributes: [
+            { key: 'to_email', type: 'string', size: 255, required: true, array: false },
+            { key: 'subject', type: 'string', size: 500, required: true, array: false },
+            { key: 'success', type: 'boolean', required: true, array: false },
+            { key: 'error_message', type: 'string', size: 1000, required: false, array: false },
+            { key: 'service_used', type: 'string', size: 50, required: true, array: false },
+            { key: 'template_type', type: 'string', size: 100, required: true, array: false },
+            { key: 'sent_at', type: 'datetime', required: true, array: false },
+            { key: 'message_id', type: 'string', size: 255, required: false, array: false }
+        ],
+        indexes: [
+            { key: 'to_email_idx', type: 'key', attributes: ['to_email'], orders: ['ASC'] },
+            { key: 'success_idx', type: 'key', attributes: ['success'], orders: ['ASC'] },
+            { key: 'template_type_idx', type: 'key', attributes: ['template_type'], orders: ['ASC'] },
+            { key: 'sent_at_idx', type: 'key', attributes: ['sent_at'], orders: ['DESC'] },
+            { key: 'service_used_idx', type: 'key', attributes: ['service_used'], orders: ['ASC'] }
+        ]
+    },
+
+    // Email verification tokens collection
+    email_verifications: {
+        name: 'email_verifications',
+        documentSecurity: false,
+        attributes: [
+            { key: 'userId', type: 'string', size: 36, required: true, array: false },
+            { key: 'token', type: 'string', size: 64, required: true, array: false },
+            { key: 'expiresAt', type: 'datetime', required: true, array: false },
+            { key: 'used', type: 'boolean', required: true, array: false },
+            { key: 'createdAt', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'userId_idx', type: 'key', attributes: ['userId'], orders: ['ASC'] },
+            { key: 'token_idx', type: 'key', attributes: ['token'], orders: ['ASC'] },
+            { key: 'expiresAt_idx', type: 'key', attributes: ['expiresAt'], orders: ['ASC'] },
+            { key: 'used_idx', type: 'key', attributes: ['used'], orders: ['ASC'] },
+            { key: 'token_unique_idx', type: 'unique', attributes: ['token'] }
+        ]
+    },
+
     // Transactions collection
     transactions: {
         name: 'transactions',
