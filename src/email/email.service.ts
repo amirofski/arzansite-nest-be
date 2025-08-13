@@ -34,30 +34,83 @@ export class EmailService {
   }
 
   private initializeTransporter() {
-    const host = this.configService.get<string>('SMTP_HOST', '37-58-50-28.cprapid.com');
-    const port = this.configService.get<number>('SMTP_PORT', 465);
-    const user = this.configService.get<string>('SMTP_USER', 'info@arzansite.com');
-    const pass = this.configService.get<string>('SMTP_PASS', 'Cya6enCC5rPcs5G');
+    // Get SMTP configuration from environment variables
+    const host = this.configService.get<string>('SMTP_HOST');
+    const port = this.configService.get<number>('SMTP_PORT');
+    const user = this.configService.get<string>('SMTP_USER');
+    const pass = this.configService.get<string>('SMTP_PASS');
     const security = this.configService.get<string>('SMTP_SECURITY', 'ssl');
+    const from = this.configService.get<string>('SMTP_FROM');
+    const senderName = this.configService.get<string>('SMTP_SENDER_NAME', 'ArzanSite');
 
-    this.transporter = nodemailer.createTransport({
+    // Validate required configuration
+    if (!host || !port || !user || !pass) {
+      this.logger.error('Missing required SMTP configuration. Please check your environment variables.');
+      throw new Error('SMTP configuration is incomplete. Please check SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS.');
+    }
+
+    this.logger.log(`Initializing SMTP transporter with host: ${host}:${port}`);
+
+    // Try different configurations to handle TLS issues
+    const transporterConfig: any = {
       host,
       port,
-      secure: security === 'ssl', // true for 465, false for other ports
       auth: {
         user,
         pass,
       },
-    });
+      // Disable pooling initially to avoid connection issues
+      pool: false,
+      maxConnections: 1,
+      maxMessages: 1,
+      rateLimit: 1,
+      // Add TLS options to handle connection issues
+      tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates
+        ciphers: 'SSLv3', // Use older cipher for compatibility
+      },
+      // Add connection timeouts
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000, // 30 seconds
+      socketTimeout: 30000, // 30 seconds
+    };
+
+    // Configure security based on port and security setting
+    if (port === 465 && security === 'ssl') {
+      transporterConfig.secure = true; // Use SSL
+    } else if (port === 587 || port === 25) {
+      transporterConfig.secure = false; // Use STARTTLS
+      transporterConfig.requireTLS = true; // Require TLS
+    } else {
+      transporterConfig.secure = false; // Default to non-secure
+    }
+
+    this.transporter = nodemailer.createTransport(transporterConfig);
 
     // Verify connection configuration
-    this.transporter.verify((error, success) => {
-      if (error) {
-        this.logger.error('SMTP connection failed:', error);
-      } else {
-        this.logger.log('SMTP server is ready to send emails');
+    this.verifyConnection();
+  }
+
+  private async verifyConnection() {
+    try {
+      await this.transporter.verify();
+      this.logger.log('✅ SMTP connection verified successfully');
+      this.logger.log('SMTP server is ready to send emails');
+    } catch (error) {
+      this.logger.error('❌ SMTP connection verification failed:', error);
+      
+      // Don't throw error immediately, just log it
+      // The application can still start, and emails will be attempted
+      this.logger.warn('⚠️ SMTP verification failed, but application will continue. Emails may fail.');
+      
+      // Log the specific error for debugging
+      if (error.message.includes('TLS')) {
+        this.logger.error('🔧 TLS/SSL connection issue detected. This may be due to:');
+        this.logger.error('   - SMTP server configuration issues');
+        this.logger.error('   - Firewall/proxy blocking secure connections');
+        this.logger.error('   - Incorrect port or security settings');
       }
-    });
+    }
   }
 
   async sendEmail(options: EmailOptions, retryCount = 0): Promise<boolean> {
@@ -66,7 +119,7 @@ export class EmailService {
       subject,
       html,
       text,
-      from = this.configService.get<string>('SMTP_FROM', 'info@arzansite.com'),
+      from = this.configService.get<string>('SMTP_FROM'),
       replyTo,
     } = options;
 
@@ -80,8 +133,10 @@ export class EmailService {
     };
 
     try {
+      this.logger.log(`📧 Sending email to ${to}: ${subject}`);
+      
       const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Email sent successfully: ${info.messageId}`);
+      this.logger.log(`✅ Email sent successfully: ${info.messageId} to ${to}`);
       
       // Log email to database
       await this.logEmailToDatabase({
@@ -91,15 +146,16 @@ export class EmailService {
         service_used: 'custom_smtp',
         template_type: this.getTemplateType(subject),
         sent_at: new Date().toISOString(),
+        message_id: info.messageId,
       });
 
       return true;
     } catch (error) {
-      this.logger.error(`Failed to send email (attempt ${retryCount + 1}):`, error);
+      this.logger.error(`❌ Failed to send email (attempt ${retryCount + 1}) to ${to}:`, error);
       
       // Retry logic for transient failures
       if (retryCount < this.maxRetries && this.isRetryableError(error)) {
-        this.logger.log(`Retrying email send in ${this.retryDelay}ms...`);
+        this.logger.log(`🔄 Retrying email send in ${this.retryDelay}ms... (${retryCount + 1}/${this.maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, this.retryDelay));
         return this.sendEmail(options, retryCount + 1);
       }
@@ -121,21 +177,23 @@ export class EmailService {
 
   private isRetryableError(error: any): boolean {
     // Retry on network errors, timeouts, and temporary SMTP errors
-    const retryableCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND'];
-    const retryableMessages = ['timeout', 'connection', 'temporary', 'rate limit'];
+    const retryableCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH'];
+    const retryableMessages = ['timeout', 'connection', 'temporary', 'rate limit', 'quota', 'temporary failure'];
     
     return (
       retryableCodes.some(code => error.code === code) ||
-      retryableMessages.some(msg => error.message?.toLowerCase().includes(msg))
+      retryableMessages.some(msg => error.message?.toLowerCase().includes(msg)) ||
+      error.responseCode >= 400 && error.responseCode < 500 // Retry on 4xx errors (except 4xx client errors)
     );
   }
 
   private getTemplateType(subject: string): string {
-    if (subject.toLowerCase().includes('verification')) return 'email_verification';
-    if (subject.toLowerCase().includes('welcome')) return 'welcome';
-    if (subject.toLowerCase().includes('password')) return 'password_reset';
-    if (subject.toLowerCase().includes('order')) return 'order_notification';
-    if (subject.toLowerCase().includes('payment')) return 'payment_notification';
+    const subjectLower = subject.toLowerCase();
+    if (subjectLower.includes('verification')) return 'email_verification';
+    if (subjectLower.includes('welcome')) return 'welcome';
+    if (subjectLower.includes('password')) return 'password_reset';
+    if (subjectLower.includes('order')) return 'order_notification';
+    if (subjectLower.includes('payment')) return 'payment_notification';
     return 'general';
   }
 
@@ -147,43 +205,64 @@ export class EmailService {
     service_used: string;
     template_type: string;
     sent_at: string;
+    message_id?: string;
   }) {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS');
+      
+      if (!databaseId || !collectionId) {
+        this.logger.warn('Email logging skipped: Missing APPWRITE_DATABASE_ID or APPWRITE_COLLECTION_EMAIL_LOGS');
+        return;
+      }
+
       await databases.createDocument(databaseId, collectionId, ID.unique(), logData as any);
+      this.logger.debug(`📝 Email logged to database: ${logData.success ? 'SUCCESS' : 'FAILED'}`);
     } catch (error) {
-      this.logger.error('Error logging email to database:', error);
+      this.logger.error('❌ Error logging email to database:', error);
     }
   }
 
   async getLogs(params: { limit: number; offset: number; success?: string; template_type?: string }) {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS');
-    const { Query } = await import('node-appwrite');
-    const filters = [Query.limit(params.limit), Query.offset(params.offset), Query.orderDesc('sent_at')];
-    if (params.success === 'true') filters.push(Query.equal('success', true));
-    if (params.success === 'false') filters.push(Query.equal('success', false));
-    if (params.template_type) filters.push(Query.equal('template_type', params.template_type));
-    const res = await databases.listDocuments(databaseId, collectionId, filters);
-    return {
-      logs: (res.documents as any[]) || [],
-      total: res.total,
-      limit: params.limit,
-      offset: params.offset,
-    };
+    try {
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS');
+      
+      if (!databaseId || !collectionId) {
+        throw new Error('Email logging not configured');
+      }
+
+      const { Query } = await import('node-appwrite');
+      const filters = [Query.limit(params.limit), Query.offset(params.offset), Query.orderDesc('sent_at')];
+      
+      if (params.success === 'true') filters.push(Query.equal('success', true));
+      if (params.success === 'false') filters.push(Query.equal('success', false));
+      if (params.template_type) filters.push(Query.equal('template_type', params.template_type));
+      
+      const res = await databases.listDocuments(databaseId, collectionId, filters);
+      
+      return {
+        logs: (res.documents as any[]) || [],
+        total: res.total,
+        limit: params.limit,
+        offset: params.offset,
+      };
+    } catch (error) {
+      this.logger.error('Error fetching email logs:', error);
+      throw error;
+    }
   }
 
   // Enhanced email methods for Appwrite integration
   async sendConfirmationEmail(to: string, verificationUrl: string, userName?: string): Promise<boolean> {
-    this.logger.log(`Sending confirmation email to ${to} with verification URL`);
+    this.logger.log(`📧 Sending confirmation email to ${to} with verification URL`);
     return this.sendEmailVerification(to, verificationUrl, userName);
   }
 
   async sendWelcomeEmail(to: string, userName: string): Promise<boolean> {
-    this.logger.log(`Sending welcome email to ${to}`);
+    this.logger.log(`📧 Sending welcome email to ${to}`);
     const template = this.getWelcomeTemplate(userName);
     return this.sendEmail({
       to,
@@ -194,7 +273,7 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(to: string, resetUrl: string, userName?: string): Promise<boolean> {
-    this.logger.log(`Sending password reset email to ${to}`);
+    this.logger.log(`📧 Sending password reset email to ${to}`);
     const template = this.getPasswordResetTemplate(resetUrl, userName);
     return this.sendEmail({
       to,
