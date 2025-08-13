@@ -114,10 +114,8 @@ describe("AuthService", () => {
       phrase: "verification",
     } as any;
 
-    it("should create user successfully and send verification email", async () => {
+    it("should create user successfully without sending verification email", async () => {
       appwriteService.createUser.mockResolvedValue(mockUser);
-      appwriteService.createVerificationWithUserSession.mockResolvedValue(mockVerification);
-      mockEmailService.sendConfirmationEmail.mockResolvedValue(true);
 
       const result = await service.signUp(signUpDto);
 
@@ -126,36 +124,8 @@ describe("AuthService", () => {
         signUpDto.password,
         signUpDto.metadata?.name
       );
-      expect(appwriteService.createVerificationWithUserSession).toHaveBeenCalledWith(
-        signUpDto.email,
-        signUpDto.password,
-        "https://arzansite.com/auth/verify"
-      );
-      expect(mockEmailService.sendConfirmationEmail).toHaveBeenCalledWith(
-        signUpDto.email,
-        expect.stringContaining("/auth/verify?token=verification123&userId=user123"),
-        signUpDto.metadata?.name
-      );
       expect(result).toEqual({
-        message: "User created successfully. Please check your email to verify your account.",
-        user: {
-          id: mockUser.$id,
-          email: mockUser.email,
-          emailVerification: mockUser.emailVerification,
-          $createdAt: mockUser.$createdAt,
-        },
-        verificationEmailSent: true,
-      });
-    });
-
-    it("should handle verification creation failure gracefully", async () => {
-      appwriteService.createUser.mockResolvedValue(mockUser);
-      appwriteService.createVerificationWithUserSession.mockRejectedValue(new Error("Verification failed"));
-
-      const result = await service.signUp(signUpDto);
-
-      expect(result).toEqual({
-        message: "User created successfully, but verification email could not be sent. Please contact support.",
+        message: "User created successfully. Please sign in to verify your email.",
         user: {
           id: mockUser.$id,
           email: mockUser.email,
@@ -163,7 +133,14 @@ describe("AuthService", () => {
           $createdAt: mockUser.$createdAt,
         },
         verificationEmailSent: false,
+        requiresFrontendVerification: true,
       });
+    });
+
+    it("should handle user creation failure", async () => {
+      appwriteService.createUser.mockRejectedValue(new Error("User creation failed"));
+
+      await expect(service.signUp(signUpDto)).rejects.toThrow(BadRequestException);
     });
 
     it("should handle user creation failure", async () => {
@@ -247,6 +224,38 @@ describe("AuthService", () => {
       mockEmailService.sendPasswordResetEmail.mockResolvedValue(false);
 
       await expect(service.sendPasswordReset(email)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("requestEmailVerification", () => {
+    const email = "test@example.com";
+    const password = "password123";
+    const mockVerification = {
+      $id: "verification123",
+      userId: "user123",
+    } as any;
+
+    it("should send verification email successfully", async () => {
+      appwriteService.createVerificationWithUserSession.mockResolvedValue(mockVerification);
+      mockEmailService.sendConfirmationEmail.mockResolvedValue(true);
+
+      const result = await service.requestEmailVerification(email, password);
+
+      expect(appwriteService.createVerificationWithUserSession).toHaveBeenCalledWith(
+        email,
+        password,
+        "https://arzansite.com/auth/verify"
+      );
+      expect(result).toEqual({
+        message: "Verification email sent successfully. Please check your email.",
+        verificationEmailSent: true,
+      });
+    });
+
+    it("should handle verification creation failure", async () => {
+      appwriteService.createVerificationWithUserSession.mockRejectedValue(new Error("Verification failed"));
+
+      await expect(service.requestEmailVerification(email, password)).rejects.toThrow(BadRequestException);
     });
   });
 

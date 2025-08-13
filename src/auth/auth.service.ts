@@ -23,54 +23,21 @@ export class AuthService {
         signUpDto.metadata?.name
       );
 
-      // Generate verification link via Appwrite
-      try {
-        // Create verification using the new method that handles user authentication
-        const verification = await this.appwriteService.createVerificationWithUserSession(
-          signUpDto.email,
-          signUpDto.password,
-          `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify`
-        );
-        
-        // Extract verification URL from Appwrite response
-        const verificationUrl = this.buildVerificationUrl(verification, created.$id);
-        
-        // Send confirmation email via custom SMTP
-        const emailSent = await this.emailService.sendConfirmationEmail(
-          signUpDto.email,
-          verificationUrl,
-          signUpDto.metadata?.name
-        );
-
-        if (!emailSent) {
-          // Log warning but don't fail the signup
-          console.warn(`Failed to send confirmation email to ${signUpDto.email}`);
-        }
-
-        return { 
-          message: 'User created successfully. Please check your email to verify your account.',
-          user: {
-            id: created.$id,
-            email: created.email,
-            emailVerification: created.emailVerification,
-            $createdAt: created.$createdAt
-          },
-          verificationEmailSent: emailSent
-        };
-      } catch (verificationError) {
-        // If verification creation fails, still return success but log the error
-        console.error('Failed to create verification:', verificationError);
-        return { 
-          message: 'User created successfully, but verification email could not be sent. Please contact support.',
-          user: {
-            id: created.$id,
-            email: created.email,
-            emailVerification: created.emailVerification,
-            $createdAt: created.$createdAt
-          },
-          verificationEmailSent: false
-        };
-      }
+      // Since Appwrite doesn't provide account scopes for API keys,
+      // verification emails must be sent from the frontend after user login
+      // The backend will only create the user account
+      
+      return { 
+        message: 'User created successfully. Please sign in to verify your email.',
+        user: {
+          id: created.$id,
+          email: created.email,
+          emailVerification: created.emailVerification,
+          $createdAt: created.$createdAt
+        },
+        verificationEmailSent: false,
+        requiresFrontendVerification: true
+      };
     } catch (e: any) {
       throw new BadRequestException(e?.message || 'Failed to create user');
     }
@@ -146,6 +113,39 @@ export class AuthService {
       };
     } catch (error) {
       throw new BadRequestException(`Failed to send password reset email: ${error.message}`);
+    }
+  }
+
+  async requestEmailVerification(email: string, password: string) {
+    try {
+      // This method is called after user login to request verification
+      // It creates a session and then requests verification
+      const verification = await this.appwriteService.createVerificationWithUserSession(
+        email,
+        password,
+        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify`
+      );
+      
+      // Extract verification URL from Appwrite response
+      const verificationUrl = this.buildVerificationUrl(verification, verification.userId);
+      
+      // Send confirmation email via custom SMTP
+      const emailSent = await this.emailService.sendConfirmationEmail(
+        email,
+        verificationUrl,
+        email // We don't have the name here, so use email
+      );
+
+      if (!emailSent) {
+        throw new BadRequestException('Failed to send verification email');
+      }
+
+      return { 
+        message: 'Verification email sent successfully. Please check your email.',
+        verificationEmailSent: true
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to send verification email: ${error.message}`);
     }
   }
 

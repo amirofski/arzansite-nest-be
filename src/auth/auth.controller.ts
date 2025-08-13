@@ -136,6 +136,41 @@ export class AuthController {
     return this.authService.sendPasswordReset(body.email);
   }
 
+  @Post('request-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request email verification',
+    description: 'Request verification email after user login (requires authentication)',
+  })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', example: 'user@example.com' },
+        password: { type: 'string', example: 'password123' },
+      },
+      required: ['email', 'password'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email sent successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Verification email sent successfully. Please check your email.' },
+        verificationEmailSent: { type: 'boolean', example: true },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - failed to send verification email',
+  })
+  async requestEmailVerification(@Body() body: { email: string; password: string }) {
+    return this.authService.requestEmailVerification(body.email, body.password);
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
