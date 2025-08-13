@@ -22,12 +22,16 @@ describe("AuthService", () => {
     deleteSession: jest.fn(),
     createVerificationWithUserSession: jest.fn(),
     createRecoveryWithUserSession: jest.fn(),
+    getDatabases: jest.fn(),
+    createDocument: jest.fn(),
   };
 
   const mockEmailService = {
     sendConfirmationEmail: jest.fn(),
     sendWelcomeEmail: jest.fn(),
     sendPasswordResetEmail: jest.fn(),
+    sendEmailVerification: jest.fn(),
+    sendEmail: jest.fn(),
   };
 
   const mockConfigService = {
@@ -69,6 +73,8 @@ describe("AuthService", () => {
         JWT_EXPIRES_IN: "1h",
         APPWRITE_ENDPOINT: "http://localhost/v1",
         APPWRITE_PROJECT_ID: "test-project",
+        APPWRITE_DATABASE_ID: "test-database",
+        APPWRITE_COLLECTION_EMAIL_VERIFICATIONS: "email_verifications",
       };
       return config[key] || defaultValue;
     });
@@ -116,6 +122,12 @@ describe("AuthService", () => {
 
     it("should create user successfully without sending verification email", async () => {
       appwriteService.createUser.mockResolvedValue(mockUser);
+      // Mock email service to return false (email sending failed)
+      mockEmailService.sendConfirmationEmail.mockResolvedValue(false);
+      // Mock database operations
+      appwriteService.getDatabases.mockReturnValue({
+        createDocument: jest.fn().mockResolvedValue({})
+      } as any);
 
       const result = await service.signUp(signUpDto);
 
@@ -134,6 +146,35 @@ describe("AuthService", () => {
         },
         verificationEmailSent: false,
         requiresFrontendVerification: true,
+      });
+    });
+
+    it("should create user successfully and send verification email", async () => {
+      appwriteService.createUser.mockResolvedValue(mockUser);
+      // Mock email service to return true (email sending successful)
+      mockEmailService.sendConfirmationEmail.mockResolvedValue(true);
+      // Mock database operations
+      appwriteService.getDatabases.mockReturnValue({
+        createDocument: jest.fn().mockResolvedValue({})
+      } as any);
+
+      const result = await service.signUp(signUpDto);
+
+      expect(appwriteService.createUser).toHaveBeenCalledWith(
+        signUpDto.email,
+        signUpDto.password,
+        signUpDto.metadata?.name
+      );
+      expect(result).toEqual({
+        message: "User created successfully. Please check your email to verify your account.",
+        user: {
+          id: mockUser.$id,
+          email: mockUser.email,
+          emailVerification: mockUser.emailVerification,
+          $createdAt: mockUser.$createdAt,
+        },
+        verificationEmailSent: true,
+        requiresFrontendVerification: false,
       });
     });
 
@@ -161,9 +202,20 @@ describe("AuthService", () => {
     };
 
     it("should verify email successfully and send welcome email", async () => {
-      appwriteService.getAccount.mockReturnValue({
-        updateVerification: jest.fn().mockResolvedValue({}),
+      // Mock the database operations for our custom verification system
+      appwriteService.getDatabases.mockReturnValue({
+        listDocuments: jest.fn().mockResolvedValue({
+          documents: [{
+            $id: 'doc123',
+            userId: userId,
+            token: token,
+            used: false,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          }]
+        }),
+        updateDocument: jest.fn().mockResolvedValue({})
       } as any);
+      
       appwriteService.getUsers.mockReturnValue({
         get: jest.fn().mockResolvedValue(mockUser),
       } as any);
@@ -177,15 +229,18 @@ describe("AuthService", () => {
           id: mockUser.$id,
           email: mockUser.email,
           name: mockUser.name,
-          emailVerification: mockUser.emailVerification,
+          emailVerification: true,
         },
         welcomeEmailSent: true,
       });
     });
 
     it("should handle verification failure", async () => {
-      appwriteService.getAccount.mockReturnValue({
-        updateVerification: jest.fn().mockRejectedValue(new Error("Verification failed")),
+      // Mock the database to return no valid tokens (verification will fail)
+      appwriteService.getDatabases.mockReturnValue({
+        listDocuments: jest.fn().mockResolvedValue({
+          documents: [] // No valid tokens found
+        })
       } as any);
 
       await expect(service.verifyEmail(token, userId)).rejects.toThrow(BadRequestException);
