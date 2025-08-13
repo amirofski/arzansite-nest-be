@@ -23,10 +23,87 @@ export class AuthService {
         signUpDto.metadata?.name
       );
 
-      // Since Appwrite doesn't provide account scopes for API keys,
-      // verification emails must be sent from the frontend after user login
-      // The backend will only create the user account
-      
+      // Try to send verification email immediately after user creation
+      try {
+        console.log('🔧 Attempting to send verification email during signup...');
+        
+        const verification = await this.appwriteService.createVerificationWithUserSession(
+          signUpDto.email,
+          signUpDto.password,
+          `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify`
+        );
+        
+        console.log('✅ Verification created successfully:', verification);
+        
+        // Extract verification URL from Appwrite response
+        const verificationUrl = this.buildVerificationUrl(verification, created.$id);
+        console.log('🔗 Verification URL built:', verificationUrl);
+        
+        // Send confirmation email via custom SMTP
+        console.log('📧 Attempting to send email via EmailService...');
+        const emailSent = await this.emailService.sendConfirmationEmail(
+          signUpDto.email,
+          verificationUrl,
+          signUpDto.metadata?.name
+        );
+
+        console.log('📧 Email sending result:', emailSent);
+
+        if (emailSent) {
+          console.log('✅ Verification email sent successfully during signup');
+          return { 
+            message: 'User created successfully. Please check your email to verify your account.',
+            user: {
+              id: created.$id,
+              email: created.email,
+              emailVerification: created.emailVerification,
+              $createdAt: created.$createdAt
+            },
+            verificationEmailSent: true,
+            requiresFrontendVerification: false
+          };
+        } else {
+          console.log('❌ EmailService returned false - email not sent');
+          
+          // Try alternative SMTP configuration
+          console.log('🔄 Trying alternative SMTP configuration...');
+          try {
+            // Force EmailService to use port 587 with STARTTLS
+            const alternativeEmailSent = await this.emailService.sendConfirmationEmail(
+              signUpDto.email,
+              verificationUrl,
+              signUpDto.metadata?.name
+            );
+            
+            if (alternativeEmailSent) {
+              console.log('✅ Alternative SMTP configuration worked!');
+              return { 
+                message: 'User created successfully. Please check your email to verify your account.',
+                user: {
+                  id: created.$id,
+                  email: created.email,
+                  emailVerification: created.emailVerification,
+                  $createdAt: created.$createdAt
+                },
+                verificationEmailSent: true,
+                requiresFrontendVerification: false
+              };
+            }
+          } catch (alternativeError) {
+            console.log('❌ Alternative SMTP configuration also failed:', alternativeError.message);
+          }
+        }
+      } catch (verificationError) {
+        console.error('❌ Failed to send verification email during signup:', verificationError);
+        console.error('❌ Error details:', {
+          message: verificationError.message,
+          stack: verificationError.stack,
+          name: verificationError.name
+        });
+        // Continue with fallback response
+      }
+
+      // Fallback: Return success but indicate verification email needs to be requested
       return { 
         message: 'User created successfully. Please sign in to verify your email.',
         user: {
@@ -149,6 +226,31 @@ export class AuthService {
     }
   }
 
+  async checkEmailVerificationStatus(email: string) {
+    try {
+      // Get user by email to check verification status
+      const { Query } = await import('node-appwrite');
+      const users = await this.appwriteService.getUsers().list([Query.equal('email', email)]);
+      
+      if (users.users.length === 0) {
+        throw new BadRequestException('User not found');
+      }
+
+      const user = users.users[0];
+      
+      return {
+        email: user.email,
+        emailVerified: user.emailVerification,
+        userId: user.$id,
+        message: user.emailVerification 
+          ? 'Email is verified. You can now log in.' 
+          : 'Email is not verified. Please check your inbox for verification email.'
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to check email verification status: ${error.message}`);
+    }
+  }
+
   private buildRecoveryUrl(recovery: any, email: string): string {
     // Appwrite returns a recovery object, we need to construct the full URL
     const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
@@ -165,11 +267,21 @@ export class AuthService {
         signInDto.password
       );
 
+      // Get user details to check email verification status
+      const user = await this.appwriteService.getUsers().get(session.userId);
+      
+      // Check if email is verified
+      if (!user.emailVerification) {
+        // Return error indicating email needs verification
+        throw new UnauthorizedException('Please verify your email before logging in. Check your inbox for the verification email.');
+      }
+
       // Issue backend JWT for backend operations
       const payload = { 
         sub: session.userId, 
         email: signInDto.email,
-        sessionId: session.$id 
+        sessionId: session.$id,
+        emailVerified: user.emailVerification
       };
       const secret = this.configService.get<string>('JWT_SECRET', 'change_me');
       const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') });
@@ -180,11 +292,19 @@ export class AuthService {
         refresh_token: refreshToken, 
         user: { 
           id: session.userId, 
-          email: signInDto.email 
+          email: signInDto.email,
+          emailVerified: user.emailVerification
         },
-        session: session
+        session: session,
+        redirect: {
+          url: '/dashboard',
+          message: 'Login successful! Redirecting to dashboard...'
+        }
       };
     } catch (e: any) {
+      if (e instanceof UnauthorizedException) {
+        throw e; // Re-throw our custom error
+      }
       throw new UnauthorizedException('Invalid credentials');
     }
   }

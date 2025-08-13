@@ -259,6 +259,60 @@ describe("AuthService", () => {
     });
   });
 
+  describe("checkEmailVerificationStatus", () => {
+    const email = "test@example.com";
+    const mockUser = {
+      $id: "user123",
+      email: "test@example.com",
+      emailVerification: false,
+    } as any;
+
+    it("should return verification status for unverified email", async () => {
+      appwriteService.getUsers.mockReturnValue({
+        list: jest.fn().mockResolvedValue({
+          users: [mockUser],
+        }),
+      } as any);
+
+      const result = await service.checkEmailVerificationStatus(email);
+
+      expect(result).toEqual({
+        email: mockUser.email,
+        emailVerified: mockUser.emailVerification,
+        userId: mockUser.$id,
+        message: "Email is not verified. Please check your inbox for verification email.",
+      });
+    });
+
+    it("should return verification status for verified email", async () => {
+      const verifiedUser = { ...mockUser, emailVerification: true };
+      appwriteService.getUsers.mockReturnValue({
+        list: jest.fn().mockResolvedValue({
+          users: [verifiedUser],
+        }),
+      } as any);
+
+      const result = await service.checkEmailVerificationStatus(email);
+
+      expect(result).toEqual({
+        email: verifiedUser.email,
+        emailVerified: verifiedUser.emailVerification,
+        userId: verifiedUser.$id,
+        message: "Email is verified. You can now log in.",
+      });
+    });
+
+    it("should handle user not found", async () => {
+      appwriteService.getUsers.mockReturnValue({
+        list: jest.fn().mockResolvedValue({
+          users: [],
+        }),
+      } as any);
+
+      await expect(service.checkEmailVerificationStatus(email)).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe("signIn", () => {
     const signInDto: SignInDto = {
       email: "test@example.com",
@@ -295,7 +349,16 @@ describe("AuthService", () => {
     } as any;
 
     it("should sign in successfully and return tokens", async () => {
+      const mockUser = {
+        $id: "user123",
+        email: "test@example.com",
+        emailVerification: true,
+      } as any;
+
       appwriteService.createSession.mockResolvedValue(mockSession);
+      appwriteService.getUsers.mockReturnValue({
+        get: jest.fn().mockResolvedValue(mockUser),
+      } as any);
 
       const result = await service.signIn(signInDto);
 
@@ -308,6 +371,7 @@ describe("AuthService", () => {
       expect(result.user).toEqual({
         id: mockSession.userId,
         email: signInDto.email,
+        emailVerified: true,
       });
       expect(result.session).toEqual(mockSession);
     });

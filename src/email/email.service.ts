@@ -36,12 +36,20 @@ export class EmailService {
   private initializeTransporter() {
     // Get SMTP configuration from environment variables
     const host = this.configService.get<string>('SMTP_HOST');
-    const port = this.configService.get<number>('SMTP_PORT');
+    let port = this.configService.get<number>('SMTP_PORT');
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASS');
-    const security = this.configService.get<string>('SMTP_SECURITY', 'ssl');
+    let security = this.configService.get<string>('SMTP_SECURITY', 'ssl');
     const from = this.configService.get<string>('SMTP_FROM');
     const senderName = this.configService.get<string>('SMTP_SENDER_NAME', 'ArzanSite');
+
+    // Auto-fix common SMTP issues
+    if (port === 465 && security === 'ssl') {
+      console.log('⚠️ Port 465 with SSL detected - this often has TLS issues');
+      console.log('🔄 Auto-switching to port 587 with STARTTLS for better reliability');
+      port = 587;
+      security = 'starttls';
+    }
 
     // Validate required configuration
     if (!host || !port || !user || !pass) {
@@ -76,13 +84,17 @@ export class EmailService {
     };
 
     // Configure security based on port and security setting
-    if (port === 465 && security === 'ssl') {
-      transporterConfig.secure = true; // Use SSL
-    } else if (port === 587 || port === 25) {
+    // Prefer port 587 with STARTTLS as it's more reliable than port 465 with SSL
+    if (port === 587 || port === 25) {
       transporterConfig.secure = false; // Use STARTTLS
       transporterConfig.requireTLS = true; // Require TLS
+      console.log('🔧 Using STARTTLS on port', port);
+    } else if (port === 465 && security === 'ssl') {
+      transporterConfig.secure = true; // Use SSL
+      console.log('🔧 Using SSL on port', port);
     } else {
       transporterConfig.secure = false; // Default to non-secure
+      console.log('🔧 Using non-secure connection on port', port);
     }
 
     this.transporter = nodemailer.createTransport(transporterConfig);

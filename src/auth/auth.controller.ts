@@ -18,6 +18,7 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiQuery,
+  ApiParam,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto, LoginWithJwtDto } from './dto/auth.dto';
@@ -169,6 +170,34 @@ export class AuthController {
   })
   async requestEmailVerification(@Body() body: { email: string; password: string }) {
     return this.authService.requestEmailVerification(body.email, body.password);
+  }
+
+  @Get('check-verification/:email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Check email verification status',
+    description: 'Check if a user\'s email is verified',
+  })
+  @ApiParam({ name: 'email', description: 'User email address' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verification status retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', example: 'user@example.com' },
+        emailVerified: { type: 'boolean', example: false },
+        userId: { type: 'string', example: 'user_id' },
+        message: { type: 'string', example: 'Email is not verified. Please check your inbox for verification email.' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - user not found',
+  })
+  async checkEmailVerificationStatus(@Param('email') email: string) {
+    return this.authService.checkEmailVerificationStatus(email);
   }
 
   @Post('login')
