@@ -98,7 +98,7 @@ export class AuthController {
   })
   async verifyEmail(
     @Query('token') token: string,
-    @Query('userId') userId: string,
+    @Query('userId') userId?: string,
   ) {
     return this.authService.verifyEmail(token, userId);
   }

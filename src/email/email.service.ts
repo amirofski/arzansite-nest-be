@@ -229,7 +229,13 @@ export class EmailService {
         return;
       }
 
-      await databases.createDocument(databaseId, collectionId, ID.unique(), logData as any);
+      // Remove message_id if it's undefined to avoid schema validation errors
+      const { message_id, ...logDataWithoutMessageId } = logData;
+      
+      // Only include message_id if it has a value
+      const finalLogData = message_id ? logData : logDataWithoutMessageId;
+
+      await databases.createDocument(databaseId, collectionId, ID.unique(), finalLogData as any);
       this.logger.debug(`📝 Email logged to database: ${logData.success ? 'SUCCESS' : 'FAILED'}`);
     } catch (error) {
       this.logger.error('❌ Error logging email to database:', error);

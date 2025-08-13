@@ -30,7 +30,7 @@ export class AuthService {
         // Create a simple verification URL without using Appwrite's verification system
         // This avoids the scope issues while still providing email verification
         const verificationToken = this.generateVerificationToken();
-        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify?token=${verificationToken}&userId=${created.$id}`;
+        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
         
         console.log('🔗 Verification URL built:', verificationUrl);
         
@@ -123,6 +123,39 @@ export class AuthService {
     }
   }
 
+  private async findUserIdByToken(token: string): Promise<string | null> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
+      
+      if (!databaseId || !collectionId) {
+        console.warn('Email verification lookup skipped: Missing database configuration');
+        return null;
+      }
+
+      // Query for the token to find the userId
+      const { Query } = await import('node-appwrite');
+      const documents = await this.appwriteService.getDatabases().listDocuments(
+        databaseId,
+        collectionId,
+        [
+          Query.equal('token', token),
+          Query.equal('used', false),
+          Query.greaterThan('expiresAt', new Date().toISOString())
+        ]
+      );
+
+      if (documents.documents.length > 0) {
+        return documents.documents[0].userId;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('❌ Failed to find userId by token:', error);
+      return null;
+    }
+  }
+
   private async validateVerificationToken(userId: string, token: string): Promise<boolean> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -142,13 +175,14 @@ export class AuthService {
           Query.equal('userId', userId),
           Query.equal('token', token),
           Query.equal('used', false),
-          Query.lessThan('expiresAt', new Date().toISOString())
+          Query.greaterThan('expiresAt', new Date().toISOString())
         ]
       );
 
       return documents.documents.length > 0;
     } catch (error) {
       console.error('❌ Failed to validate verification token:', error);
+      return false;
       return false;
     }
   }
@@ -196,13 +230,23 @@ export class AuthService {
     const token = verification.$id; // This is the verification token
     
     // Return the frontend URL with token and user ID as query parameters
-    return `${frontendUrl}/auth/verify?token=${token}&userId=${userId}`;
+    return `${frontendUrl}/verify-email?token=${token}&userId=${userId}`;
   }
 
-  async verifyEmail(token: string, userId: string) {
+  async verifyEmail(token: string, userId?: string) {
     try {
+      let targetUserId = userId;
+      
+      // If userId is not provided, try to find it from the token
+      if (!targetUserId) {
+        targetUserId = await this.findUserIdByToken(token);
+        if (!targetUserId) {
+          throw new BadRequestException('Invalid or expired verification token');
+        }
+      }
+      
       // Verify the token from our database
-      const isValidToken = await this.validateVerificationToken(userId, token);
+      const isValidToken = await this.validateVerificationToken(targetUserId, token);
       
       if (!isValidToken) {
         throw new BadRequestException('Invalid or expired verification token');
@@ -264,7 +308,7 @@ export class AuthService {
       // since the user might not remember their password
       const recovery = await this.appwriteService.getAccount().createRecovery(
         email,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/reset-password`
+        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/reset-password`
       );
       
       // Extract recovery URL from Appwrite response
@@ -296,7 +340,7 @@ export class AuthService {
       const verification = await this.appwriteService.createVerificationWithUserSession(
         email,
         password,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify`
+        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email`
       );
       
       // Extract verification URL from Appwrite response
@@ -384,7 +428,7 @@ export class AuthService {
     const token = recovery.$id; // This is the recovery token
     
     // Return the frontend URL with token and email as query parameters
-    return `${frontendUrl}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+    return `${frontendUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
   }
 
   async signIn(signInDto: SignInDto) {
