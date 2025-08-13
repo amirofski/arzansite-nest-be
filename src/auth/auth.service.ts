@@ -187,6 +187,39 @@ export class AuthService {
     }
   }
 
+  private async storeUserVerificationStatus(userId: string, isVerified: boolean): Promise<void> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
+      
+      if (!databaseId || !collectionId) {
+        console.warn('User verification status storage skipped: Missing database configuration');
+        return;
+      }
+
+      // Create a verification status document for this user
+      // We'll use the existing collection structure but add verification status
+      await this.appwriteService.getDatabases().createDocument(
+        databaseId,
+        collectionId,
+        ID.unique(),
+        {
+          userId,
+          token: `verified_${Date.now()}`, // Dummy token for verification status
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
+          used: true,
+          createdAt: new Date().toISOString(),
+          verificationStatus: 'completed' // Custom field to track verification
+        }
+      );
+      
+      console.log(`✅ User verification status stored: ${isVerified}`);
+    } catch (error) {
+      console.error('❌ Failed to store user verification status:', error);
+      // Don't throw error, just log it
+    }
+  }
+
   private async markVerificationTokenAsUsed(userId: string, token: string): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -254,16 +287,15 @@ export class AuthService {
 
       try {
         // Mark the token as used
-        await this.markVerificationTokenAsUsed(userId, token);
+        await this.markVerificationTokenAsUsed(targetUserId, token);
         
-        // Update user's email verification status in Appwrite using service account
-        // We need to update the user's emailVerification field to true
-        // Note: Appwrite doesn't have a direct updateEmailVerification method
-        // We'll use the custom verification system and mark the user as verified in our database
+        // Store the user's verification status in our database
+        await this.storeUserVerificationStatus(targetUserId, true);
+        
         console.log('✅ User email verification completed via custom system');
         
         // Get updated user details
-        const user = await this.appwriteService.getUsers().get(userId);
+        const user = await this.appwriteService.getUsers().get(targetUserId);
         
         // Send welcome email via custom SMTP
         const welcomeEmailSent = await this.emailService.sendWelcomeEmail(
@@ -291,7 +323,7 @@ export class AuthService {
         return { 
           message: 'Email verification token validated successfully!',
           user: {
-            id: userId,
+            id: targetUserId,
             emailVerification: true
           },
           welcomeEmailSent: false
@@ -404,9 +436,23 @@ export class AuthService {
         return false;
       }
 
-      // Check if user has any used verification tokens (indicating they completed verification)
+      // First check if user has explicit verification status
       const { Query } = await import('node-appwrite');
-      const documents = await this.appwriteService.getDatabases().listDocuments(
+      const verificationDocs = await this.appwriteService.getDatabases().listDocuments(
+        databaseId,
+        collectionId,
+        [
+          Query.equal('userId', userId),
+          Query.equal('verificationStatus', 'completed')
+        ]
+      );
+
+      if (verificationDocs.documents.length > 0) {
+        return true;
+      }
+
+      // Fallback: Check if user has any used verification tokens (indicating they completed verification)
+      const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
         databaseId,
         collectionId,
         [
@@ -415,7 +461,7 @@ export class AuthService {
         ]
       );
 
-      return documents.documents.length > 0;
+      return tokenDocs.documents.length > 0;
     } catch (error) {
       console.error('❌ Failed to check user verification status:', error);
       return false;

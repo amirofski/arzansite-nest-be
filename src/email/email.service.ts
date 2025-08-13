@@ -158,7 +158,7 @@ export class EmailService {
         service_used: 'custom_smtp',
         template_type: this.getTemplateType(subject),
         sent_at: new Date().toISOString(),
-        message_id: info.messageId,
+        // message_id: info.messageId, // Removed to avoid schema validation errors
       });
 
       return true;
@@ -217,7 +217,6 @@ export class EmailService {
     service_used: string;
     template_type: string;
     sent_at: string;
-    message_id?: string;
   }) {
     try {
       const databases = this.appwriteService.getDatabases();
@@ -229,13 +228,7 @@ export class EmailService {
         return;
       }
 
-      // Remove message_id if it's undefined to avoid schema validation errors
-      const { message_id, ...logDataWithoutMessageId } = logData;
-      
-      // Only include message_id if it has a value
-      const finalLogData = message_id ? logData : logDataWithoutMessageId;
-
-      await databases.createDocument(databaseId, collectionId, ID.unique(), finalLogData as any);
+      await databases.createDocument(databaseId, collectionId, ID.unique(), logData as any);
       this.logger.debug(`📝 Email logged to database: ${logData.success ? 'SUCCESS' : 'FAILED'}`);
     } catch (error) {
       this.logger.error('❌ Error logging email to database:', error);
