@@ -10,6 +10,8 @@ import {
   Param,
   Query,
   UnauthorizedException,
+  Res,
+  Redirect,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +26,7 @@ import { AuthService } from './auth.service';
 import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto, LoginWithJwtDto } from './dto/auth.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
+import { Response } from 'express';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -627,5 +630,193 @@ export class AuthController {
       message: 'This endpoint is deprecated. Use /auth/verify with query parameters instead.',
       redirectTo: '/auth/verify'
     };
+  }
+
+  @Post('oauth/github/start')
+  @ApiOperation({
+    summary: '🚀 Initiate GitHub OAuth Flow',
+    description: 'Start GitHub OAuth authentication flow. Returns redirect URL to GitHub OAuth provider.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        successUrl: { 
+          type: 'string', 
+          description: 'URL to redirect after successful OAuth login',
+          example: 'https://arzansite.com/auth/oauth/callback'
+        },
+        failureUrl: { 
+          type: 'string', 
+          description: 'URL to redirect after failed OAuth login',
+          example: 'https://arzansite.com/auth/login?error=oauth_failed'
+        },
+      },
+      required: ['successUrl', 'failureUrl'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ OAuth flow initiated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        redirectUrl: { 
+          type: 'string', 
+          example: 'https://github.com/login/oauth/authorize?client_id=...',
+          description: 'URL to redirect user to OAuth provider'
+        },
+        provider: { 
+          type: 'string', 
+          example: 'github',
+          description: 'OAuth provider name'
+        },
+        message: { 
+          type: 'string', 
+          example: 'Redirecting to GitHub for authentication...',
+          description: 'Success message'
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - invalid provider or URLs',
+  })
+  async startGitHubOAuth(
+    @Body() body: { successUrl: string; failureUrl: string },
+  ) {
+    return this.authService.startOAuth('github', body.successUrl, body.failureUrl);
+  }
+
+  @Post('oauth/github/callback')
+  @ApiOperation({
+    summary: '🔄 GitHub OAuth Callback Handler',
+    description: 'Handle GitHub OAuth callback from Appwrite after successful OAuth authentication.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { 
+          type: 'string', 
+          description: 'User ID from Appwrite OAuth session',
+          example: '64f8a1b2c3d4e5f6a7b8c9d0'
+        },
+        secret: { 
+          type: 'string', 
+          description: 'Session secret from Appwrite OAuth session',
+          example: 'session_secret_here'
+        },
+      },
+      required: ['userId', 'secret'],
+    },
+  })
+  @ApiResponse({
+    status: 302,
+    description: '✅ Redirect to frontend with session cookie set',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - missing userId or secret',
+  })
+  async handleGitHubOAuthCallback(
+    @Body() body: { userId: string; secret: string },
+    @Res() res: Response,
+  ) {
+    return this.authService.handleOAuthCallback(body.userId, body.secret, res);
+  }
+
+  @Get('oauth/providers')
+  @ApiOperation({
+    summary: '📋 Get Available OAuth Providers',
+    description: 'Get list of available OAuth providers configured in the system.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ Available OAuth providers retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        providers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', example: 'github' },
+              displayName: { type: 'string', example: 'GitHub' },
+              enabled: { type: 'boolean', example: true },
+            },
+          },
+          example: [
+            { name: 'github', displayName: 'GitHub', enabled: true },
+            { name: 'google', displayName: 'Google', enabled: true },
+          ],
+        },
+      },
+    },
+  })
+  async getOAuthProviders() {
+    return this.authService.getOAuthProviders();
+  }
+
+  @Get('oauth/me')
+  @ApiOperation({
+    summary: '👤 Get Current User from OAuth Session',
+    description: 'Get information about the currently authenticated user from OAuth session cookie.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ User information retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+        email: { type: 'string', example: 'user@example.com' },
+        name: { type: 'string', example: 'John Doe' },
+        emailVerification: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'User information retrieved from OAuth session' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: '❌ Unauthorized - no valid session found',
+  })
+  async getMeFromOAuthSession(@Request() req: any) {
+    const sessionSecret = req.cookies?.appwrite_session;
+    if (!sessionSecret) {
+      throw new UnauthorizedException('No OAuth session found');
+    }
+    return this.authService.getMeFromSession(sessionSecret);
+  }
+
+  @Post('oauth/logout')
+  @ApiOperation({
+    summary: '🚪 OAuth User Logout',
+    description: 'Sign out OAuth user and clear session cookies.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ OAuth logout successful',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { 
+          type: 'string', 
+          example: 'Successfully signed out from OAuth session',
+          description: 'Success message'
+        },
+      },
+    },
+  })
+  async oauthLogout(@Request() req: any, @Res() res: Response) {
+    // Clear OAuth session cookies
+    res.clearCookie('appwrite_session');
+    res.clearCookie('user_info');
+    
+    return res.json({ 
+      message: 'Successfully signed out from OAuth session' 
+    });
   }
 }

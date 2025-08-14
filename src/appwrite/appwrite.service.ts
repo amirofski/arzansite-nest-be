@@ -152,6 +152,27 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
+  async createOAuth2Session(provider: string, successUrl: string, failureUrl: string) {
+    try {
+      // For now, return a placeholder URL since OAuth2 methods may not be available in this SDK version
+      // This should be implemented when OAuth2 is properly configured in Appwrite
+      const baseUrl = this.config.endpoint.replace('/v1', '');
+      const redirectUrl = `${baseUrl}/v1/account/sessions/oauth2/callback/${provider}?success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
+      return redirectUrl;
+    } catch (error) {
+      throw new Error(`Failed to create OAuth2 session: ${error.message}`);
+    }
+  }
+
+  async createSessionFromOAuth(userId: string, secret: string) {
+    try {
+      const session = await this.account.createSession(userId, secret);
+      return session;
+    } catch (error) {
+      throw new Error(`Failed to create session from OAuth: ${error.message}`);
+    }
+  }
+
   async updateVerification(userId: string, secret: string) {
     try {
       // Use the service account to directly mark the user as verified

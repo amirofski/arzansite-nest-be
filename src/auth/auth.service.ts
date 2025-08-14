@@ -6,6 +6,7 @@ import { SignUpDto, SignInDto, LoginWithJwtDto, RefreshTokenDto } from './dto/au
 import { ProfilesService } from '../profiles/profiles.service';
 import * as jwt from 'jsonwebtoken';
 import { ID, Client, Account } from 'node-appwrite';
+import { Response } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -652,5 +653,171 @@ export class AuthService {
       id: userId,
       message: 'User profile endpoint. Implement additional profile fetching as needed.'
     };
+  }
+
+  async startOAuth(provider: string, successUrl: string, failureUrl: string) {
+    try {
+      console.log(`🚀 Starting OAuth flow for provider: ${provider}`);
+      
+      // Validate provider
+      const validProviders = ['github', 'google', 'facebook', 'discord', 'twitch'];
+      if (!validProviders.includes(provider.toLowerCase())) {
+        throw new BadRequestException(`Unsupported OAuth provider: ${provider}`);
+      }
+
+      // Validate URLs
+      if (!successUrl || !failureUrl) {
+        throw new BadRequestException('Success and failure URLs are required');
+      }
+
+      // Create OAuth2 session using Appwrite service
+      const redirectUrl = await this.appwriteService.createOAuth2Session(
+        provider,
+        successUrl,
+        failureUrl
+      );
+
+      console.log(`✅ OAuth flow initiated for ${provider}, redirect URL generated`);
+
+      return {
+        redirectUrl,
+        provider,
+        message: `Redirecting to ${provider} for authentication...`
+      };
+    } catch (error) {
+      console.error(`❌ Failed to start OAuth flow for ${provider}:`, error);
+      throw new BadRequestException(`Failed to start OAuth flow: ${error.message}`);
+    }
+  }
+
+  async handleOAuthCallback(userId: string, secret: string, res: Response) {
+    try {
+      console.log(`🔄 Handling OAuth callback for user: ${userId}`);
+      
+      if (!userId || !secret) {
+        console.error('❌ Missing userId or secret in OAuth callback');
+        return res.redirect(`${this.configService.get('FRONTEND_URL')}/auth/login?error=oauth_callback_failed`);
+      }
+
+      // Create session using Appwrite service
+      const session = await this.appwriteService.createSessionFromOAuth(userId, secret);
+      
+      // Get user information using the session secret
+      const user = await this.appwriteService.getCurrentUser(session.secret);
+      
+      console.log(`✅ OAuth session created for user: ${user.$id}`);
+
+      // Set HTTP-only cookie for session management
+      res.cookie('appwrite_session', session.secret, {
+        httpOnly: true,
+        secure: this.configService.get('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30 * 1000, // 30 days
+        domain: this.configService.get('NODE_ENV') === 'production' ? '.arzansite.com' : undefined,
+      });
+
+      // Set user info cookie (non-sensitive data)
+      res.cookie('user_info', JSON.stringify({
+        id: user.$id,
+        email: user.email,
+        name: user.name,
+        emailVerification: user.emailVerification,
+      }), {
+        httpOnly: false, // Allow frontend access
+        secure: this.configService.get('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30 * 1000, // 30 days
+        domain: this.configService.get('NODE_ENV') === 'production' ? '.arzansite.com' : undefined,
+      });
+
+      // Create profile if it doesn't exist
+      try {
+        await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+      } catch (profileError) {
+        console.warn('⚠️ Failed to create profile for OAuth user:', profileError);
+      }
+
+      // Redirect to frontend dashboard
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
+      console.log(`✅ Redirecting to frontend: ${frontendUrl}/dashboard`);
+      
+      return res.redirect(`${frontendUrl}/dashboard?oauth_success=true`);
+    } catch (error) {
+      console.error('❌ Failed to handle OAuth callback:', error);
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
+      return res.redirect(`${frontendUrl}/auth/login?error=oauth_callback_failed&message=${encodeURIComponent(error.message)}`);
+    }
+  }
+
+  async getOAuthProviders() {
+    try {
+      // Return list of available OAuth providers
+      // This could be made configurable via environment variables or database
+      const providers = [
+        {
+          name: 'github',
+          displayName: 'GitHub',
+          enabled: true,
+          description: 'Sign in with your GitHub account'
+        },
+        {
+          name: 'google',
+          displayName: 'Google',
+          enabled: true,
+          description: 'Sign in with your Google account'
+        },
+        {
+          name: 'facebook',
+          displayName: 'Facebook',
+          enabled: false, // Disabled by default
+          description: 'Sign in with your Facebook account'
+        },
+        {
+          name: 'discord',
+          displayName: 'Discord',
+          enabled: false, // Disabled by default
+          description: 'Sign in with your Discord account'
+        },
+        {
+          name: 'twitch',
+          displayName: 'Twitch',
+          enabled: false, // Disabled by default
+          description: 'Sign in with your Twitch account'
+        }
+      ];
+
+      return {
+        providers: providers.filter(p => p.enabled),
+        message: 'Available OAuth providers retrieved successfully'
+      };
+    } catch (error) {
+      console.error('❌ Failed to get OAuth providers:', error);
+      throw new BadRequestException('Failed to retrieve OAuth providers');
+    }
+  }
+
+  async getMeFromSession(sessionSecret: string) {
+    try {
+      if (!sessionSecret) {
+        throw new UnauthorizedException('No session provided');
+      }
+
+      // Get user info using Appwrite session
+      const user = await this.appwriteService.getCurrentUser(sessionSecret);
+      
+      return {
+        id: user.$id,
+        email: user.email,
+        name: user.name,
+        emailVerification: user.emailVerification,
+        $createdAt: user.$createdAt,
+        $updatedAt: user.$updatedAt,
+        prefs: user.prefs,
+        message: 'User information retrieved from OAuth session'
+      };
+    } catch (error) {
+      console.error('❌ Failed to get user from session:', error);
+      throw new UnauthorizedException('Invalid session or user not found');
+    }
   }
 }

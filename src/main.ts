@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import * as compression from 'compression';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -15,6 +16,7 @@ async function bootstrap() {
   // Security middleware
   app.use(helmet());
   app.use(compression());
+  app.use(cookieParser());
 
   // CORS configuration
   const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || [
@@ -108,7 +110,7 @@ For detailed endpoint information, see the sections below.
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     .addServer('http://localhost:3000', 'Local Development')
     .addServer('https://app.arzansite.com', 'Production')
-    .addTag('auth', '🔐 Authentication & User Management')
+    .addTag('auth', '🔐 Authentication & User Management (including OAuth)')
     .addTag('profiles', '👤 User Profiles')
     .addTag('orders', '📦 Order Management')
     .addTag('designs', '🎨 Design Management')
