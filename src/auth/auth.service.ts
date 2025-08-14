@@ -27,28 +27,18 @@ export class AuthService {
       try {
         console.log('🔧 Attempting to send verification email during signup...');
         
-        // Create a simple verification URL without using Appwrite's verification system
-        // This avoids the scope issues while still providing email verification
-        const verificationToken = this.generateVerificationToken();
-        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
+        // Use Appwrite's native verification system
+        console.log('🔧 Creating Appwrite verification email...');
         
-        console.log('🔗 Verification URL built:', verificationUrl);
-        
-        // Send confirmation email via custom SMTP
-        console.log('📧 Attempting to send email via EmailService...');
-        const emailSent = await this.emailService.sendConfirmationEmail(
-          signUpDto.email,
-          verificationUrl,
-          signUpDto.metadata?.name
-        );
-
-        console.log('📧 Email sending result:', emailSent);
-
-        if (emailSent) {
-          console.log('✅ Verification email sent successfully during signup');
+        try {
+          // Create verification using Appwrite's native system
+          const verification = await this.appwriteService.createVerificationWithUserSession(
+            signUpDto.email,
+            signUpDto.password,
+            `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email`
+          );
           
-          // Store the verification token in the database for later verification
-          await this.storeVerificationToken(created.$id, verificationToken);
+          console.log('✅ Appwrite verification email created successfully');
           
           return { 
             message: 'User created successfully. Please check your email to verify your account.',
@@ -59,10 +49,41 @@ export class AuthService {
               $createdAt: created.$createdAt
             },
             verificationEmailSent: true,
-            requiresFrontendVerification: false
+            requiresFrontendVerification: false,
+            verificationId: verification.$id
           };
-        } else {
-          console.log('❌ EmailService returned false - email not sent');
+        } catch (verificationError) {
+          console.error('❌ Failed to create Appwrite verification:', verificationError);
+          
+          // Fallback to custom verification system
+          const verificationToken = this.generateVerificationToken();
+          const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
+          
+          console.log('🔄 Falling back to custom verification system');
+          console.log('🔗 Verification URL built:', verificationUrl);
+          
+          const emailSent = await this.emailService.sendConfirmationEmail(
+            signUpDto.email,
+            verificationUrl,
+            signUpDto.metadata?.name
+          );
+
+          if (emailSent) {
+            console.log('✅ Custom verification email sent successfully');
+            await this.storeVerificationToken(created.$id, verificationToken);
+            
+            return { 
+              message: 'User created successfully. Please check your email to verify your account.',
+              user: {
+                id: created.$id,
+                email: created.email,
+                emailVerification: created.emailVerification,
+                $createdAt: created.$createdAt
+              },
+              verificationEmailSent: true,
+              requiresFrontendVerification: false
+            };
+          }
         }
       } catch (verificationError) {
         console.error('❌ Failed to send verification email during signup:', verificationError);
@@ -247,20 +268,49 @@ export class AuthService {
         }
       }
       
-      // Verify the token from our database
-      const isValidToken = await this.validateVerificationToken(targetUserId, token);
-      
-      if (!isValidToken) {
-        throw new BadRequestException('Invalid or expired verification token');
-      }
-
+      // First try to use Appwrite's native verification system
       try {
+        console.log('🔧 Attempting Appwrite native verification...');
+        const user = await this.appwriteService.updateVerification(targetUserId, token);
+        
+        console.log('✅ User email verification completed via Appwrite native system');
+        
+        // Send welcome email via custom SMTP
+        const welcomeEmailSent = await this.emailService.sendWelcomeEmail(
+          user.email,
+          user.name || user.email
+        );
+
+        if (!welcomeEmailSent) {
+          console.warn(`Failed to send welcome email to ${user.email}`);
+        }
+
+        return { 
+          message: 'Email verified successfully! Welcome email sent.',
+          user: {
+            id: user.$id,
+            email: user.email,
+            name: user.name,
+            emailVerification: user.emailVerification
+          },
+          welcomeEmailSent
+        };
+      } catch (appwriteError) {
+        console.log('⚠️ Appwrite native verification failed, trying custom system...');
+        
+        // Fallback to custom verification system
+        const isValidToken = await this.validateVerificationToken(targetUserId, token);
+        
+        if (!isValidToken) {
+          throw new BadRequestException('Invalid or expired verification token');
+        }
+
         // Mark the token as used
         await this.markVerificationTokenAsUsed(targetUserId, token);
         
         console.log('✅ User email verification completed via custom system');
         
-        // Get updated user details
+        // Get user details
         const user = await this.appwriteService.getUsers().get(targetUserId);
         
         // Send welcome email via custom SMTP
@@ -282,17 +332,6 @@ export class AuthService {
             emailVerification: true
           },
           welcomeEmailSent
-        };
-      } catch (updateError) {
-        console.error('Failed to update user verification status:', updateError);
-        // Still return success since the token was valid
-        return { 
-          message: 'Email verification token validated successfully!',
-          user: {
-            id: targetUserId,
-            emailVerification: true
-          },
-          welcomeEmailSent: false
         };
       }
     } catch (error) {
@@ -394,6 +433,17 @@ export class AuthService {
 
   private async checkUserVerificationStatus(userId: string): Promise<boolean> {
     try {
+      // First check Appwrite's native email verification status
+      try {
+        const user = await this.appwriteService.getUsers().get(userId);
+        if (user.emailVerification) {
+          return true;
+        }
+      } catch (appwriteError) {
+        console.warn('Failed to check Appwrite verification status:', appwriteError);
+      }
+
+      // Fallback: Check if user has any used verification tokens in our database
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
       
@@ -402,7 +452,6 @@ export class AuthService {
         return false;
       }
 
-      // Check if user has any used verification tokens (indicating they completed verification)
       const { Query } = await import('node-appwrite');
       const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
         databaseId,

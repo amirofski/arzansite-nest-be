@@ -152,6 +152,24 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
+  async updateVerification(userId: string, secret: string) {
+    try {
+      // Create a new client instance with the service account
+      const serviceClient = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setKey(this.config.apiKey);
+
+      const serviceUsers = new Users(serviceClient);
+
+      // Update the user's email verification status to true
+      const user = await serviceUsers.updateEmailVerification(userId, true);
+      return user;
+    } catch (error) {
+      throw new Error(`Failed to update email verification: ${error.message}`);
+    }
+  }
+
   // Database methods
   async createDocument(collectionId: string, data: any, documentId?: string) {
     try {
