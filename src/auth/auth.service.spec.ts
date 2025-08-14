@@ -22,6 +22,7 @@ describe("AuthService", () => {
     deleteSession: jest.fn(),
     createVerificationWithUserSession: jest.fn(),
     createRecoveryWithUserSession: jest.fn(),
+    updateVerification: jest.fn(),
     getDatabases: jest.fn(),
     createDocument: jest.fn(),
   };
@@ -219,6 +220,9 @@ describe("AuthService", () => {
       appwriteService.getUsers.mockReturnValue({
         get: jest.fn().mockResolvedValue(mockUser),
       } as any);
+      
+      appwriteService.updateVerification.mockResolvedValue(mockUser as any);
+      
       mockEmailService.sendWelcomeEmail.mockResolvedValue(true);
 
       const result = await service.verifyEmail(token, userId);

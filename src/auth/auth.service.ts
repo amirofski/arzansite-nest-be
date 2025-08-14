@@ -31,7 +31,7 @@ export class AuthService {
         console.log('🔧 Creating custom verification email...');
         
         const verificationToken = this.generateVerificationToken();
-        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
+        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify?token=${verificationToken}&userId=${created.$id}`;
         
         console.log('🔗 Verification URL built:', verificationUrl);
         
@@ -63,6 +63,19 @@ export class AuthService {
         console.error('❌ Failed to send verification email:', e);
         // Continue without verification email
       }
+      
+      // Return success response even if email sending failed
+      return { 
+        message: 'User created successfully. Please sign in to verify your email.',
+        user: {
+          id: created.$id,
+          email: created.email,
+          emailVerification: created.emailVerification,
+          $createdAt: created.$createdAt
+        },
+        verificationEmailSent: false,
+        requiresFrontendVerification: true
+      };
     } catch (e: any) {
       throw new BadRequestException(e?.message || 'Failed to create user');
     }
@@ -232,7 +245,7 @@ export class AuthService {
     const token = verification.$id; // This is the verification token
     
     // Return the frontend URL with token and user ID as query parameters
-    return `${frontendUrl}/verify-email?token=${token}&userId=${userId}`;
+    return `${frontendUrl}/auth/verify?token=${token}&userId=${userId}`;
   }
 
   async verifyEmail(token: string, userId?: string) {
@@ -247,12 +260,38 @@ export class AuthService {
         }
       }
       
-      // First try to use Appwrite's native verification system
+      // Validate the token using our custom system
+      const tokenValidation = await this.validateVerificationToken(targetUserId, token);
+      
+      if (!tokenValidation.isValid) {
+        let errorMessage = 'Invalid verification token';
+        
+        switch (tokenValidation.reason) {
+          case 'Token already used':
+            errorMessage = 'This verification link has already been used. Please request a new verification email.';
+            break;
+          case 'Token expired':
+            errorMessage = 'This verification link has expired. Please request a new verification email.';
+            break;
+          case 'Token not found':
+            errorMessage = 'Invalid verification link. Please check your email and try again.';
+            break;
+          default:
+            errorMessage = 'Invalid or expired verification token';
+        }
+        
+        throw new BadRequestException(errorMessage);
+      }
+
+      // Mark the token as used in our custom system
+      await this.markVerificationTokenAsUsed(targetUserId, token);
+      
+      // Update the user's verification status in Appwrite using service account
       try {
-        console.log('🔧 Attempting Appwrite native verification...');
+        console.log('🔧 Updating user verification status in Appwrite...');
         const user = await this.appwriteService.updateVerification(targetUserId, token);
         
-        console.log('✅ User email verification completed via Appwrite native system');
+        console.log('✅ User email verification completed and Appwrite status updated');
         
         // Send welcome email via custom SMTP
         const welcomeEmailSent = await this.emailService.sendWelcomeEmail(
@@ -275,37 +314,10 @@ export class AuthService {
           welcomeEmailSent
         };
       } catch (appwriteError) {
-        console.log('⚠️ Appwrite native verification failed, trying custom system...');
+        console.error('❌ Failed to update Appwrite verification status:', appwriteError);
         
-        // Fallback to custom verification system
-        const tokenValidation = await this.validateVerificationToken(targetUserId, token);
-        
-        if (!tokenValidation.isValid) {
-          let errorMessage = 'Invalid verification token';
-          
-          switch (tokenValidation.reason) {
-            case 'Token already used':
-              errorMessage = 'This verification link has already been used. Please request a new verification email.';
-              break;
-            case 'Token expired':
-              errorMessage = 'This verification link has expired. Please request a new verification email.';
-              break;
-            case 'Token not found':
-              errorMessage = 'Invalid verification link. Please check your email and try again.';
-              break;
-            default:
-              errorMessage = 'Invalid or expired verification token';
-          }
-          
-          throw new BadRequestException(errorMessage);
-        }
-
-        // Mark the token as used
-        await this.markVerificationTokenAsUsed(targetUserId, token);
-        
-        console.log('✅ User email verification completed via custom system');
-        
-        // Get user details
+        // Even if Appwrite update fails, the token was valid and marked as used
+        // Get user details and return success
         const user = await this.appwriteService.getUsers().get(targetUserId);
         
         // Send welcome email via custom SMTP
@@ -324,7 +336,7 @@ export class AuthService {
             id: user.$id,
             email: user.email,
             name: user.name,
-            emailVerification: true
+            emailVerification: true // Mark as verified since token was valid
           },
           welcomeEmailSent
         };
@@ -340,7 +352,7 @@ export class AuthService {
       // since the user might not remember their password
       const recovery = await this.appwriteService.getAccount().createRecovery(
         email,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/reset-password`
+        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/reset-password`
       );
       
       // Extract recovery URL from Appwrite response
@@ -372,7 +384,7 @@ export class AuthService {
       const verification = await this.appwriteService.createVerificationWithUserSession(
         email,
         password,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email`
+        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify`
       );
       
       // Extract verification URL from Appwrite response
@@ -470,7 +482,7 @@ export class AuthService {
     const token = recovery.$id; // This is the recovery token
     
     // Return the frontend URL with token and email as query parameters
-    return `${frontendUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+    return `${frontendUrl}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
   }
 
   async signIn(signInDto: SignInDto) {

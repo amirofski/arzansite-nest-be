@@ -154,17 +154,10 @@ export class AppwriteService implements OnModuleInit {
 
   async updateVerification(userId: string, secret: string) {
     try {
-      // Create a new client instance with the service account
-      const serviceClient = new Client()
-        .setEndpoint(this.config.endpoint)
-        .setProject(this.config.projectId)
-        .setKey(this.config.apiKey);
-
-      const serviceUsers = new Users(serviceClient);
-
-      // Update the user's email verification status to true
-      const user = await serviceUsers.updateEmailVerification(userId, true);
-      return user;
+      // Use the service account to directly mark the user as verified
+      // This bypasses token validation but ensures the user is marked as verified in Appwrite
+      const updatedUser = await this.users.updateEmailVerification(userId, true);
+      return updatedUser;
     } catch (error) {
       throw new Error(`Failed to update email verification: ${error.message}`);
     }
