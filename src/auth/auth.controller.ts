@@ -64,14 +64,22 @@ export class AuthController {
     return this.authService.signUp(signUpDto);
   }
 
-  @Post('verify')
+  @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Email verification',
     description: 'Verify user email address using verification token and send welcome email via custom SMTP',
   })
-  @ApiQuery({ name: 'token', description: 'Verification token from email', required: true })
-  @ApiQuery({ name: 'userId', description: 'User ID to verify', required: true })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: { type: 'string', description: 'Verification token from email' },
+        userId: { type: 'string', description: 'User ID to verify' },
+      },
+      required: ['token'],
+    },
+  })
   @ApiResponse({
     status: 200,
     description: 'Email verified successfully',
@@ -97,10 +105,9 @@ export class AuthController {
     description: 'Bad request - invalid or expired verification token',
   })
   async verifyEmail(
-    @Query('token') token: string,
-    @Query('userId') userId?: string,
+    @Body() body: { token: string; userId?: string },
   ) {
-    return this.authService.verifyEmail(token, userId);
+    return this.authService.verifyEmail(body.token, body.userId);
   }
 
   @Post('password-reset')
