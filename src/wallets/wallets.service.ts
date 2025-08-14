@@ -56,7 +56,21 @@ export class WalletsService {
       Query.limit(limit),
       Query.offset(offset),
     ]);
-    return (result.documents as any) || [];
+    
+    // Parse metadata from JSON string back to object
+    const transactions = (result.documents as any[]).map(transaction => {
+      if (transaction.metadata && typeof transaction.metadata === 'string') {
+        try {
+          transaction.metadata = JSON.parse(transaction.metadata);
+        } catch (error) {
+          console.warn('Failed to parse transaction metadata:', error);
+          transaction.metadata = null;
+        }
+      }
+      return transaction;
+    });
+    
+    return transactions || [];
   }
 
   async createTransaction(
@@ -65,6 +79,21 @@ export class WalletsService {
   ): Promise<{ transactionId: string }> {
     // Ensure wallet exists
     await this.getWallet(userId);
+
+    // Validate minimum amount for deposits
+    if (createTransactionDto.type === TransactionType.CREDIT || createTransactionDto.type === TransactionType.DEPOSIT) {
+      if (createTransactionDto.amount < 1000000) {
+        throw new Error('Minimum deposit amount is 1,000,000 Rials (10,000 Tomans)');
+      }
+    }
+
+    // Validate metadata size
+    if (createTransactionDto.metadata) {
+      const metadataString = JSON.stringify(createTransactionDto.metadata);
+      if (metadataString.length > 8192) {
+        throw new Error('Metadata too large. Maximum size is 8192 characters when stringified.');
+      }
+    }
 
     // Manual process: create transaction and update wallet balance
     const databases = this.appwriteService.getDatabases();
@@ -94,7 +123,7 @@ export class WalletsService {
       description: createTransactionDto.description,
       reference_id: createTransactionDto.referenceId,
       reference_type: createTransactionDto.referenceType,
-      metadata: createTransactionDto.metadata,
+      metadata: createTransactionDto.metadata ? JSON.stringify(createTransactionDto.metadata) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as any);

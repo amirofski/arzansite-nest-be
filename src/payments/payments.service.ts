@@ -31,8 +31,13 @@ export class PaymentsService {
     userId: string,
     paymentRequestDto: PaymentRequestDto,
   ): Promise<{ success: boolean; authority: string; paymentUrl: string }> {
-    // Verify order ownership
-    const order = await this.ordersService.getOrder(paymentRequestDto.orderId, userId);
+    // Check if this is a wallet deposit (orderId starts with 'deposit_')
+    const isWalletDeposit = paymentRequestDto.orderId.startsWith('deposit_');
+    
+    if (!isWalletDeposit) {
+      // Verify order ownership for regular orders
+      const order = await this.ordersService.getOrder(paymentRequestDto.orderId, userId);
+    }
 
     // Create Zarinpal payment request
     const zarinpalRequest = {
@@ -52,12 +57,14 @@ export class PaymentsService {
       const { data } = response.data;
 
       if (data.code === 100) {
-        // Update order with authority
-        await this.ordersService.updateOrderPaymentStatus(
-          paymentRequestDto.orderId,
-          'pending',
-          data.authority,
-        );
+        // Update order with authority (only for regular orders)
+        if (!isWalletDeposit) {
+          await this.ordersService.updateOrderPaymentStatus(
+            paymentRequestDto.orderId,
+            'pending',
+            data.authority,
+          );
+        }
 
         // Log payment transaction
         await this.logPaymentTransaction({
@@ -87,11 +94,29 @@ export class PaymentsService {
     userId: string,
     paymentVerifyDto: PaymentVerifyDto,
   ): Promise<{ success: boolean; refId: string; amount: number }> {
-    // Verify order ownership
-    const order = await this.ordersService.getOrder(paymentVerifyDto.orderId, userId);
+    // Check if this is a wallet deposit
+    const isWalletDeposit = paymentVerifyDto.orderId.startsWith('deposit_');
+    
+    let orderAmount = 0;
+    
+    if (!isWalletDeposit) {
+      // Verify order ownership for regular orders
+      const order = await this.ordersService.getOrder(paymentVerifyDto.orderId, userId);
 
-    if (order.payment_status === 'paid') {
-      throw new BadRequestException('Payment already verified');
+      if (order.payment_status === 'paid') {
+        throw new BadRequestException('Payment already verified');
+      }
+      
+      orderAmount = order.price;
+    } else {
+      // For wallet deposits, extract amount from orderId
+      // Format: deposit_userId_timestamp_amount
+      const parts = paymentVerifyDto.orderId.split('_');
+      if (parts.length >= 4) {
+        orderAmount = parseInt(parts[3]);
+      } else {
+        throw new BadRequestException('Invalid wallet deposit order ID format');
+      }
     }
 
     // Verify with Zarinpal
@@ -99,7 +124,7 @@ export class PaymentsService {
     const verifyRequest = {
       merchant_id: this.merchantId,
       authority: paymentVerifyDto.authority,
-      amount: order.price,
+      amount: orderAmount,
     };
 
     try {
@@ -107,13 +132,15 @@ export class PaymentsService {
       const { data } = response.data;
 
       if (data.code === 100) {
-        // Update order payment status
-        await this.ordersService.updateOrderPaymentStatus(
-          paymentVerifyDto.orderId,
-          'paid',
-          paymentVerifyDto.authority,
-          data.ref_id,
-        );
+        // Update order payment status (only for regular orders)
+        if (!isWalletDeposit) {
+          await this.ordersService.updateOrderPaymentStatus(
+            paymentVerifyDto.orderId,
+            'paid',
+            paymentVerifyDto.authority,
+            data.ref_id,
+          );
+        }
 
         // Log payment transaction
         await this.logPaymentTransaction({

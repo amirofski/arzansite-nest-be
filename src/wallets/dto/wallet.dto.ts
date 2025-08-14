@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsObject, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsObject, IsEnum, Min } from 'class-validator';
 
 export enum TransactionType {
   DEPOSIT = 'deposit',
@@ -21,6 +21,7 @@ export class CreateTransactionDto {
   type: TransactionType;
 
   @IsNumber()
+  @Min(1000000, { message: 'Minimum amount is 1,000,000 Rials (10,000 Tomans)' })
   amount: number;
 
   @IsOptional()
@@ -37,7 +38,7 @@ export class CreateTransactionDto {
 
   @IsOptional()
   @IsObject()
-  metadata?: any;
+  metadata?: Record<string, any>;
 }
 
 export class RefundOrderDto {
