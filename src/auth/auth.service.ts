@@ -1,8 +1,9 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { EmailService } from '../email/email.service';
-import { SignUpDto, SignInDto, RefreshTokenDto, LoginWithJwtDto } from './dto/auth.dto';
-import { ConfigService } from '@nestjs/config';
+import { SignUpDto, SignInDto, LoginWithJwtDto, RefreshTokenDto } from './dto/auth.dto';
+import { ProfilesService } from '../profiles/profiles.service';
 import * as jwt from 'jsonwebtoken';
 import { ID, Client, Account } from 'node-appwrite';
 
@@ -12,6 +13,7 @@ export class AuthService {
     private appwriteService: AppwriteService,
     private emailService: EmailService,
     private configService: ConfigService,
+    private profilesService: ProfilesService,
   ) {}
 
   async signUp(signUpDto: SignUpDto) {
@@ -22,6 +24,9 @@ export class AuthService {
         signUpDto.password,
         signUpDto.metadata?.name
       );
+
+      // Create profile for the new user
+      await this.profilesService.createProfileIfNotExists(created.$id, signUpDto.email);
 
       // Try to send verification email immediately after user creation
       try {
@@ -293,6 +298,9 @@ export class AuthService {
         
         console.log('✅ User email verification completed and Appwrite status updated');
         
+        // Ensure profile exists after verification
+        await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+        
         // Send welcome email via custom SMTP
         const welcomeEmailSent = await this.emailService.sendWelcomeEmail(
           user.email,
@@ -319,6 +327,9 @@ export class AuthService {
         // Even if Appwrite update fails, the token was valid and marked as used
         // Get user details and return success
         const user = await this.appwriteService.getUsers().get(targetUserId);
+        
+        // Ensure profile exists after verification
+        await this.profilesService.createProfileIfNotExists(user.$id, user.email);
         
         // Send welcome email via custom SMTP
         const welcomeEmailSent = await this.emailService.sendWelcomeEmail(
@@ -527,6 +538,9 @@ export class AuthService {
         // Return error indicating email needs verification
         throw new UnauthorizedException('Please verify your email before logging in. Check your inbox for the verification email.');
       }
+
+      // Create profile if it doesn't exist
+      await this.profilesService.createProfileIfNotExists(session.userId, signInDto.email);
 
       // Issue backend JWT for backend operations
       const payload = { 
