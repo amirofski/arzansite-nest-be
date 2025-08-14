@@ -27,18 +27,23 @@ export class AuthService {
       try {
         console.log('🔧 Attempting to send verification email during signup...');
         
-        // Use Appwrite's native verification system
-        console.log('🔧 Creating Appwrite verification email...');
+        // Use custom verification system (Appwrite native verification requires user session)
+        console.log('🔧 Creating custom verification email...');
         
-        try {
-          // Create verification using Appwrite's native system
-          const verification = await this.appwriteService.createVerificationWithUserSession(
-            signUpDto.email,
-            signUpDto.password,
-            `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email`
-          );
-          
-          console.log('✅ Appwrite verification email created successfully');
+        const verificationToken = this.generateVerificationToken();
+        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
+        
+        console.log('🔗 Verification URL built:', verificationUrl);
+        
+        const emailSent = await this.emailService.sendConfirmationEmail(
+          signUpDto.email,
+          verificationUrl,
+          signUpDto.metadata?.name
+        );
+
+        if (emailSent) {
+          console.log('✅ Custom verification email sent successfully');
+          await this.storeVerificationToken(created.$id, verificationToken);
           
           return { 
             message: 'User created successfully. Please check your email to verify your account.',
@@ -49,64 +54,15 @@ export class AuthService {
               $createdAt: created.$createdAt
             },
             verificationEmailSent: true,
-            requiresFrontendVerification: false,
-            verificationId: verification.$id
+            requiresFrontendVerification: false
           };
-        } catch (verificationError) {
-          console.error('❌ Failed to create Appwrite verification:', verificationError);
-          
-          // Fallback to custom verification system
-          const verificationToken = this.generateVerificationToken();
-          const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
-          
-          console.log('🔄 Falling back to custom verification system');
-          console.log('🔗 Verification URL built:', verificationUrl);
-          
-          const emailSent = await this.emailService.sendConfirmationEmail(
-            signUpDto.email,
-            verificationUrl,
-            signUpDto.metadata?.name
-          );
-
-          if (emailSent) {
-            console.log('✅ Custom verification email sent successfully');
-            await this.storeVerificationToken(created.$id, verificationToken);
-            
-            return { 
-              message: 'User created successfully. Please check your email to verify your account.',
-              user: {
-                id: created.$id,
-                email: created.email,
-                emailVerification: created.emailVerification,
-                $createdAt: created.$createdAt
-              },
-              verificationEmailSent: true,
-              requiresFrontendVerification: false
-            };
-          }
+        } else {
+          console.log('❌ EmailService returned false - email not sent');
         }
-      } catch (verificationError) {
-        console.error('❌ Failed to send verification email during signup:', verificationError);
-        console.error('❌ Error details:', {
-          message: verificationError.message,
-          stack: verificationError.stack,
-          name: verificationError.name
-        });
-        // Continue with fallback response
+      } catch (e: any) {
+        console.error('❌ Failed to send verification email:', e);
+        // Continue without verification email
       }
-
-      // Fallback: Return success but indicate verification email needs to be requested
-      return { 
-        message: 'User created successfully. Please sign in to verify your email.',
-        user: {
-          id: created.$id,
-          email: created.email,
-          emailVerification: created.emailVerification,
-          $createdAt: created.$createdAt
-        },
-        verificationEmailSent: false,
-        requiresFrontendVerification: true
-      };
     } catch (e: any) {
       throw new BadRequestException(e?.message || 'Failed to create user');
     }
@@ -160,14 +116,24 @@ export class AuthService {
         databaseId,
         collectionId,
         [
-          Query.equal('token', token),
-          Query.equal('used', false),
-          Query.greaterThan('expiresAt', new Date().toISOString())
+          Query.equal('token', token)
         ]
       );
 
       if (documents.documents.length > 0) {
-        return documents.documents[0].userId;
+        const tokenDoc = documents.documents[0];
+        
+        // Check if token is already used
+        if (tokenDoc.used === true) {
+          return null; // Token already used
+        }
+
+        // Check if token is expired
+        if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) <= new Date()) {
+          return null; // Token expired
+        }
+
+        return tokenDoc.userId;
       }
       
       return null;
@@ -177,14 +143,14 @@ export class AuthService {
     }
   }
 
-  private async validateVerificationToken(userId: string, token: string): Promise<boolean> {
+  private async validateVerificationToken(userId: string, token: string): Promise<{ isValid: boolean; reason?: string }> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
       
       if (!databaseId || !collectionId) {
         console.warn('Email verification validation skipped: Missing database configuration');
-        return false;
+        return { isValid: false, reason: 'Configuration error' };
       }
 
       // Query for the token
@@ -194,17 +160,30 @@ export class AuthService {
         collectionId,
         [
           Query.equal('userId', userId),
-          Query.equal('token', token),
-          Query.equal('used', false),
-          Query.greaterThan('expiresAt', new Date().toISOString())
+          Query.equal('token', token)
         ]
       );
 
-      return documents.documents.length > 0;
+      if (documents.documents.length === 0) {
+        return { isValid: false, reason: 'Token not found' };
+      }
+
+      const tokenDoc = documents.documents[0];
+      
+      // Check if token is already used
+      if (tokenDoc.used === true) {
+        return { isValid: false, reason: 'Token already used' };
+      }
+
+      // Check if token is expired
+      if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) <= new Date()) {
+        return { isValid: false, reason: 'Token expired' };
+      }
+
+      return { isValid: true };
     } catch (error) {
       console.error('❌ Failed to validate verification token:', error);
-      return false;
-      return false;
+      return { isValid: false, reason: 'Validation error' };
     }
   }
 
@@ -299,10 +278,26 @@ export class AuthService {
         console.log('⚠️ Appwrite native verification failed, trying custom system...');
         
         // Fallback to custom verification system
-        const isValidToken = await this.validateVerificationToken(targetUserId, token);
+        const tokenValidation = await this.validateVerificationToken(targetUserId, token);
         
-        if (!isValidToken) {
-          throw new BadRequestException('Invalid or expired verification token');
+        if (!tokenValidation.isValid) {
+          let errorMessage = 'Invalid verification token';
+          
+          switch (tokenValidation.reason) {
+            case 'Token already used':
+              errorMessage = 'This verification link has already been used. Please request a new verification email.';
+              break;
+            case 'Token expired':
+              errorMessage = 'This verification link has expired. Please request a new verification email.';
+              break;
+            case 'Token not found':
+              errorMessage = 'Invalid verification link. Please check your email and try again.';
+              break;
+            default:
+              errorMessage = 'Invalid or expired verification token';
+          }
+          
+          throw new BadRequestException(errorMessage);
         }
 
         // Mark the token as used

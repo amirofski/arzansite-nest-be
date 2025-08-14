@@ -170,6 +170,8 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
+
+
   // Database methods
   async createDocument(collectionId: string, data: any, documentId?: string) {
     try {
