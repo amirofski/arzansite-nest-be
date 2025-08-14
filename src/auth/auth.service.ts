@@ -187,38 +187,7 @@ export class AuthService {
     }
   }
 
-  private async storeUserVerificationStatus(userId: string, isVerified: boolean): Promise<void> {
-    try {
-      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
-      
-      if (!databaseId || !collectionId) {
-        console.warn('User verification status storage skipped: Missing database configuration');
-        return;
-      }
 
-      // Create a verification status document for this user
-      // We'll use the existing collection structure but add verification status
-      await this.appwriteService.getDatabases().createDocument(
-        databaseId,
-        collectionId,
-        ID.unique(),
-        {
-          userId,
-          token: `verified_${Date.now()}`, // Dummy token for verification status
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
-          used: true,
-          createdAt: new Date().toISOString(),
-          verificationStatus: 'completed' // Custom field to track verification
-        }
-      );
-      
-      console.log(`✅ User verification status stored: ${isVerified}`);
-    } catch (error) {
-      console.error('❌ Failed to store user verification status:', error);
-      // Don't throw error, just log it
-    }
-  }
 
   private async markVerificationTokenAsUsed(userId: string, token: string): Promise<void> {
     try {
@@ -288,9 +257,6 @@ export class AuthService {
       try {
         // Mark the token as used
         await this.markVerificationTokenAsUsed(targetUserId, token);
-        
-        // Store the user's verification status in our database
-        await this.storeUserVerificationStatus(targetUserId, true);
         
         console.log('✅ User email verification completed via custom system');
         
@@ -436,22 +402,8 @@ export class AuthService {
         return false;
       }
 
-      // First check if user has explicit verification status
+      // Check if user has any used verification tokens (indicating they completed verification)
       const { Query } = await import('node-appwrite');
-      const verificationDocs = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [
-          Query.equal('userId', userId),
-          Query.equal('verificationStatus', 'completed')
-        ]
-      );
-
-      if (verificationDocs.documents.length > 0) {
-        return true;
-      }
-
-      // Fallback: Check if user has any used verification tokens (indicating they completed verification)
       const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
         databaseId,
         collectionId,
