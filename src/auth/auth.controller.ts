@@ -32,33 +32,85 @@ export class AuthController {
 
   @Post('signup')
   @ApiOperation({
-    summary: 'User registration',
-    description: 'Create a new user account, generate verification link, and send confirmation email via custom SMTP',
+    summary: '🔐 User Registration',
+    description: 'Create a new user account with email verification. The system will automatically send a verification email to the provided email address.',
   })
-  @ApiBody({ type: SignUpDto })
+  @ApiBody({ 
+    type: SignUpDto,
+    description: 'User registration information including email, password, and optional metadata'
+  })
   @ApiResponse({
     status: 201,
-    description: 'User created successfully',
+    description: '✅ User created successfully',
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'User created successfully. Please check your email to verify your account.' },
+        message: { 
+          type: 'string', 
+          example: 'User created successfully. Please check your email to verify your account.',
+          description: 'Success message with next steps'
+        },
         user: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'uuid' },
-            email: { type: 'string', example: 'user@example.com' },
-            emailVerification: { type: 'boolean' },
-            $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            id: { 
+              type: 'string', 
+              example: '64f8a1b2c3d4e5f6a7b8c9d0',
+              description: 'Unique user identifier'
+            },
+            email: { 
+              type: 'string', 
+              example: 'user@example.com',
+              description: 'User email address'
+            },
+            emailVerification: { 
+              type: 'boolean',
+              example: false,
+              description: 'Email verification status'
+            },
+            $createdAt: { 
+              type: 'string', 
+              example: '2024-01-01T00:00:00.000Z',
+              description: 'Account creation timestamp'
+            },
           },
         },
-        verificationEmailSent: { type: 'boolean', example: true },
+        verificationEmailSent: { 
+          type: 'boolean', 
+          example: true,
+          description: 'Whether verification email was sent successfully'
+        },
+        requiresFrontendVerification: { 
+          type: 'boolean', 
+          example: false,
+          description: 'Whether frontend needs to handle verification'
+        },
       },
     },
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - validation error or user already exists',
+    description: '❌ Bad request - validation error or user already exists',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: { type: 'string', example: 'User with this email already exists' },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: '❌ Internal server error',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 500 },
+        message: { type: 'string', example: 'Failed to create user' },
+        error: { type: 'string', example: 'Internal Server Error' },
+      },
+    },
   })
   async signUp(@Body() signUpDto: SignUpDto) {
     return this.authService.signUp(signUpDto);
@@ -67,42 +119,87 @@ export class AuthController {
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Email verification',
-    description: 'Verify user email address using verification token and send welcome email via custom SMTP',
+    summary: '✅ Email Verification',
+    description: 'Verify user email address using verification token from email. Sends welcome email upon successful verification.',
   })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        token: { type: 'string', description: 'Verification token from email' },
-        userId: { type: 'string', description: 'User ID to verify' },
+        token: { 
+          type: 'string', 
+          description: 'Verification token from email link',
+          example: '64f8a1b2c3d4e5f6a7b8c9d0'
+        },
+        userId: { 
+          type: 'string', 
+          description: 'User ID to verify (optional, will be extracted from token if not provided)',
+          example: '64f8a1b2c3d4e5f6a7b8c9d0'
+        },
       },
       required: ['token'],
     },
+    description: 'Email verification request with token and optional user ID'
   })
   @ApiResponse({
     status: 200,
-    description: 'Email verified successfully',
+    description: '✅ Email verified successfully',
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Email verified successfully! Welcome email sent.' },
+        message: { 
+          type: 'string', 
+          example: 'Email verified successfully! Welcome email sent.',
+          description: 'Success message'
+        },
         user: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'uuid' },
-            email: { type: 'string', example: 'user@example.com' },
-            name: { type: 'string', example: 'John Doe' },
-            emailVerification: { type: 'boolean', example: true },
+            id: { 
+              type: 'string', 
+              example: '64f8a1b2c3d4e5f6a7b8c9d0',
+              description: 'User ID'
+            },
+            email: { 
+              type: 'string', 
+              example: 'user@example.com',
+              description: 'User email address'
+            },
+            name: { 
+              type: 'string', 
+              example: 'John Doe',
+              description: 'User name from metadata'
+            },
+            emailVerification: { 
+              type: 'boolean', 
+              example: true,
+              description: 'Email verification status (should be true)'
+            },
           },
         },
-        welcomeEmailSent: { type: 'boolean', example: true },
+        welcomeEmailSent: { 
+          type: 'boolean', 
+          example: true,
+          description: 'Whether welcome email was sent successfully'
+        },
       },
     },
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - invalid or expired verification token',
+    description: '❌ Bad request - invalid or expired verification token',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: { 
+          type: 'string', 
+          example: 'This verification link has already been used. Please request a new verification email.',
+          description: 'Error message explaining the issue'
+        },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
   })
   async verifyEmail(
     @Body() body: { token: string; userId?: string },
@@ -113,32 +210,57 @@ export class AuthController {
   @Post('password-reset')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Request password reset',
-    description: 'Generate password recovery link and send reset email via custom SMTP',
+    summary: '🔑 Password Reset',
+    description: 'Request password reset for a user account. Sends a password reset email with recovery link.',
   })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        email: { type: 'string', example: 'user@example.com' },
+        email: { 
+          type: 'string', 
+          example: 'user@example.com',
+          description: 'Email address of the account requesting password reset'
+        },
       },
       required: ['email'],
     },
+    description: 'Password reset request with user email'
   })
   @ApiResponse({
     status: 200,
-    description: 'Password reset email sent successfully',
+    description: '✅ Password reset email sent successfully',
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Password reset email sent successfully. Please check your email.' },
-        emailSent: { type: 'boolean', example: true },
+        message: { 
+          type: 'string', 
+          example: 'Password reset email sent successfully. Please check your email.',
+          description: 'Success message with next steps'
+        },
+        emailSent: { 
+          type: 'boolean', 
+          example: true,
+          description: 'Whether password reset email was sent successfully'
+        },
       },
     },
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - email not found or failed to send email',
+    description: '❌ Bad request - email not found or failed to send email',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: { 
+          type: 'string', 
+          example: 'Failed to send password reset email',
+          description: 'Error message'
+        },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
   })
   async sendPasswordReset(@Body() body: { email: string }) {
     return this.authService.sendPasswordReset(body.email);
@@ -210,30 +332,77 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'User login',
-    description: 'Authenticate user with email and password',
+    summary: '🔑 User Login',
+    description: 'Authenticate user with email and password. Returns JWT tokens for API access. Note: Email must be verified before login.',
   })
-  @ApiBody({ type: SignInDto })
+  @ApiBody({ 
+    type: SignInDto,
+    description: 'User login credentials'
+  })
   @ApiResponse({
     status: 200,
-    description: 'Login successful',
+    description: '✅ Login successful',
     schema: {
       type: 'object',
       properties: {
-        access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
-        refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+        access_token: { 
+          type: 'string', 
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NGY4YTFiMmMzZDRlNWY2YTdiOGM5ZDAiLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJpYXQiOjE3MzQyNzI4MDAsImV4cCI6MTczNDI3NjQwMH0.example',
+          description: 'JWT access token for API authentication'
+        },
+        refresh_token: { 
+          type: 'string', 
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NGY4YTFiMmMzZDRlNWY2YTdiOGM5ZDAiLCJ0eXBlIjoicmVmcmVzaCIsImlhdCI6MTczNDI3MjgwMCwiZXhwIjoxNzM0ODc3NjAwfQ.example',
+          description: 'JWT refresh token for getting new access tokens'
+        },
         user: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'uuid' },
-            email: { type: 'string', example: 'user@example.com' },
+            id: { 
+              type: 'string', 
+              example: '64f8a1b2c3d4e5f6a7b8c9d0',
+              description: 'User ID'
+            },
+            email: { 
+              type: 'string', 
+              example: 'user@example.com',
+              description: 'User email address'
+            },
+            emailVerified: { 
+              type: 'boolean',
+              example: true,
+              description: 'Email verification status'
+            },
           },
         },
         session: {
           type: 'object',
           properties: {
-            $id: { type: 'string', example: 'session_id' },
-            userId: { type: 'string', example: 'user_id' },
+            $id: { 
+              type: 'string', 
+              example: '64f8a1b2c3d4e5f6a7b8c9d0',
+              description: 'Appwrite session ID'
+            },
+            userId: { 
+              type: 'string', 
+              example: '64f8a1b2c3d4e5f6a7b8c9d0',
+              description: 'User ID associated with session'
+            },
+          },
+        },
+        redirect: {
+          type: 'object',
+          properties: {
+            url: { 
+              type: 'string', 
+              example: '/dashboard',
+              description: 'Redirect URL after successful login'
+            },
+            message: { 
+              type: 'string', 
+              example: 'Login successful! Redirecting to dashboard...',
+              description: 'Success message for user'
+            },
           },
         },
       },
@@ -241,7 +410,27 @@ export class AuthController {
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - invalid credentials',
+    description: '❌ Unauthorized - invalid credentials or email not verified',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 401 },
+        message: { type: 'string', example: 'Please verify your email before logging in. Check your inbox for the verification email.' },
+        error: { type: 'string', example: 'Unauthorized' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - validation error',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: { type: 'string', example: 'Invalid email format' },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
   })
   async signIn(@Body() signInDto: SignInDto) {
     return this.authService.signIn(signInDto);
@@ -283,22 +472,37 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Refresh access token',
-    description: 'Get new access token using refresh token',
+    summary: '🔄 Refresh Access Token',
+    description: 'Get a new access token using a valid refresh token. This endpoint is used to maintain user sessions without requiring re-authentication.',
   })
-  @ApiBody({ type: RefreshTokenDto })
+  @ApiBody({ 
+    type: RefreshTokenDto,
+    description: 'Refresh token request with current refresh token'
+  })
   @ApiResponse({
     status: 200,
-    description: 'Token refreshed successfully',
+    description: '✅ Token refreshed successfully',
     schema: {
       type: 'object',
       properties: {
-        access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+        access_token: { 
+          type: 'string', 
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NGY4YTFiMmMzZDRlNWY2YTdiOGM5ZDAiLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJpYXQiOjE3MzQyNzI4MDAsImV4cCI6MTczNDI3NjQwMH0.example',
+          description: 'New JWT access token'
+        },
         user: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'uuid' },
-            email: { type: 'string', example: 'user@example.com' },
+            id: { 
+              type: 'string', 
+              example: '64f8a1b2c3d4e5f6a7b8c9d0',
+              description: 'User ID'
+            },
+            email: { 
+              type: 'string', 
+              example: 'user@example.com',
+              description: 'User email address'
+            },
           },
         },
       },
@@ -306,7 +510,15 @@ export class AuthController {
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - invalid refresh token',
+    description: '❌ Unauthorized - invalid refresh token',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 401 },
+        message: { type: 'string', example: 'Invalid refresh token' },
+        error: { type: 'string', example: 'Unauthorized' },
+      },
+    },
   })
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto);
@@ -314,25 +526,37 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'User logout',
-    description: 'Sign out user and invalidate session',
+    summary: '🚪 User Logout',
+    description: 'Sign out user and invalidate session. This endpoint requires a valid JWT access token in the Authorization header.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Logout successful',
+    description: '✅ Logout successful',
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Successfully signed out' },
+        message: { 
+          type: 'string', 
+          example: 'Successfully signed out',
+          description: 'Success message'
+        },
       },
     },
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - invalid access token',
+    description: '❌ Unauthorized - invalid access token',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 401 },
+        message: { type: 'string', example: 'No access token provided' },
+        error: { type: 'string', example: 'Unauthorized' },
+      },
+    },
   })
   async signOut(@Request() req: any) {
     const authHeader = req.headers.authorization;
@@ -345,25 +569,41 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Get current user',
-    description: 'Get current user information',
+    summary: '👤 Get Current User',
+    description: 'Get information about the currently authenticated user. This endpoint requires a valid JWT access token.',
   })
   @ApiResponse({
     status: 200,
-    description: 'User information retrieved successfully',
+    description: '✅ User information retrieved successfully',
     schema: {
       type: 'object',
       properties: {
-        id: { type: 'string', example: 'uuid' },
-        message: { type: 'string', example: 'User profile endpoint. Implement additional profile fetching as needed.' },
+        id: { 
+          type: 'string', 
+          example: '64f8a1b2c3d4e5f6a7b8c9d0',
+          description: 'User ID'
+        },
+        message: { 
+          type: 'string', 
+          example: 'User profile endpoint. Implement additional profile fetching as needed.',
+          description: 'Information message'
+        },
       },
     },
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - invalid access token',
+    description: '❌ Unauthorized - invalid access token',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 401 },
+        message: { type: 'string', example: 'Invalid access token' },
+        error: { type: 'string', example: 'Unauthorized' },
+      },
+    },
   })
   async getMe(@User() user: UserPayload) {
     return this.authService.getMe(user.id);

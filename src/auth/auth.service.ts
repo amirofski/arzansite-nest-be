@@ -350,9 +350,16 @@ export class AuthService {
     try {
       // For password reset, we need to use the service account approach
       // since the user might not remember their password
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
+      
+      // Validate that the frontend URL is allowed by Appwrite
+      if (!frontendUrl.includes('localhost') && !frontendUrl.includes('app.arzansite.com')) {
+        throw new Error(`Invalid FRONTEND_URL: ${frontendUrl}. Appwrite only allows localhost or app.arzansite.com for password reset URLs.`);
+      }
+      
       const recovery = await this.appwriteService.getAccount().createRecovery(
         email,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/reset-password`
+        `${frontendUrl}/reset-password`
       );
       
       // Extract recovery URL from Appwrite response
@@ -373,6 +380,12 @@ export class AuthService {
         emailSent: true
       };
     } catch (error) {
+      // Provide more specific error messages
+      if (error.message.includes('Invalid `url` param')) {
+        throw new BadRequestException(
+          `Password reset URL validation failed. Please ensure FRONTEND_URL is set to localhost or app.arzansite.com. Current value: ${this.configService.get('FRONTEND_URL')}`
+        );
+      }
       throw new BadRequestException(`Failed to send password reset email: ${error.message}`);
     }
   }
@@ -381,10 +394,17 @@ export class AuthService {
     try {
       // This method is called after user login to request verification
       // It creates a session and then requests verification
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
+      
+      // Validate that the frontend URL is allowed by Appwrite
+      if (!frontendUrl.includes('localhost') && !frontendUrl.includes('app.arzansite.com')) {
+        throw new Error(`Invalid FRONTEND_URL: ${frontendUrl}. Appwrite only allows localhost or app.arzansite.com for verification URLs.`);
+      }
+      
       const verification = await this.appwriteService.createVerificationWithUserSession(
         email,
         password,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email`
+        `${frontendUrl}/verify-email`
       );
       
       // Extract verification URL from Appwrite response
@@ -406,6 +426,12 @@ export class AuthService {
         verificationEmailSent: true
       };
     } catch (error) {
+      // Provide more specific error messages
+      if (error.message.includes('Invalid `url` param')) {
+        throw new BadRequestException(
+          `Email verification URL validation failed. Please ensure FRONTEND_URL is set to localhost or app.arzansite.com. Current value: ${this.configService.get('FRONTEND_URL')}`
+        );
+      }
       throw new BadRequestException(`Failed to send verification email: ${error.message}`);
     }
   }
@@ -478,7 +504,7 @@ export class AuthService {
 
   private buildRecoveryUrl(recovery: any, email: string): string {
     // Appwrite returns a recovery object, we need to construct the full URL
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
     const token = recovery.$id; // This is the recovery token
     
     // Return the frontend URL with token and email as query parameters
