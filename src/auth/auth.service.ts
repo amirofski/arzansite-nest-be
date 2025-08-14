@@ -31,7 +31,7 @@ export class AuthService {
         console.log('🔧 Creating custom verification email...');
         
         const verificationToken = this.generateVerificationToken();
-        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify?token=${verificationToken}&userId=${created.$id}`;
+        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
         
         console.log('🔗 Verification URL built:', verificationUrl);
         
@@ -245,7 +245,7 @@ export class AuthService {
     const token = verification.$id; // This is the verification token
     
     // Return the frontend URL with token and user ID as query parameters
-    return `${frontendUrl}/auth/verify?token=${token}&userId=${userId}`;
+    return `${frontendUrl}/verify-email?token=${token}&userId=${userId}`;
   }
 
   async verifyEmail(token: string, userId?: string) {
@@ -352,7 +352,7 @@ export class AuthService {
       // since the user might not remember their password
       const recovery = await this.appwriteService.getAccount().createRecovery(
         email,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/reset-password`
+        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/reset-password`
       );
       
       // Extract recovery URL from Appwrite response
@@ -384,7 +384,7 @@ export class AuthService {
       const verification = await this.appwriteService.createVerificationWithUserSession(
         email,
         password,
-        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/auth/verify`
+        `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email`
       );
       
       // Extract verification URL from Appwrite response
@@ -482,7 +482,7 @@ export class AuthService {
     const token = recovery.$id; // This is the recovery token
     
     // Return the frontend URL with token and email as query parameters
-    return `${frontendUrl}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+    return `${frontendUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
   }
 
   async signIn(signInDto: SignInDto) {

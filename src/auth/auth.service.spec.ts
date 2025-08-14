@@ -303,7 +303,7 @@ describe("AuthService", () => {
       expect(appwriteService.createVerificationWithUserSession).toHaveBeenCalledWith(
         email,
         password,
-        "https://arzansite.com/auth/verify"
+        "https://arzansite.com/verify-email"
       );
       expect(result).toEqual({
         message: "Verification email sent successfully. Please check your email.",
@@ -626,7 +626,7 @@ describe("AuthService", () => {
       const buildVerificationUrl = (service as any).buildVerificationUrl.bind(service);
       const result = buildVerificationUrl(mockVerification, userId);
 
-      expect(result).toBe("https://arzansite.com/auth/verify?token=verification123&userId=user123");
+      expect(result).toBe("https://arzansite.com/verify-email?token=verification123&userId=user123");
     });
   });
 
@@ -639,7 +639,7 @@ describe("AuthService", () => {
       const buildRecoveryUrl = (service as any).buildRecoveryUrl.bind(service);
       const result = buildRecoveryUrl(mockRecovery, email);
 
-      expect(result).toBe("https://arzansite.com/auth/reset-password?token=recovery123&email=test%40example.com");
+      expect(result).toBe("https://arzansite.com/reset-password?token=recovery123&email=test%40example.com");
     });
   });
 });
