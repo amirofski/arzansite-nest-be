@@ -450,38 +450,70 @@ export class AuthService {
 
   async checkEmailVerificationStatus(email: string) {
     try {
+      console.log(`🔍 Checking email verification status for: ${email}`);
+      
       // Get user by email to check verification status
       const { Query } = await import('node-appwrite');
       const users = await this.appwriteService.getUsers().list([Query.equal('email', email)]);
       
       if (users.users.length === 0) {
+        console.log(`❌ User not found for email: ${email}`);
         throw new BadRequestException('User not found');
       }
 
       const user = users.users[0];
+      console.log(`🔍 Found user: ${user.$id}, Appwrite emailVerification: ${user.emailVerification}`);
       
       // Check if user has any valid verification tokens in our system
-      const hasValidVerification = await this.checkUserVerificationStatus(user.$id);
+      const hasValidVerification = await this.checkUserVerificationStatusInDatabase(user.$id);
+      console.log(`🔍 Database verification check result: ${hasValidVerification}`);
+      
+      const finalResult = hasValidVerification;
+      console.log(`🔍 Final verification result: ${finalResult}`);
       
       return {
         email: user.email,
-        emailVerified: hasValidVerification,
+        emailVerified: finalResult,
         userId: user.$id,
-        message: hasValidVerification 
+        message: finalResult 
           ? 'Email is verified. You can now log in.'
           : 'Email is not verified. Please check your inbox for verification email.'
       };
     } catch (error) {
+      console.error(`❌ Error checking email verification status: ${error.message}`);
       throw new BadRequestException(`Failed to check email verification status: ${error.message}`);
     }
   }
 
   private async checkUserVerificationStatus(userId: string): Promise<boolean> {
     try {
+      // Use the same logic as checkEmailVerificationStatus for consistency
+      const { Query } = await import('node-appwrite');
+      const users = await this.appwriteService.getUsers().list([Query.equal('$id', userId)]);
+      
+      if (users.users.length === 0) {
+        return false;
+      }
+
+      const user = users.users[0];
+      
+      // Check if user has any valid verification tokens in our system
+      const hasValidVerification = await this.checkUserVerificationStatusInDatabase(userId);
+      
+      return hasValidVerification;
+    } catch (error) {
+      console.error('❌ Failed to check user verification status:', error);
+      return false;
+    }
+  }
+
+  private async checkUserVerificationStatusInDatabase(userId: string): Promise<boolean> {
+    try {
       // First check Appwrite's native email verification status
       try {
         const user = await this.appwriteService.getUsers().get(userId);
         if (user.emailVerification) {
+          console.log(`✅ User ${userId} verified via Appwrite native verification`);
           return true;
         }
       } catch (appwriteError) {
@@ -497,19 +529,29 @@ export class AuthService {
         return false;
       }
 
-      const { Query } = await import('node-appwrite');
-      const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [
-          Query.equal('userId', userId),
-          Query.equal('used', true)
-        ]
-      );
+      try {
+        const { Query } = await import('node-appwrite');
+        const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
+          databaseId,
+          collectionId,
+          [
+            Query.equal('userId', userId),
+            Query.equal('used', true)
+          ]
+        );
 
-      return tokenDocs.documents.length > 0;
+        const hasTokens = tokenDocs.documents.length > 0;
+        if (hasTokens) {
+          console.log(`✅ User ${userId} verified via database tokens`);
+        }
+        return hasTokens;
+      } catch (dbError) {
+        console.warn(`⚠️ Database verification check failed for user ${userId}:`, dbError.message);
+        // If database check fails, we can't verify via tokens, but user might still be verified via Appwrite
+        return false;
+      }
     } catch (error) {
-      console.error('❌ Failed to check user verification status:', error);
+      console.error('❌ Failed to check user verification status in database:', error);
       return false;
     }
   }
@@ -533,12 +575,30 @@ export class AuthService {
       // Get user details to check email verification status
       const user = await this.appwriteService.getUsers().get(session.userId);
       
-      // Check if email is verified using our custom system
-      const isEmailVerified = await this.checkUserVerificationStatus(session.userId);
+      // Check if email is verified using the same logic as checkEmailVerificationStatus
+      console.log(`🔍 Checking email verification for user: ${session.userId}`);
+      let isEmailVerified = await this.checkUserVerificationStatus(session.userId);
+      console.log(`🔍 Email verification result: ${isEmailVerified}`);
+      
+      // If custom verification check fails, fallback to Appwrite's native verification
+      if (!isEmailVerified) {
+        console.log(`⚠️ Custom verification check failed, trying Appwrite native verification...`);
+        try {
+          const appwriteUser = await this.appwriteService.getUsers().get(session.userId);
+          isEmailVerified = appwriteUser.emailVerification;
+          console.log(`🔍 Appwrite native verification result: ${isEmailVerified}`);
+        } catch (fallbackError) {
+          console.warn(`⚠️ Fallback verification check failed:`, fallbackError.message);
+        }
+      }
+      
       if (!isEmailVerified) {
         // Return error indicating email needs verification
+        console.log(`❌ Email not verified for user: ${session.userId}`);
         throw new UnauthorizedException('Please verify your email before logging in. Check your inbox for the verification email.');
       }
+      
+      console.log(`✅ Email verified for user: ${session.userId}`);
 
       // Create profile if it doesn't exist
       await this.profilesService.createProfileIfNotExists(session.userId, signInDto.email);
