@@ -348,11 +348,17 @@ export class PaymentsService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
     const { ID } = await import('node-appwrite');
-    await databases.createDocument(databaseId, collectionId, ID.unique(), {
+    
+    // Stringify metadata and gateway_response for Appwrite storage
+    const processedData = {
       ...transactionData,
+      metadata: transactionData.metadata ? JSON.stringify(transactionData.metadata) : null,
+      gateway_response: transactionData.gateway_response ? JSON.stringify(transactionData.gateway_response) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    } as any);
+    };
+    
+    await databases.createDocument(databaseId, collectionId, ID.unique(), processedData as any);
   }
 
   /**

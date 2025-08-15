@@ -93,7 +93,7 @@ export class ZarinPalService {
       }
 
       this.logger.log(`Merchant ID: ${this.merchantId}`);
-      this.logger.log(`Amount: ${paymentData.amount}`);
+      this.logger.log(`Amount (Rials): ${paymentData.amount}`);
       this.logger.log(`Description: "${paymentData.description}"`);
       this.logger.log(`Callback URL: ${paymentData.callbackUrl}`);
 
@@ -103,11 +103,11 @@ export class ZarinPalService {
         throw new BadRequestException('Invalid merchant ID format');
       }
 
-      // Validate amount (minimum 1000 Rials)
-      this.logger.log(`Validating amount: ${paymentData.amount} (type: ${typeof paymentData.amount})`);
+      // Validate amount (minimum 1000 Rials = 100 Tomans)
+      this.logger.log(`Validating amount: ${paymentData.amount} Rials (type: ${typeof paymentData.amount})`);
       
       if (paymentData.amount < 1000) {
-        this.logger.error(`Amount ${paymentData.amount} is below minimum 1000`);
+        this.logger.error(`Amount ${paymentData.amount} Rials is below minimum 1000 Rials`);
         throw new BadRequestException('Minimum payment amount is 1,000 Rials');
       }
 
@@ -118,13 +118,16 @@ export class ZarinPalService {
       }
 
       // Check maximum amount (ZarinPal typically has limits)
-      // Updated for Iranian market - allow up to 1 billion Rials (1,000,000,000)
+      // Updated for Iranian market - allow up to 1 billion Rials (1,000,000,000) = 100 million Tomans
       if (paymentData.amount > 1000000000) {
-        this.logger.error(`Amount ${paymentData.amount} exceeds maximum 1000000000`);
+        this.logger.error(`Amount ${paymentData.amount} Rials exceeds maximum 1000000000 Rials`);
         throw new BadRequestException('Amount is too high (maximum 1,000,000,000 Rials)');
       }
       
-      this.logger.log(`Amount validation passed: ${paymentData.amount}`);
+      // Convert Rials to Tomans (1 Toman = 10 Rials)
+      const amountInTomans = Math.floor(paymentData.amount / 10);
+      this.logger.log(`Amount conversion: ${paymentData.amount} Rials → ${amountInTomans} Tomans`);
+      this.logger.log(`Amount validation passed: ${paymentData.amount} Rials (${amountInTomans} Tomans)`);
 
       // Validate callback URL format
       try {
@@ -182,16 +185,18 @@ export class ZarinPalService {
 
       const paymentRequest: ZarinPalPaymentRequest = {
         merchant_id: this.merchantId,
-        amount: paymentData.amount,
+        amount: amountInTomans, // Use amountInTomans for the request
+        currency: 'IRT', // Explicitly set to Iranian Tomans
         description: cleanDescription,
         callback_url: paymentData.callbackUrl,
         metadata: {},
       };
 
       // Only include currency if it's explicitly set and not 'IRR' (default)
-      if (paymentData.currency && paymentData.currency !== 'IRR') {
-        paymentRequest.currency = paymentData.currency;
-      }
+      // Since we're converting to Tomans, always use 'IRT'
+      // if (paymentData.currency && paymentData.currency !== 'IRR') {
+      //   paymentRequest.currency = paymentData.currency;
+      // }
 
       // Add optional metadata
       if (paymentData.mobile) {
@@ -251,18 +256,42 @@ export class ZarinPalService {
         }
       );
 
-      if (response.data.errors && response.data.errors.length > 0) {
-        this.logger.error('ZarinPal API error:', response.data.errors);
-        throw new BadRequestException(`Payment request failed: ${response.data.errors[0]?.message || 'Unknown error'}`);
+      this.logger.log(`ZarinPal response status: ${response.status}`);
+      this.logger.log(`ZarinPal response data: ${JSON.stringify(response.data, null, 2)}`);
+
+      // Robust response parsing
+      const responseData = response.data;
+      
+      // Check for errors array first
+      if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+        const errorMessage = responseData.errors[0]?.message || 'Unknown ZarinPal error';
+        this.logger.error('ZarinPal API error:', responseData.errors);
+        throw new BadRequestException(`Payment request failed: ${errorMessage}`);
       }
 
-      const result = response.data as ZarinPalPaymentResponse;
+      // Check for error field
+      if (responseData.error) {
+        const errorMessage = responseData.error || 'Unknown ZarinPal error';
+        this.logger.error('ZarinPal API error:', responseData.error);
+        throw new BadRequestException(`Payment request failed: ${errorMessage}`);
+      }
+
+      // Check for data structure
+      if (!responseData.data) {
+        this.logger.error('ZarinPal response missing data field:', responseData);
+        throw new BadRequestException('Invalid response from payment gateway');
+      }
+
+      const result = responseData as ZarinPalPaymentResponse;
       
+      // Check response code
       if (result.data.code === 100) {
         this.logger.log(`Payment request created successfully. Authority: ${result.data.authority}`);
         return result;
       } else {
-        throw new BadRequestException(`Payment request failed: ${result.data.message}`);
+        const errorMessage = result.data.message || 'Payment request failed';
+        this.logger.error(`ZarinPal payment failed with code ${result.data.code}: ${errorMessage}`);
+        throw new BadRequestException(`Payment request failed: ${errorMessage}`);
       }
 
     } catch (error) {
@@ -296,19 +325,23 @@ export class ZarinPalService {
   /**
    * Verify payment status
    */
-  async verifyPayment(authority: string, amount: number): Promise<ZarinPalVerifyResponse> {
+  async verifyPayment(authority: string, amountInRials: number): Promise<ZarinPalVerifyResponse> {
     try {
       if (!this.merchantId) {
         throw new BadRequestException('ZarinPal payment gateway not configured');
       }
 
+      // Convert Rials to Tomans for verification
+      const amountInTomans = Math.floor(amountInRials / 10);
+      
       const verifyRequest: ZarinPalVerifyRequest = {
         merchant_id: this.merchantId,
-        amount: amount,
+        amount: amountInTomans, // Use Tomans for verification
         authority: authority,
       };
 
       this.logger.log(`Verifying payment: ${JSON.stringify(verifyRequest)}`);
+      this.logger.log(`Amount conversion for verification: ${amountInRials} Rials → ${amountInTomans} Tomans`);
 
       const response = await axios.post(
         this.verifyUrl,
@@ -322,12 +355,32 @@ export class ZarinPalService {
         }
       );
 
-      if (response.data.errors && response.data.errors.length > 0) {
-        this.logger.error('ZarinPal verification error:', response.data.errors);
-        throw new BadRequestException(`Payment verification failed: ${response.data.errors[0]?.message || 'Unknown error'}`);
+      this.logger.log(`ZarinPal verification response status: ${response.status}`);
+      this.logger.log(`ZarinPal verification response data: ${JSON.stringify(response.data, null, 2)}`);
+
+      const responseData = response.data;
+
+      // Check for errors array first
+      if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+        const errorMessage = responseData.errors[0]?.message || 'Unknown ZarinPal verification error';
+        this.logger.error('ZarinPal verification error:', responseData.errors);
+        throw new BadRequestException(`Payment verification failed: ${errorMessage}`);
       }
 
-      const result = response.data as ZarinPalVerifyResponse;
+      // Check for error field
+      if (responseData.error) {
+        const errorMessage = responseData.error || 'Unknown ZarinPal verification error';
+        this.logger.error('ZarinPal verification error:', responseData.error);
+        throw new BadRequestException(`Payment verification failed: ${errorMessage}`);
+      }
+
+      // Check for data structure
+      if (!responseData.data) {
+        this.logger.error('ZarinPal verification response missing data field:', responseData);
+        throw new BadRequestException('Invalid verification response from payment gateway');
+      }
+
+      const result = responseData as ZarinPalVerifyResponse;
       
       if (result.data.code === 100 || result.data.code === 101) {
         // Code 100: First time verification (successful)
@@ -335,11 +388,20 @@ export class ZarinPalService {
         this.logger.log(`Payment verified successfully. Ref ID: ${result.data.ref_id}`);
         return result;
       } else {
-        throw new BadRequestException(`Payment verification failed: ${result.data.message}`);
+        const errorMessage = result.data.message || 'Payment verification failed';
+        this.logger.error(`ZarinPal verification failed with code ${result.data.code}: ${errorMessage}`);
+        throw new BadRequestException(`Payment verification failed: ${errorMessage}`);
       }
 
     } catch (error) {
       this.logger.error('Failed to verify payment:', error.message);
+      
+      // Log the full error response for debugging
+      if (error.response) {
+        this.logger.error('ZarinPal verification response status:', error.response.status);
+        this.logger.error('ZarinPal verification response data:', JSON.stringify(error.response.data, null, 2));
+      }
+      
       throw new BadRequestException(`Payment verification failed: ${error.message}`);
     }
   }
