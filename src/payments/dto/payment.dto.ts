@@ -29,6 +29,9 @@ export class PaymentVerifyDto {
 
   @IsString()
   authority: string;
+
+  @IsNumber()
+  amount: number;
 }
 
 export class PaymentRefundDto {

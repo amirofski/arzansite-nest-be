@@ -259,8 +259,20 @@ export class ZarinPalService {
       this.logger.log(`ZarinPal response status: ${response.status}`);
       this.logger.log(`ZarinPal response data: ${JSON.stringify(response.data, null, 2)}`);
 
-      // Robust response parsing
+      // Enhanced response validation
       const responseData = response.data;
+      
+      // Check for network-level errors first
+      if (response.status !== 200) {
+        this.logger.error(`ZarinPal API returned non-200 status: ${response.status}`);
+        throw new BadRequestException(`Payment gateway error: HTTP ${response.status}`);
+      }
+      
+      // Check for empty response
+      if (!responseData || typeof responseData !== 'object') {
+        this.logger.error('ZarinPal API returned invalid response format:', responseData);
+        throw new BadRequestException('Invalid response format from payment gateway');
+      }
       
       // Check for errors array first
       if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
@@ -284,8 +296,14 @@ export class ZarinPalService {
 
       const result = responseData as ZarinPalPaymentResponse;
       
-      // Check response code
+      // Enhanced code validation
       if (result.data.code === 100) {
+        // Validate authority field exists
+        if (!result.data.authority || typeof result.data.authority !== 'string') {
+          this.logger.error('ZarinPal response missing or invalid authority:', result.data);
+          throw new BadRequestException('Invalid payment authority received from gateway');
+        }
+        
         this.logger.log(`Payment request created successfully. Authority: ${result.data.authority}`);
         return result;
       } else {
@@ -297,13 +315,14 @@ export class ZarinPalService {
     } catch (error) {
       this.logger.error('Failed to create payment request:', error.message);
       
-      // Log the full error response for debugging
+      // Enhanced error logging
       if (error.response) {
         this.logger.error('ZarinPal API Response Status:', error.response.status);
         this.logger.error('ZarinPal API Response Data:', JSON.stringify(error.response.data, null, 2));
         this.logger.error('ZarinPal API Response Headers:', JSON.stringify(error.response.headers, null, 2));
       }
       
+      // Handle specific HTTP status codes
       if (error.response?.status === 404) {
         throw new BadRequestException('Payment gateway endpoint not found. Please check configuration.');
       }
@@ -312,6 +331,24 @@ export class ZarinPalService {
         // Validation error - provide more specific error message
         const errorMessage = error.response.data?.message || error.response.data?.error || 'Invalid request parameters';
         throw new BadRequestException(`Payment validation failed: ${errorMessage}`);
+      }
+      
+      if (error.response?.status === 429) {
+        throw new BadRequestException('Payment gateway rate limit exceeded. Please try again later.');
+      }
+      
+      if (error.response?.status >= 500) {
+        throw new BadRequestException('Payment gateway service temporarily unavailable. Please try again later.');
+      }
+      
+      // Handle timeout errors
+      if (error.code === 'ECONNABORTED') {
+        throw new BadRequestException('Payment gateway request timed out. Please try again.');
+      }
+      
+      // Handle network errors
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        throw new BadRequestException('Unable to connect to payment gateway. Please check your internet connection.');
       }
       
       if (error.response?.data) {
@@ -331,13 +368,23 @@ export class ZarinPalService {
         throw new BadRequestException('ZarinPal payment gateway not configured');
       }
 
+      // Validate authority parameter
+      if (!authority || typeof authority !== 'string' || authority.trim().length === 0) {
+        throw new BadRequestException('Invalid payment authority provided');
+      }
+
+      // Validate amount
+      if (!Number.isInteger(amountInRials) || amountInRials <= 0) {
+        throw new BadRequestException('Invalid amount provided for verification');
+      }
+
       // Convert Rials to Tomans for verification
       const amountInTomans = Math.floor(amountInRials / 10);
       
       const verifyRequest: ZarinPalVerifyRequest = {
         merchant_id: this.merchantId,
         amount: amountInTomans, // Use Tomans for verification
-        authority: authority,
+        authority: authority.trim(),
       };
 
       this.logger.log(`Verifying payment: ${JSON.stringify(verifyRequest)}`);
@@ -350,6 +397,7 @@ export class ZarinPalService {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'User-Agent': 'ArzanSite-Payment-Gateway/1.0',
           },
           timeout: 15000,
         }
@@ -358,7 +406,20 @@ export class ZarinPalService {
       this.logger.log(`ZarinPal verification response status: ${response.status}`);
       this.logger.log(`ZarinPal verification response data: ${JSON.stringify(response.data, null, 2)}`);
 
+      // Enhanced response validation
       const responseData = response.data;
+      
+      // Check for network-level errors first
+      if (response.status !== 200) {
+        this.logger.error(`ZarinPal verification API returned non-200 status: ${response.status}`);
+        throw new BadRequestException(`Payment verification error: HTTP ${response.status}`);
+      }
+      
+      // Check for empty response
+      if (!responseData || typeof responseData !== 'object') {
+        this.logger.error('ZarinPal verification API returned invalid response format:', responseData);
+        throw new BadRequestException('Invalid verification response format from payment gateway');
+      }
 
       // Check for errors array first
       if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
@@ -385,6 +446,13 @@ export class ZarinPalService {
       if (result.data.code === 100 || result.data.code === 101) {
         // Code 100: First time verification (successful)
         // Code 101: Already verified (also successful)
+        
+        // Validate ref_id exists for successful verification
+        if (!result.data.ref_id) {
+          this.logger.error('ZarinPal verification successful but missing ref_id:', result.data);
+          throw new BadRequestException('Payment verification successful but missing reference ID');
+        }
+        
         this.logger.log(`Payment verified successfully. Ref ID: ${result.data.ref_id}`);
         return result;
       } else {
@@ -396,10 +464,38 @@ export class ZarinPalService {
     } catch (error) {
       this.logger.error('Failed to verify payment:', error.message);
       
-      // Log the full error response for debugging
+      // Enhanced error logging
       if (error.response) {
         this.logger.error('ZarinPal verification response status:', error.response.status);
         this.logger.error('ZarinPal verification response data:', JSON.stringify(error.response.data, null, 2));
+      }
+      
+      // Handle specific HTTP status codes
+      if (error.response?.status === 404) {
+        throw new BadRequestException('Payment verification endpoint not found. Please check configuration.');
+      }
+      
+      if (error.response?.status === 422) {
+        const errorMessage = error.response.data?.message || error.response.data?.error || 'Invalid verification parameters';
+        throw new BadRequestException(`Payment verification validation failed: ${errorMessage}`);
+      }
+      
+      if (error.response?.status === 429) {
+        throw new BadRequestException('Payment verification rate limit exceeded. Please try again later.');
+      }
+      
+      if (error.response?.status >= 500) {
+        throw new BadRequestException('Payment verification service temporarily unavailable. Please try again later.');
+      }
+      
+      // Handle timeout errors
+      if (error.code === 'ECONNABORTED') {
+        throw new BadRequestException('Payment verification request timed out. Please try again.');
+      }
+      
+      // Handle network errors
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        throw new BadRequestException('Unable to connect to payment verification service. Please check your internet connection.');
       }
       
       throw new BadRequestException(`Payment verification failed: ${error.message}`);
@@ -497,5 +593,131 @@ export class ZarinPalService {
    */
   getMerchantId(): string {
     return this.merchantId;
+  }
+
+  /**
+   * Create a payment request with simplified interface
+   * This method provides a more streamlined approach for basic payment requests
+   */
+  async createSimplePaymentRequest(params: {
+    amount: number; // Amount in Rials
+    description: string;
+    callbackUrl: string;
+    orderId?: string;
+    mobile?: string;
+    email?: string;
+  }): Promise<{
+    success: boolean;
+    authority?: string;
+    paymentUrl?: string;
+    error?: string;
+    details?: any;
+  }> {
+    try {
+      if (!this.isConfigured()) {
+        return {
+          success: false,
+          error: 'ZarinPal payment gateway not configured'
+        };
+      }
+
+      this.logger.log(`Creating simple payment request: ${JSON.stringify({
+        amount: params.amount,
+        orderId: params.orderId || 'N/A'
+      })}`);
+
+      const paymentResponse = await this.createPayment({
+        amount: params.amount,
+        description: params.description,
+        callbackUrl: params.callbackUrl,
+        orderId: params.orderId,
+        mobile: params.mobile,
+        email: params.email,
+      });
+
+      if (paymentResponse.data.code === 100) {
+        const authority = paymentResponse.data.authority;
+        const paymentUrl = this.getPaymentUrl(authority);
+        
+        return {
+          success: true,
+          authority,
+          paymentUrl,
+          details: {
+            fee: paymentResponse.data.fee,
+            fee_type: paymentResponse.data.fee_type,
+            code: paymentResponse.data.code
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: paymentResponse.data.message || 'Payment request failed'
+        };
+      }
+
+    } catch (error) {
+      this.logger.error('Simple payment request failed:', error.message);
+      return {
+        success: false,
+        error: error.message || 'Payment request failed'
+      };
+    }
+  }
+
+  /**
+   * Verify payment with simplified interface
+   * This method provides a more streamlined approach for payment verification
+   */
+  async verifySimplePayment(params: {
+    authority: string;
+    amount: number; // Amount in Rials
+  }): Promise<{
+    success: boolean;
+    refId?: string;
+    error?: string;
+    details?: any;
+  }> {
+    try {
+      if (!this.isConfigured()) {
+        return {
+          success: false,
+          error: 'ZarinPal payment gateway not configured'
+        };
+      }
+
+      this.logger.log(`Verifying simple payment: ${JSON.stringify({
+        authority: params.authority,
+        amount: params.amount
+      })}`);
+
+      const verificationResponse = await this.verifyPayment(params.authority, params.amount);
+
+      if (verificationResponse.data.code === 100 || verificationResponse.data.code === 101) {
+        return {
+          success: true,
+          refId: verificationResponse.data.ref_id.toString(),
+          details: {
+            card_hash: verificationResponse.data.card_hash,
+            card_pan: verificationResponse.data.card_pan,
+            fee: verificationResponse.data.fee,
+            fee_type: verificationResponse.data.fee_type,
+            code: verificationResponse.data.code
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: verificationResponse.data.message || 'Payment verification failed'
+        };
+      }
+
+    } catch (error) {
+      this.logger.error('Simple payment verification failed:', error.message);
+      return {
+        success: false,
+        error: error.message || 'Payment verification failed'
+      };
+    }
   }
 }
