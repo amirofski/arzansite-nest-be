@@ -282,8 +282,7 @@ const schema = {
             { key: 'verification_expires_at_idx', type: 'key', attributes: ['verification_expires_at'], orders: ['ASC'] },
             { key: 'success_idx', type: 'key', attributes: ['success'], orders: ['ASC'] }
         ]
-    }
-    ,
+    },
 
     // Site configuration collection
     site_config: {
@@ -299,7 +298,7 @@ const schema = {
         ]
     },
 
-    // Invoices collection
+    // NEW: Invoices collection for wallet and invoice management system
     invoices: {
         name: 'invoices',
         documentSecurity: false,
@@ -322,7 +321,7 @@ const schema = {
         ]
     },
 
-    // Receipts collection
+    // NEW: Receipts collection for digital receipt generation
     receipts: {
         name: 'receipts',
         documentSecurity: false,
@@ -341,7 +340,7 @@ const schema = {
         ]
     },
 
-    // Wallet adjustments collection
+    // NEW: Wallet adjustments collection for admin balance modifications
     wallet_adjustments: {
         name: 'wallet_adjustments',
         documentSecurity: false,

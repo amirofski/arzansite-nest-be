@@ -79,6 +79,13 @@ This API provides comprehensive backend services for ArzanSite, including:
 - Payment processing and verification
 - Wallet and transaction management
 
+## 💰 Wallet & Invoice Management System
+- **User Wallets**: Balance tracking, top-up functionality, transaction history
+- **Invoice Management**: Automatic generation, status tracking, auto-payment
+- **Digital Receipts**: PDF/HTML generation, secure download, audit trail
+- **Admin Controls**: Balance adjustments, financial oversight, dashboard statistics
+- **Scheduled Tasks**: Automated invoice processing, overdue detection, maintenance
+
 ## 🗄️ Data & Storage
 - Database operations via Appwrite
 - File storage and management
@@ -96,6 +103,7 @@ This API provides comprehensive backend services for ArzanSite, including:
 - Role-based access control (RBAC)
 - Rate limiting and throttling
 - CORS protection
+- RefId validation for payment security
 
 ## 📱 API Features
 - RESTful endpoints with consistent response format
@@ -115,6 +123,9 @@ For detailed endpoint information, see the sections below.
     .addTag('orders', '📦 Order Management')
     .addTag('designs', '🎨 Design Management')
     .addTag('wallets', '💰 Wallet & Transactions')
+    .addTag('invoices', '📄 Invoice Management')
+    .addTag('receipts', '🧾 Digital Receipts')
+    .addTag('admin', '👨‍💼 Administrative Controls')
     .addTag('payments', '💳 Payment Processing')
     .addTag('transactions', '📊 Transaction History')
     .addTag('storage', '📁 File Storage')
