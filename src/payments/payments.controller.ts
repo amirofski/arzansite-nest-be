@@ -7,6 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
+import { ZarinPalService } from './zarinpal.service';
 import {
   PaymentRequestDto,
   PaymentVerifyDto,
@@ -19,7 +20,15 @@ import { User, UserPayload } from '../common/decorators/user.decorator';
 @Controller('payments')
 @UseGuards(JwtGuard)
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly zarinPalService: ZarinPalService,
+  ) {}
+
+  @Get('test-connection')
+  async testZarinPalConnection() {
+    return this.zarinPalService.testConnection();
+  }
 
   @Post('request')
   async requestPayment(
