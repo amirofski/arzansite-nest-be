@@ -13,7 +13,9 @@ export class ScheduledTasksService {
   ) {}
 
   // Check for overdue invoices every hour
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'check-overdue-invoices'
+  })
   async checkOverdueInvoices() {
     this.logger.log('Running overdue invoices check...');
     try {
@@ -25,7 +27,9 @@ export class ScheduledTasksService {
   }
 
   // Auto-pay invoices every 6 hours
-  @Cron('0 */6 * * *')
+  @Cron('0 */6 * * *', {
+    name: 'auto-pay-invoices'
+  })
   async autoPayInvoices() {
     this.logger.log('Running auto-pay invoices...');
     try {
@@ -37,7 +41,9 @@ export class ScheduledTasksService {
   }
 
   // Daily cleanup and maintenance at 2 AM
-  @Cron('0 2 * * *')
+  @Cron('0 2 * * *', {
+    name: 'daily-maintenance'
+  })
   async dailyMaintenance() {
     this.logger.log('Running daily maintenance...');
     try {
@@ -54,7 +60,9 @@ export class ScheduledTasksService {
   }
 
   // Weekly summary every Sunday at 9 AM
-  @Cron('0 9 * * 0')
+  @Cron('0 9 * * 0', {
+    name: 'weekly-summary'
+  })
   async weeklySummary() {
     this.logger.log('Running weekly summary...');
     try {
@@ -70,7 +78,9 @@ export class ScheduledTasksService {
   }
 
   // Monthly cleanup on the 1st of each month at 3 AM
-  @Cron('0 3 1 * *')
+  @Cron('0 3 1 * *', {
+    name: 'monthly-cleanup'
+  })
   async monthlyCleanup() {
     this.logger.log('Running monthly cleanup...');
     try {
