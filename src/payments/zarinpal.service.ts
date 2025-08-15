@@ -86,9 +86,16 @@ export class ZarinPalService {
     currency?: 'IRR' | 'IRT';
   }): Promise<ZarinPalPaymentResponse> {
     try {
+      this.logger.log(`Creating payment with data: ${JSON.stringify(paymentData)}`);
+      
       if (!this.merchantId) {
         throw new BadRequestException('ZarinPal payment gateway not configured');
       }
+
+      this.logger.log(`Merchant ID: ${this.merchantId}`);
+      this.logger.log(`Amount: ${paymentData.amount}`);
+      this.logger.log(`Description: "${paymentData.description}"`);
+      this.logger.log(`Callback URL: ${paymentData.callbackUrl}`);
 
       // Validate merchant ID format (should be a valid UUID)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -97,25 +104,40 @@ export class ZarinPalService {
       }
 
       // Validate amount (minimum 1000 Rials)
+      this.logger.log(`Validating amount: ${paymentData.amount} (type: ${typeof paymentData.amount})`);
+      
       if (paymentData.amount < 1000) {
+        this.logger.error(`Amount ${paymentData.amount} is below minimum 1000`);
         throw new BadRequestException('Minimum payment amount is 1,000 Rials');
       }
 
       // Ensure amount is a positive integer
       if (!Number.isInteger(paymentData.amount) || paymentData.amount <= 0) {
+        this.logger.error(`Amount ${paymentData.amount} is not a positive integer`);
         throw new BadRequestException('Amount must be a positive integer');
       }
 
       // Check maximum amount (ZarinPal typically has limits)
       if (paymentData.amount > 999999999) {
+        this.logger.error(`Amount ${paymentData.amount} exceeds maximum 999999999`);
         throw new BadRequestException('Amount is too high (maximum 999,999,999 Rials)');
       }
+      
+      this.logger.log(`Amount validation passed: ${paymentData.amount}`);
 
       // Validate callback URL format
       try {
-        new URL(paymentData.callbackUrl);
-      } catch {
-        throw new BadRequestException('Invalid callback URL format');
+        const callbackUrl = new URL(paymentData.callbackUrl);
+        this.logger.log(`Callback URL parsed successfully: ${callbackUrl.toString()}`);
+        
+        // Ensure it's HTTPS for production
+        if (!this.isSandbox && callbackUrl.protocol !== 'https:') {
+          throw new BadRequestException('Callback URL must use HTTPS in production');
+        }
+        
+      } catch (urlError) {
+        this.logger.error(`Callback URL validation failed: ${urlError.message}`);
+        throw new BadRequestException(`Invalid callback URL format: ${paymentData.callbackUrl}`);
       }
 
       // Validate description length (ZarinPal typically has a limit)
@@ -132,10 +154,21 @@ export class ZarinPalService {
         throw new BadRequestException('Description is too short (minimum 3 characters)');
       }
 
-      // Remove any potentially problematic characters
-      const cleanDescription = paymentData.description.trim().replace(/[^\w\s\-\.]/g, '');
+      // Clean description - allow Persian/Arabic text, numbers, spaces, hyphens, dots
+      // This regex allows: Persian/Arabic letters, English letters, numbers, spaces, hyphens, dots, commas
+      const cleanDescription = paymentData.description.trim().replace(/[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\w\s\-\.،]/g, '');
+      
+      this.logger.log(`Original description: "${paymentData.description}"`);
+      this.logger.log(`Cleaned description: "${cleanDescription}"`);
+      this.logger.log(`Description length before: ${paymentData.description.length}, after: ${cleanDescription.length}`);
+      
       if (cleanDescription.length === 0) {
         throw new BadRequestException('Description contains only invalid characters');
+      }
+
+      // Ensure cleaned description still meets minimum length
+      if (cleanDescription.length < 3) {
+        throw new BadRequestException('Description is too short after cleaning (minimum 3 characters)');
       }
 
       const paymentRequest: ZarinPalPaymentRequest = {
@@ -186,7 +219,9 @@ export class ZarinPalService {
         delete paymentRequest.metadata;
       }
 
-      this.logger.log(`Creating payment request: ${JSON.stringify(paymentRequest)}`);
+      this.logger.log(`Final payment request: ${JSON.stringify(paymentRequest)}`);
+      this.logger.log(`Request URL: ${this.requestUrl}`);
+      this.logger.log(`Sandbox mode: ${this.isSandbox}`);
 
       const response = await axios.post(
         this.requestUrl,
