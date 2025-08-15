@@ -15,6 +15,10 @@ import { DomainsModule } from './domains/domains.module';
 import { EmailModule } from './email/email.module';
 import { HealthController } from './health/health.controller';
 import { StorageModule } from './storage/storage.module';
+import { InvoicesModule } from './invoices/invoices.module';
+import { ReceiptsModule } from './receipts/receipts.module';
+import { AdminModule } from './admin/admin.module';
+import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 
 @Module({
   imports: [
@@ -40,6 +44,10 @@ import { StorageModule } from './storage/storage.module';
     DomainsModule,
     EmailModule,
     StorageModule,
+    InvoicesModule,
+    ReceiptsModule,
+    AdminModule,
+    ScheduledTasksModule,
   ],
   controllers: [HealthController],
 })

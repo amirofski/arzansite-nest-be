@@ -32,6 +32,11 @@ export class WalletsController {
     return this.walletsService.getBalance(user.id);
   }
 
+  @Get('balance')
+  async getWalletBalance(@User() user: UserPayload) {
+    return this.walletsService.getBalance(user.id);
+  }
+
   @Get('me/transactions')
   async getMyTransactions(
     @User() user: UserPayload,
@@ -125,6 +130,28 @@ export class WalletsController {
       message: 'Payment verification failed',
       error: 'Payment verification failed',
     };
+  }
+
+  @Post('me/topup')
+  async topUpWallet(
+    @User() user: UserPayload,
+    @Body() body: { amount: number; refId: string },
+  ) {
+    try {
+      const result = await this.walletsService.topUpWallet(user.id, body.amount, body.refId);
+      return {
+        success: true,
+        message: 'Wallet top-up successful!',
+        transactionId: result.transactionId,
+        newBalance: (await this.walletsService.getBalance(user.id)).balance,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+        error: 'Top-up failed',
+      };
+    }
   }
 
   @Post('refund-order')

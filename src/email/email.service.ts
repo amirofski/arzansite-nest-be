@@ -624,4 +624,334 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
       `,
     };
   }
+
+  // New email templates for wallet and invoice management
+  async sendWalletTopUpEmail(userId: string, amount: number, refId: string): Promise<void> {
+    const user = await this.getUserById(userId);
+    if (!user) return;
+
+    const template = this.getWalletTopUpTemplate(amount, refId);
+    await this.sendEmail({
+      to: user.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  async sendInvoiceCreatedEmail(userId: string, invoiceId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(userId);
+    if (!user) return;
+
+    const template = this.getInvoiceCreatedTemplate(invoiceId, amount);
+    await this.sendEmail({
+      to: user.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  async sendInvoicePaidEmail(userId: string, invoiceId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(userId);
+    if (!user) return;
+
+    const template = this.getInvoicePaidTemplate(invoiceId, amount);
+    await this.sendEmail({
+      to: user.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  async sendInvoiceOverdueEmail(userId: string, invoiceId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(userId);
+    if (!user) return;
+
+    const template = this.getInvoiceOverdueTemplate(invoiceId, amount);
+    await this.sendEmail({
+      to: user.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  async sendReceiptCreatedEmail(userId: string, receiptId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(userId);
+    if (!user) return;
+
+    const template = this.getReceiptCreatedTemplate(receiptId, amount);
+    await this.sendInvoiceCreatedEmail(userId, receiptId, amount);
+  }
+
+  private getWalletTopUpTemplate(amount: number, refId: string): EmailTemplate {
+    return {
+      subject: 'Wallet Top-up Successful',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 40px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">Wallet Top-up Successful!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Your wallet has been credited successfully</p>
+          </div>
+          
+          <div style="padding: 40px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Transaction Details</h2>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Top-up Information:</h3>
+              <p><strong>Amount:</strong> ${amount.toLocaleString()} Rials</p>
+              <p><strong>Reference ID:</strong> ${refId}</p>
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://arzansite.com/wallet" 
+                 style="background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                View Wallet
+              </a>
+            </div>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+            <p>&copy; 2024 ArzanSite. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+      text: `
+Wallet Top-up Successful!
+
+Your wallet has been credited successfully.
+
+Transaction Details:
+- Amount: ${amount.toLocaleString()} Rials
+- Reference ID: ${refId}
+- Date: ${new Date().toLocaleDateString()}
+
+View Wallet: https://arzansite.com/wallet
+
+© 2024 ArzanSite. All rights reserved.
+      `,
+    };
+  }
+
+  private getInvoiceCreatedTemplate(invoiceId: string, amount: number): EmailTemplate {
+    return {
+      subject: 'New Invoice Created',
+      html: `
+        <div style="font-family: Arial, excellent; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); padding: 40px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">New Invoice Created</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">A new invoice has been generated for your order</p>
+          </div>
+          
+          <div style="padding: 40px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Invoice Details</h2>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Invoice Information:</h3>
+              <p><strong>Invoice ID:</strong> ${invoiceId}</p>
+              <p><strong>Amount:</strong> ${amount.toLocaleString()} Rials</p>
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://arzansite.com/invoices/${invoiceId}" 
+                 style="background: #ffc107; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                View Invoice
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+            <p>&copy; 2024 ArzanSite. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+      text: `
+New Invoice Created
+
+A new invoice has been generated for your order.
+
+Invoice Details:
+- Invoice ID: ${invoiceId}
+- Amount: ${amount.toLocaleString()} Rials
+- Date: ${new Date().toLocaleDateString()}
+
+View Invoice: https://arzansite.com/invoices/${invoiceId}
+
+© 2024 ArzanSite. All rights reserved.
+      `,
+    };
+  }
+
+  private getInvoicePaidTemplate(invoiceId: string, amount: number): EmailTemplate {
+    return {
+      subject: 'Invoice Paid Successfully',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 40px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">Invoice Paid Successfully!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Your invoice has been paid from your wallet</p>
+          </div>
+          
+          <div style="padding: 40px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Payment Details</h2>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Payment Information:</h3>
+              <p><strong>Invoice ID:</strong> ${invoiceId}</p>
+              <p><strong>Amount:</strong> ${amount.toLocaleString()} Rials</p>
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://arzansite.com/invoices/${invoiceId}" 
+                 style="background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                View Invoice
+              </a>
+            </div>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+            <p>&copy; 2024 ArzanSite. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+      text: `
+Invoice Paid Successfully!
+
+Your invoice has been paid from your wallet.
+
+Payment Details:
+- Invoice ID: ${invoiceId}
+- Amount: ${amount.toLocaleString()} Rials
+- Date: ${new Date().toLocaleDateString()}
+
+View Invoice: https://arzansite.com/invoices/${invoiceId}
+
+© 2024 ArzanSite. All rights reserved.
+      `,
+    };
+  }
+
+  private getInvoiceOverdueTemplate(invoiceId: string, amount: number): EmailTemplate {
+    return {
+      subject: 'Invoice Payment Overdue',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 40px; text-align: string; padding: 40px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">Invoice Payment Overdue</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Please pay your overdue invoice as soon as possible</p>
+          </div>
+          
+          <div style="padding: 40px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Overdue Invoice</h2>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Invoice Information:</h3>
+              <p><strong>Invoice ID:</strong> ${invoiceId}</p>
+              <p><strong>Amount:</strong> ${amount.toLocaleString()} Rials</p>
+              <p><strong>Status:</strong> Overdue</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://arzansite.com/invoices/${invoiceId}" 
+                 style="background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Pay Now
+              </a>
+            </div>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+            <p>&copy; 2024 ArzanSite. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+      text: `
+Invoice Payment Overdue
+
+Please pay your overdue invoice as soon as possible.
+
+Invoice Information:
+- Invoice ID: ${invoiceId}
+- Amount: ${amount.toLocaleString()} Rials
+- Status: Overdue
+
+Pay Now: https://arzansite.com/invoices/${invoiceId}
+
+© 2024 ArzanSite. All rights reserved.
+      `,
+    };
+  }
+
+  private getReceiptCreatedTemplate(receiptId: string, amount: number): EmailTemplate {
+    return {
+      subject: 'Payment Receipt Created',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); padding: 40px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">Payment Receipt Created</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Your payment receipt is ready for download</p>
+          </div>
+          
+          <div style="padding: 40px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Receipt Details</h2>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Receipt Information:</h3>
+              <p><strong>Receipt ID:</strong> ${receiptId}</p>
+              <p><strong>Amount:</strong> ${amount.toLocaleString()} Rials</p>
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://arzansite.com/receipts/${receiptId}/download" 
+                 style="background: #17a2b8; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Download Receipt
+              </a>
+            </div>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+            <p>&copy; 2024 ArzanSite. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+      text: `
+Payment Receipt Created
+
+Your payment receipt is ready for download.
+
+Receipt Details:
+- Receipt ID: ${receiptId}
+- Amount: ${amount.toLocaleString()} Rials
+- Date: ${new Date().toLocaleDateString()}
+
+Download Receipt: https://arzansite.com/receipts/${receiptId}/download
+
+© 2024 ArzanSite. All rights reserved.
+      `,
+    };
+  }
+
+  private async getUserById(userId: string): Promise<any> {
+    try {
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+      
+      const { Query } = await import('node-appwrite');
+      const result = await databases.listDocuments(databaseId, profilesCollection, [
+        Query.equal('user_id', userId),
+        Query.limit(1),
+      ]);
+      
+      return result.documents[0] || null;
+    } catch (error) {
+      console.error('Error getting user by ID:', error);
+      return null;
+    }
+  }
 }

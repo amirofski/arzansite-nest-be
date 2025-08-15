@@ -731,7 +731,7 @@ export class AuthService {
       }
 
       // Create OAuth2 session using Appwrite service
-      const redirectUrl = await this.appwriteService.createOAuth2Session(
+      const oauthSession = await this.appwriteService.createOAuth2Session(
         provider,
         successUrl,
         failureUrl
@@ -740,8 +740,9 @@ export class AuthService {
       console.log(`✅ OAuth flow initiated for ${provider}, redirect URL generated`);
 
       return {
-        redirectUrl,
-        provider,
+        redirectUrl: oauthSession.redirectUrl,
+        provider: oauthSession.provider,
+        projectId: oauthSession.projectId,
         message: `Redirecting to ${provider} for authentication...`
       };
     } catch (error) {
@@ -756,14 +757,15 @@ export class AuthService {
       
       if (!userId || !secret) {
         console.error('❌ Missing userId or secret in OAuth callback');
-        return res.redirect(`${this.configService.get('FRONTEND_URL')}/auth/login?error=oauth_callback_failed`);
+        const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
+        return res.redirect(`${frontendUrl}/auth/login?error=oauth_callback_failed`);
       }
 
       // Create session using Appwrite service
       const session = await this.appwriteService.createSessionFromOAuth(userId, secret);
       
       // Get user information using the session secret
-      const user = await this.appwriteService.getCurrentUser(session.secret);
+      const user = await this.appwriteService.getOAuthUser(session.secret);
       
       console.log(`✅ OAuth session created for user: ${user.$id}`);
 

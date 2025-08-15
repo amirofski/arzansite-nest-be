@@ -154,22 +154,50 @@ export class AppwriteService implements OnModuleInit {
 
   async createOAuth2Session(provider: string, successUrl: string, failureUrl: string) {
     try {
-      // For now, return a placeholder URL since OAuth2 methods may not be available in this SDK version
-      // This should be implemented when OAuth2 is properly configured in Appwrite
+      // Since createOAuth2Session doesn't exist in this SDK version,
+      // we'll construct the OAuth URL manually based on Appwrite's OAuth2 flow
       const baseUrl = this.config.endpoint.replace('/v1', '');
-      const redirectUrl = `${baseUrl}/v1/account/sessions/oauth2/callback/${provider}?success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
-      return redirectUrl;
+      const projectId = this.config.projectId;
+      
+      // Construct the OAuth2 URL according to Appwrite's OAuth2 flow
+      const redirectUrl = `${baseUrl}/v1/account/sessions/oauth2/callback/${provider}?project=${projectId}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
+      
+      return {
+        redirectUrl,
+        provider,
+        projectId
+      };
     } catch (error) {
+      console.error(`Failed to create OAuth2 session for ${provider}:`, error);
       throw new Error(`Failed to create OAuth2 session: ${error.message}`);
     }
   }
 
   async createSessionFromOAuth(userId: string, secret: string) {
     try {
+      // Create a session using the OAuth user ID and secret
       const session = await this.account.createSession(userId, secret);
       return session;
     } catch (error) {
+      console.error('Failed to create session from OAuth:', error);
       throw new Error(`Failed to create session from OAuth: ${error.message}`);
+    }
+  }
+
+  async getOAuthUser(sessionSecret: string) {
+    try {
+      // Create a new client with the session secret
+      const client = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setSession(sessionSecret);
+      
+      const account = new Account(client);
+      const user = await account.get();
+      return user;
+    } catch (error) {
+      console.error('Failed to get OAuth user:', error);
+      throw new Error(`Failed to get OAuth user: ${error.message}`);
     }
   }
 

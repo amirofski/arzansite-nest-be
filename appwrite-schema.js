@@ -297,6 +297,72 @@ const schema = {
         indexes: [
             { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] }
         ]
+    },
+
+    // Invoices collection
+    invoices: {
+        name: 'invoices',
+        documentSecurity: false,
+        attributes: [
+            { key: 'user_id', type: 'string', size: 36, required: true, array: false },
+            { key: 'order_id', type: 'string', size: 36, required: true, array: false },
+            { key: 'amount', type: 'double', required: true, array: false },
+            { key: 'due_date', type: 'datetime', required: true, array: false },
+            { key: 'status', type: 'string', size: 20, required: true, array: false, enum: ['pending', 'paid', 'overdue', 'cancelled'] },
+            { key: 'description', type: 'string', size: 500, required: false, array: false },
+            { key: 'created_at', type: 'datetime', required: true, array: false },
+            { key: 'updated_at', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'user_id_idx', type: 'key', attributes: ['user_id'], orders: ['ASC'] },
+            { key: 'order_id_idx', type: 'key', attributes: ['order_id'], orders: ['ASC'] },
+            { key: 'status_idx', type: 'key', attributes: ['status'], orders: ['ASC'] },
+            { key: 'due_date_idx', type: 'key', attributes: ['due_date'], orders: ['ASC'] },
+            { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] }
+        ]
+    },
+
+    // Receipts collection
+    receipts: {
+        name: 'receipts',
+        documentSecurity: false,
+        attributes: [
+            { key: 'invoice_id', type: 'string', size: 36, required: true, array: false },
+            { key: 'ref_id', type: 'string', size: 100, required: true, array: false },
+            { key: 'amount', type: 'double', required: true, array: false },
+            { key: 'format', type: 'string', size: 10, required: true, array: false, enum: ['pdf', 'html'] },
+            { key: 'created_at', type: 'datetime', required: true, array: false },
+            { key: 'updated_at', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'invoice_id_idx', type: 'key', attributes: ['invoice_id'], orders: ['ASC'] },
+            { key: 'ref_id_idx', type: 'key', attributes: ['ref_id'], orders: ['ASC'] },
+            { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] }
+        ]
+    },
+
+    // Wallet adjustments collection
+    wallet_adjustments: {
+        name: 'wallet_adjustments',
+        documentSecurity: false,
+        attributes: [
+            { key: 'wallet_id', type: 'string', size: 36, required: true, array: false },
+            { key: 'admin_id', type: 'string', size: 36, required: true, array: false },
+            { key: 'amount', type: 'double', required: true, array: false },
+            { key: 'type', type: 'string', size: 20, required: true, array: false, enum: ['credit', 'debit', 'correction'] },
+            { key: 'reason', type: 'string', size: 500, required: true, array: false },
+            { key: 'notes', type: 'string', size: 1000, required: false, array: false },
+            { key: 'balance_before', type: 'double', required: true, array: false },
+            { key: 'balance_after', type: 'double', required: true, array: false },
+            { key: 'created_at', type: 'datetime', required: true, array: false },
+            { key: 'updated_at', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'wallet_id_idx', type: 'key', attributes: ['wallet_id'], orders: ['ASC'] },
+            { key: 'admin_id_idx', type: 'key', attributes: ['admin_id'], orders: ['ASC'] },
+            { key: 'type_idx', type: 'key', attributes: ['type'], orders: ['ASC'] },
+            { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] }
+        ]
     }
 };
 

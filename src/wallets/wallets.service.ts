@@ -178,4 +178,75 @@ export class WalletsService {
 
     return this.getWallet(userId);
   }
+
+  async topUpWallet(userId: string, amount: number, refId: string): Promise<{ success: boolean; transactionId: string }> {
+    // Validate minimum amount
+    if (amount < 1000000) {
+      throw new Error('Minimum top-up amount is 1,000,000 Rials (10,000 Tomans)');
+    }
+
+    // Check if RefId has already been used
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
+
+    const existingTransaction = await databases.listDocuments(databaseId, transactionsCollection, [
+      Query.equal('reference_id', refId),
+      Query.limit(1),
+    ]);
+
+    if (existingTransaction.documents.length > 0) {
+      throw new Error('RefId has already been used for a transaction');
+    }
+
+    // Create top-up transaction
+    const result = await this.createTransaction(userId, {
+      type: TransactionType.CREDIT,
+      amount,
+      description: 'Wallet top-up',
+      referenceId: refId,
+      referenceType: 'wallet_topup',
+      metadata: {
+        refId,
+        topUpMethod: 'payment_gateway',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    return { success: true, transactionId: result.transactionId };
+  }
+
+  async verifyPaymentRefId(refId: string): Promise<{ isValid: boolean; amount?: number; userId?: string }> {
+    // This method should integrate with your payment gateway to verify the RefId
+    // For now, returning a mock verification - replace with actual gateway integration
+    try {
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
+
+      // Check if RefId has already been used
+      const transaction = await databases.listDocuments(databaseId, transactionsCollection, [
+        Query.equal('reference_id', refId),
+        Query.limit(1),
+      ]);
+
+      if (transaction.documents.length > 0) {
+        return { isValid: false }; // RefId already used
+      }
+
+      // TODO: Integrate with payment gateway API to verify RefId
+      // This is where you would make a call to your payment gateway
+      // to verify the RefId and get payment details
+
+      // Mock verification - replace with actual gateway call
+      return { 
+        isValid: true, 
+        amount: 1000000, // This should come from gateway
+        userId: 'user_id_from_gateway' // This should come from gateway
+      };
+    } catch (error) {
+      console.error('Error verifying RefId:', error);
+      return { isValid: false };
+    }
+  }
 }

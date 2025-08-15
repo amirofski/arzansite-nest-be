@@ -671,6 +671,11 @@ export class AuthController {
           example: 'github',
           description: 'OAuth provider name'
         },
+        projectId: { 
+          type: 'string', 
+          example: '6898b35e003067cd7b43',
+          description: 'Appwrite project ID'
+        },
         message: { 
           type: 'string', 
           example: 'Redirecting to GitHub for authentication...',
@@ -775,6 +780,9 @@ export class AuthController {
         email: { type: 'string', example: 'user@example.com' },
         name: { type: 'string', example: 'John Doe' },
         emailVerification: { type: 'boolean', example: true },
+        $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+        $updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+        prefs: { type: 'object', example: {} },
         message: { type: 'string', example: 'User information retrieved from OAuth session' },
       },
     },
