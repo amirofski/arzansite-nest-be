@@ -24,6 +24,180 @@ A NestJS backend using Appwrite (self-hosted) for authentication, database, stor
 - **Security**: Helmet, CORS, rate limiting
 - **Containerization**: Docker + Docker Compose
 
+## 🏗️ Architecture Overview
+
+### NestJS ↔ Appwrite Connection Flow
+
+This NestJS backend acts as a **full-featured API Gateway** between your frontend and Appwrite, providing enhanced security, business logic, and integration services.
+
+```mermaid
+graph TB
+    subgraph "Frontend (React/Vue/Angular)"
+        A[Frontend App]
+    end
+    
+    subgraph "NestJS Backend (API Gateway)"
+        B[NestJS Controllers]
+        C[NestJS Services]
+        D[JWT Guard]
+        E[Roles Guard]
+        F[Appwrite Service]
+    end
+    
+    subgraph "Appwrite Backend-as-a-Service"
+        G[Appwrite Client]
+        H[Databases]
+        I[Account/Auth]
+        J[Storage]
+        K[Functions]
+    end
+    
+    subgraph "Appwrite Services"
+        L[User Management]
+        M[Database Collections]
+        N[File Storage]
+        O[Real-time]
+    end
+    
+    A -->|HTTP Requests| B
+    B -->|Dependency Injection| C
+    C -->|API Calls| F
+    F -->|SDK Client| G
+    G -->|REST API| H
+    G -->|REST API| I
+    G -->|REST API| J
+    G -->|REST API| K
+    
+    D -->|JWT Validation| F
+    E -->|Role Check| F
+    
+    H -->|Collections| M
+    I -->|Users/Sessions| L
+    J -->|Files| N
+    K -->|Serverless| O
+```
+
+### 🔐 Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend
+    participant N as NestJS
+    participant A as Appwrite
+    participant DB as Database
+    
+    F->>N: POST /api/auth/signup
+    N->>A: Create User
+    A-->>N: User Created
+    N->>DB: Create Profile
+    N->>N: Send Verification Email
+    N-->>F: Success Response
+    
+    F->>N: POST /api/auth/signin
+    N->>A: Create Session
+    A-->>N: JWT Token
+    N->>DB: Get User Role
+    N-->>F: JWT + Role Info
+```
+
+### 🛡️ Security Layer
+
+```mermaid
+graph LR
+    A[Request] --> B[JWT Guard]
+    B --> C{Valid Token?}
+    C -->|Yes| D[Roles Guard]
+    C -->|No| E[401 Unauthorized]
+    D --> F{Has Required Role?}
+    F -->|Yes| G[Controller]
+    F -->|No| H[403 Forbidden]
+```
+
+### 🎯 Key Benefits of This Architecture
+
+#### 1. **Enhanced Security**
+- **JWT Validation**: Custom JWT verification with fallback to Appwrite
+- **Role-Based Access**: RBAC implementation with `user_roles` collection
+- **Request Validation**: DTO validation and sanitization
+- **CORS Protection**: Configured for specific origins
+
+#### 2. **Business Logic Layer**
+- **Data Transformation**: Enrich Appwrite data with business logic
+- **Validation Rules**: Custom validation (e.g., minimum deposit amounts)
+- **Audit Trails**: Track all operations with timestamps
+- **Error Handling**: Consistent error responses
+
+#### 3. **Integration Services**
+- **Email Service**: Custom SMTP integration
+- **Payment Processing**: ZarinPal integration
+- **File Management**: Enhanced storage operations
+- **Scheduled Tasks**: Automated business processes
+
+#### 4. **API Enhancement**
+- **Swagger Documentation**: Auto-generated API docs
+- **Response Interceptors**: Consistent response format
+- **Request Logging**: Debug and monitoring
+- **Rate Limiting**: Protection against abuse
+
+### 📋 Data Flow Examples
+
+#### **Wallet Operations**
+```javascript
+// Frontend → NestJS → Appwrite
+Frontend: GET /api/wallets/balance
+NestJS:   appwriteService.getDatabases().listDocuments()
+Appwrite: Returns wallet data
+NestJS:   Transforms & validates data
+Frontend: Receives formatted response
+```
+
+#### **Admin Operations**
+```javascript
+// Admin request flow
+Frontend: GET /api/admin/wallets
+NestJS:   JWT Guard → Roles Guard → Admin Service
+Appwrite: Query wallets collection
+NestJS:   Enrich with user profiles
+Frontend: Admin dashboard data
+```
+
+### 📋 Configuration Flow
+```mermaid
+graph TD
+    A[Environment Variables] --> B[AppwriteConfig]
+    B --> C[AppwriteService]
+    C --> D[Client Initialization]
+    D --> E[Database Connections]
+    D --> F[Storage Connections]
+    D --> G[Auth Connections]
+```
+
+### 📋 Collection Management
+
+Your NestJS backend manages these Appwrite collections:
+- `profiles` - User profile data
+- `user_roles` - Role-based access control
+- `wallets` - User wallet balances
+- `transactions` - Financial transactions
+- `orders` - Order management
+- `invoices` - Invoice system
+- `receipts` - Digital receipts
+- `designs` - Design files
+- `site_config` - Application settings
+
+### 🎯 Summary
+
+**NestJS is NOT just a simple proxy** - it's a **full-featured API gateway** that:
+
+1. **Secures** Appwrite with custom authentication
+2. **Enriches** data with business logic
+3. **Integrates** external services (email, payments)
+4. **Validates** and **transforms** requests/responses
+5. **Provides** comprehensive API documentation
+6. **Manages** complex workflows and scheduled tasks
+
+This architecture gives you the **flexibility of a custom backend** while leveraging **Appwrite's powerful BaaS features**.
+
 ## Prerequisites
 
 - Node.js 18+
