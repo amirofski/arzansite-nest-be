@@ -23,7 +23,10 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "appwrite:test": "node test-appwrite-connection.js",
-    "appwrite:migrate": "node create-appwrite-schema.js"
+    "appwrite:migrate": "node create-appwrite-schema.js",
+    "appwrite:update": "node update-appwrite-schema.js",
+    "appwrite:indexes": "node create-indexes.js",
+    "appwrite:setup-env": "node setup-env.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
