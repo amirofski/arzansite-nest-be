@@ -178,7 +178,7 @@ export class WalletsController {
   @Post('me/deposit')
   @ApiOperation({
     summary: 'Request wallet deposit',
-    description: 'Initiates a deposit request to the wallet through the payment gateway. Minimum amount is 1,000,000 Rials.'
+    description: 'Initiates a deposit request to the wallet through ZarinPal payment gateway. Minimum amount is 1,000,000 Rials.'
   })
   @ApiBody({
     description: 'Deposit request data',
@@ -188,12 +188,12 @@ export class WalletsController {
         amount: {
           type: 'number',
           description: 'Amount to deposit (minimum 1,000,000 Rials)',
-          example: 1000000
+          example: 3000000
         },
         description: {
           type: 'string',
           description: 'Optional description for the deposit',
-          example: 'Wallet top-up'
+          example: 'شارژ کیف پول - ۳۰٬۰۰۰٬۰۰۰ تومان'
         }
       },
       required: ['amount']
@@ -204,15 +204,16 @@ export class WalletsController {
     schema: {
       example: {
         success: true,
-        paymentUrl: 'https://www.zarinpal.com/pg/StartPay/123456789',
+        paymentUrl: 'https://zarinp.al/invoice/123456789',
         authority: '123456789',
-        orderId: 'deposit_user123_1701436800000_1000000',
+        invoiceId: '123456789',
+        orderId: 'deposit_user123_1701436800000_3000000',
         message: 'Payment request created successfully. Redirect to payment gateway.'
       }
     }
   })
   @ApiBadRequestResponse({
-    description: 'Amount below minimum requirement'
+    description: 'Amount below minimum requirement or payment gateway error'
   })
   @ApiUnauthorizedResponse({
     description: 'User not authenticated'
@@ -221,29 +222,25 @@ export class WalletsController {
     @User() user: UserPayload,
     @Body() body: { amount: number; description?: string },
   ) {
-    // Validate minimum amount
-    if (body.amount < 1000000) {
-      throw new Error('Minimum deposit amount is 1,000,000 Rials (10,000 Tomans)');
+    try {
+      // Create wallet deposit using the new payment service
+      const depositResult = await this.paymentsService.createWalletDeposit(
+        user.id,
+        body.amount,
+        body.description || `شارژ کیف پول - ${body.amount.toLocaleString()} ریال`
+      );
+
+      return {
+        success: true,
+        paymentUrl: depositResult.paymentUrl,
+        authority: depositResult.authority,
+        invoiceId: depositResult.invoiceId,
+        orderId: `deposit_${user.id}_${Date.now()}_${body.amount}`,
+        message: 'Payment request created successfully. Redirect to payment gateway.',
+      };
+    } catch (error) {
+      throw new Error(`Deposit request failed: ${error.message}`);
     }
-
-    // Create a temporary order for the deposit (include amount for verification)
-    const orderId = `deposit_${user.id}_${Date.now()}_${body.amount}`;
-    
-    // Request payment from Zarinpal
-    const paymentResult = await this.paymentsService.requestPayment(user.id, {
-      orderId,
-      amount: body.amount,
-      description: body.description || `Wallet deposit - ${body.amount.toLocaleString()} Rials`,
-      email: user.email,
-    });
-
-    return {
-      success: true,
-      paymentUrl: paymentResult.paymentUrl,
-      authority: paymentResult.authority,
-      orderId,
-      message: 'Payment request created successfully. Redirect to payment gateway.',
-    };
   }
 
   @Post('me/deposit/verify')
@@ -256,18 +253,13 @@ export class WalletsController {
     schema: {
       type: 'object',
       properties: {
-        orderId: {
-          type: 'string',
-          description: 'Order ID from the deposit request',
-          example: 'deposit_user123_1701436800000_1000000'
-        },
         authority: {
           type: 'string',
-          description: 'Payment authority from Zarinpal',
+          description: 'Payment authority from ZarinPal',
           example: '123456789'
         }
       },
-      required: ['orderId', 'authority']
+      required: ['authority']
     }
   })
   @ApiOkResponse({
@@ -276,7 +268,7 @@ export class WalletsController {
       example: {
         success: true,
         message: 'Wallet deposit successful!',
-        amount: 1000000,
+        amount: 3000000,
         refId: '987654321',
         newBalance: 3500000
       }
@@ -290,47 +282,28 @@ export class WalletsController {
   })
   async verifyWalletDeposit(
     @User() user: UserPayload,
-    @Body() body: { orderId: string; authority: string },
+    @Body() body: { authority: string },
   ) {
-    // Verify the payment
-    const verificationResult = await this.paymentsService.verifyPayment(user.id, {
-      orderId: body.orderId,
-      authority: body.authority,
-    });
+    try {
+      // Verify the wallet deposit payment
+      const verificationResult = await this.paymentsService.verifyWalletDeposit(
+        user.id,
+        body.authority
+      );
 
-    if (verificationResult.success) {
-      // Extract amount from orderId
-      const parts = body.orderId.split('_');
-      const amount = parseInt(parts[3]);
-
-      // Credit the wallet
-      await this.walletsService.createTransaction(user.id, {
-        type: TransactionType.CREDIT,
-        amount: amount,
-        description: `Wallet deposit via Zarinpal - Ref ID: ${verificationResult.refId}`,
-        referenceId: verificationResult.refId,
-        referenceType: 'zarinpal_payment',
-        metadata: {
-          zarinpal_authority: body.authority,
-          zarinpal_ref_id: verificationResult.refId,
-          payment_gateway: 'zarinpal',
-        },
-      });
+      // Get updated wallet balance
+      const wallet = await this.walletsService.getWallet(user.id);
 
       return {
         success: true,
         message: 'Wallet deposit successful!',
-        amount: amount,
+        amount: verificationResult.amount,
         refId: verificationResult.refId,
-        newBalance: (await this.walletsService.getBalance(user.id)).balance,
+        newBalance: wallet.balance,
       };
+    } catch (error) {
+      throw new Error(`Deposit verification failed: ${error.message}`);
     }
-
-    return {
-      success: false,
-      message: 'Payment verification failed',
-      error: 'Payment verification failed',
-    };
   }
 
   @Post('me/topup')

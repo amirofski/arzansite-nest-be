@@ -33,9 +33,10 @@ export interface PaymentTransaction {
   id: string;
   order_id: string;
   user_id: string;
-  transaction_type: 'payment_request' | 'payment_verification' | 'refund' | 'cancellation';
+  transaction_type: 'payment_request' | 'payment_verification' | 'refund' | 'cancellation' | 'wallet_deposit_request' | 'wallet_deposit_verification';
   zarinpal_authority?: string;
   zarinpal_ref_id?: string;
+  zarinpal_invoice_id?: string;
   amount: number;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   gateway_response?: any;

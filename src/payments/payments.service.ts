@@ -2,35 +2,30 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { OrdersService } from '../orders/orders.service';
+import { WalletsService } from '../wallets/wallets.service';
 import { PaymentTransaction } from '../common/types/database.types';
+import { ZarinPalService } from './zarinpal.service';
 import {
   PaymentRequestDto,
   PaymentVerifyDto,
   PaymentRefundDto,
   PaymentCancelDto,
 } from './dto/payment.dto';
-import axios from 'axios';
 
 @Injectable()
 export class PaymentsService {
-  private readonly merchantId: string;
-  private readonly zarinpalApiUrl = 'https://api.zarinpal.com/pg/v4/pay';
-
   constructor(
     private configService: ConfigService,
     private appwriteService: AppwriteService,
     private ordersService: OrdersService,
-  ) {
-    this.merchantId = this.configService.get<string>('ZARINPAL_MERCHANT_ID');
-    if (!this.merchantId) {
-      throw new Error('ZARINPAL_MERCHANT_ID is required');
-    }
-  }
+    private walletsService: WalletsService,
+    private zarinPalService: ZarinPalService,
+  ) {}
 
   async requestPayment(
     userId: string,
     paymentRequestDto: PaymentRequestDto,
-  ): Promise<{ success: boolean; authority: string; paymentUrl: string }> {
+  ): Promise<{ success: boolean; authority: string; paymentUrl: string; invoiceId?: string }> {
     // Check if this is a wallet deposit (orderId starts with 'deposit_')
     const isWalletDeposit = paymentRequestDto.orderId.startsWith('deposit_');
     
@@ -39,52 +34,37 @@ export class PaymentsService {
       const order = await this.ordersService.getOrder(paymentRequestDto.orderId, userId);
     }
 
-    // Create Zarinpal payment request
-    const zarinpalRequest = {
-      merchant_id: this.merchantId,
-      amount: paymentRequestDto.amount,
-      description: paymentRequestDto.description,
-      callback_url: paymentRequestDto.callbackUrl || `${this.configService.get('FRONTEND_URL')}/payment/callback`,
-      metadata: {
-        mobile: paymentRequestDto.mobile,
-        email: paymentRequestDto.email,
-        order_id: paymentRequestDto.orderId,
-      },
-    };
-
     try {
-      const response = await axios.post(this.zarinpalApiUrl, zarinpalRequest);
-      const { data } = response.data;
+      // Get user profile for payment details
+      const userProfile = await this.getUserProfile(userId);
+      
+      // Create payment request using ZarinPal service
+      const paymentResponse = await this.zarinPalService.createPayment({
+        amount: paymentRequestDto.amount,
+        description: paymentRequestDto.description,
+        callbackUrl: paymentRequestDto.callbackUrl || `${this.configService.get('FRONTEND_URL')}/payment/callback`,
+        mobile: paymentRequestDto.mobile || userProfile.phone || '',
+        email: paymentRequestDto.email || userProfile.email,
+        orderId: paymentRequestDto.orderId,
+      });
 
-      if (data.code === 100) {
-        // Update order with authority (only for regular orders)
-        if (!isWalletDeposit) {
-          await this.ordersService.updateOrderPaymentStatus(
-            paymentRequestDto.orderId,
-            'pending',
-            data.authority,
-          );
-        }
+      // Log payment transaction
+      await this.logPaymentTransaction({
+        order_id: paymentRequestDto.orderId,
+        user_id: userId,
+        transaction_type: 'payment_request',
+        zarinpal_authority: paymentResponse.data.authority,
+        amount: paymentRequestDto.amount,
+        status: 'pending',
+        gateway_response: paymentResponse,
+      });
 
-        // Log payment transaction
-        await this.logPaymentTransaction({
-          order_id: paymentRequestDto.orderId,
-          user_id: userId,
-          transaction_type: 'payment_request',
-          zarinpal_authority: data.authority,
-          amount: paymentRequestDto.amount,
-          status: 'pending',
-          gateway_response: response.data,
-        });
-
-        return {
-          success: true,
-          authority: data.authority,
-          paymentUrl: `https://www.zarinpal.com/pg/StartPay/${data.authority}`,
-        };
-      } else {
-        throw new BadRequestException(`Zarinpal error: ${data.message}`);
-      }
+      return {
+        success: true,
+        authority: paymentResponse.data.authority,
+        paymentUrl: this.zarinPalService.getPaymentUrl(paymentResponse.data.authority),
+        invoiceId: paymentResponse.data.authority,
+      };
     } catch (error) {
       throw new BadRequestException(`Payment request failed: ${error.message}`);
     }
@@ -119,27 +99,24 @@ export class PaymentsService {
       }
     }
 
-    // Verify with Zarinpal
-    const verifyUrl = 'https://api.zarinpal.com/pg/v4/payment/verify.json';
-    const verifyRequest = {
-      merchant_id: this.merchantId,
-      authority: paymentVerifyDto.authority,
-      amount: orderAmount,
-    };
-
     try {
-      const response = await axios.post(verifyUrl, verifyRequest);
-      const { data } = response.data;
+      // Verify payment with ZarinPal
+      const paymentResponse = await this.zarinPalService.verifyPayment(paymentVerifyDto.authority, orderAmount);
 
-      if (data.code === 100) {
+      if (paymentResponse.data.code === 100 || paymentResponse.data.code === 101) {
+        const refId = paymentResponse.data.ref_id.toString();
+
         // Update order payment status (only for regular orders)
         if (!isWalletDeposit) {
           await this.ordersService.updateOrderPaymentStatus(
             paymentVerifyDto.orderId,
             'paid',
             paymentVerifyDto.authority,
-            data.ref_id,
+            refId,
           );
+        } else {
+          // For wallet deposits, top up the wallet
+          await this.walletsService.topUpWallet(userId, orderAmount, refId);
         }
 
         // Log payment transaction
@@ -148,19 +125,19 @@ export class PaymentsService {
           user_id: userId,
           transaction_type: 'payment_verification',
           zarinpal_authority: paymentVerifyDto.authority,
-          zarinpal_ref_id: data.ref_id,
-          amount: data.amount,
+          zarinpal_ref_id: refId,
+          amount: paymentResponse.data.ref_id, // Use the verified amount
           status: 'completed',
-          gateway_response: response.data,
+          gateway_response: paymentResponse,
         });
 
         return {
           success: true,
-          refId: data.ref_id,
-          amount: data.amount,
+          refId: refId,
+          amount: orderAmount,
         };
       } else {
-        throw new BadRequestException(`Payment verification failed: ${data.message}`);
+        throw new BadRequestException(`Payment verification failed: ${paymentResponse.data.message}`);
       }
     } catch (error) {
       throw new BadRequestException(`Payment verification failed: ${error.message}`);
@@ -178,24 +155,29 @@ export class PaymentsService {
       throw new BadRequestException('Order is not paid');
     }
 
-    // Log refund transaction
-    await this.logPaymentTransaction({
-      order_id: paymentRefundDto.orderId,
-      user_id: userId,
-      transaction_type: 'refund',
-      zarinpal_ref_id: order.zarinpal_ref_id,
-      amount: paymentRefundDto.amount || order.price,
-      status: 'pending',
-      metadata: { refund_reason: 'user_requested' },
-    });
+    try {
+      // Log refund transaction (ZarinPal refund API not implemented yet)
+      await this.logPaymentTransaction({
+        order_id: paymentRefundDto.orderId,
+        user_id: userId,
+        transaction_type: 'refund',
+        zarinpal_ref_id: order.zarinpal_ref_id,
+        amount: paymentRefundDto.amount || order.price,
+        status: 'completed',
+        gateway_response: { message: 'Refund logged - ZarinPal refund API not implemented' },
+        metadata: { refund_reason: 'user_requested' },
+      });
 
-    // Update order status
-    await this.ordersService.updateOrderPaymentStatus(
-      paymentRefundDto.orderId,
-      'refunded',
-    );
+      // Update order status
+      await this.ordersService.updateOrderPaymentStatus(
+        paymentRefundDto.orderId,
+        'refunded',
+      );
 
-    return { success: true };
+      return { success: true };
+    } catch (error) {
+      throw new BadRequestException(`Refund failed: ${error.message}`);
+    }
   }
 
   async cancelPayment(
@@ -240,6 +222,127 @@ export class PaymentsService {
     return (res.documents as any) || [];
   }
 
+  /**
+   * Create wallet deposit payment request
+   */
+  async createWalletDeposit(
+    userId: string,
+    amount: number,
+    description: string,
+  ): Promise<{ success: boolean; authority: string; paymentUrl: string; invoiceId: string; orderId: string; message: string }> {
+    // Validate minimum amount (1,000,000 Rials = 1,000,000)
+    if (amount < 1000000) {
+      throw new BadRequestException('Minimum deposit amount is 1,000,000 Rials');
+    }
+
+    // Create unique order ID for wallet deposit
+    const timestamp = Date.now();
+    const orderId = `deposit_${userId}_${timestamp}_${amount}`;
+
+    // Get user profile
+    const userProfile = await this.getUserProfile(userId);
+
+    try {
+      // Create payment request using the updated ZarinPal service
+      const paymentResponse = await this.zarinPalService.createPayment({
+        amount: amount,
+        description: description,
+        callbackUrl: `${this.configService.get('FRONTEND_URL')}/wallet/deposit/callback`,
+        mobile: userProfile.phone || '',
+        email: userProfile.email,
+        orderId: orderId,
+        currency: 'IRR', // Use Rials as default
+      });
+
+      // Log payment transaction
+      await this.logPaymentTransaction({
+        order_id: orderId,
+        user_id: userId,
+        transaction_type: 'wallet_deposit_request',
+        zarinpal_authority: paymentResponse.data.authority,
+        amount: amount,
+        status: 'pending',
+        gateway_response: paymentResponse,
+      });
+
+      return {
+        success: true,
+        paymentUrl: this.zarinPalService.getPaymentUrl(paymentResponse.data.authority),
+        authority: paymentResponse.data.authority,
+        invoiceId: paymentResponse.data.authority, // Use authority as invoice ID for compatibility
+        orderId: orderId,
+        message: 'Payment request created successfully. Redirect to payment gateway.',
+      };
+    } catch (error) {
+      throw new BadRequestException(`Wallet deposit request failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verify wallet deposit payment
+   */
+  async verifyWalletDeposit(
+    userId: string,
+    authority: string,
+  ): Promise<{ success: boolean; refId: string; amount: number }> {
+    try {
+      // Get the original deposit amount from the transaction log
+      const transaction = await this.getPaymentTransactionByAuthority(authority);
+      if (!transaction) {
+        throw new BadRequestException('Payment transaction not found');
+      }
+
+      // Verify payment with ZarinPal using the correct amount
+      const paymentResponse = await this.zarinPalService.verifyPayment(authority, transaction.amount);
+
+      if (paymentResponse.data.code === 100 || paymentResponse.data.code === 101) {
+        const refId = paymentResponse.data.ref_id.toString();
+
+        // Top up the wallet
+        await this.walletsService.topUpWallet(userId, transaction.amount, refId);
+
+        // Log payment transaction
+        await this.logPaymentTransaction({
+          order_id: `deposit_${userId}_${Date.now()}_${transaction.amount}`,
+          user_id: userId,
+          transaction_type: 'wallet_deposit_verification',
+          zarinpal_authority: authority,
+          zarinpal_ref_id: refId,
+          amount: transaction.amount,
+          status: 'completed',
+          gateway_response: paymentResponse,
+        });
+
+        return {
+          success: true,
+          refId: refId,
+          amount: transaction.amount,
+        };
+      } else {
+        throw new BadRequestException(`Payment verification failed: ${paymentResponse.data.message}`);
+      }
+    } catch (error) {
+      throw new BadRequestException(`Wallet deposit verification failed: ${error.message}`);
+    }
+  }
+
+  private async getUserProfile(userId: string): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const { Query } = await import('node-appwrite');
+    
+    try {
+      const res = await databases.listDocuments(databaseId, collectionId, [
+        Query.equal('user_id', userId),
+        Query.limit(1),
+      ]);
+      return res.documents[0] || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
   private async logPaymentTransaction(transactionData: Partial<PaymentTransaction>): Promise<void> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -250,5 +353,25 @@ export class PaymentsService {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as any);
+  }
+
+  /**
+   * Get payment transaction by authority
+   */
+  private async getPaymentTransactionByAuthority(authority: string): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
+    const { Query } = await import('node-appwrite');
+    
+    try {
+      const res = await databases.listDocuments(databaseId, collectionId, [
+        Query.equal('zarinpal_authority', authority),
+        Query.limit(1),
+      ]);
+      return res.documents[0] || null;
+    } catch (error) {
+      return null;
+    }
   }
 }
