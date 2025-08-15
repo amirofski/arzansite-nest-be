@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
   Res,
   Redirect,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,6 +28,7 @@ import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto, LoginWithJwtDto 
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
 import { Response } from 'express';
+import { AppwriteAuthGuard } from './appwrite-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -826,5 +828,126 @@ export class AuthController {
     return res.json({ 
       message: 'Successfully signed out from OAuth session' 
     });
+  }
+
+  @Post('session')
+  @ApiOperation({
+    summary: '🔐 Create Appwrite Session',
+    description: 'Create a session by validating an Appwrite JWT token. If valid, sets a server cookie and returns user info.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        jwt: {
+          type: 'string',
+          description: 'Appwrite JWT token from account.createJWT()',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+        }
+      },
+      required: ['jwt']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ Session created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+            email: { type: 'string', example: 'user@example.com' },
+            name: { type: 'string', example: 'John Doe' },
+            emailVerification: { type: 'boolean', example: true },
+            $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            $updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            prefs: { type: 'object', example: {} }
+          }
+        },
+        message: { type: 'string', example: 'Session created successfully' }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - JWT token required',
+  })
+  @ApiResponse({
+    status: 401,
+    description: '❌ Unauthorized - Invalid JWT token',
+  })
+  async createSession(@Req() req: any, @Res() res: Response) {
+    const jwt = req.body?.jwt;
+    if (!jwt) {
+      return res.status(400).json({ error: 'jwt required' });
+    }
+
+    // Verify token and set server cookie for subsequent requests
+    // We will call Appwrite to validate the token by using the Guard pattern manually
+    const { Client, Account } = require('node-appwrite');
+    const client = new Client()
+      .setEndpoint(process.env.APPWRITE_ENDPOINT || '')
+      .setProject(process.env.APPWRITE_PROJECT || '')
+      .setKey(process.env.APPWRITE_API_KEY || '');
+    client.setJWT(jwt);
+    const account = new Account(client);
+
+    try {
+      const user = await account.get();
+
+      // Set an HttpOnly cookie if you want backend-managed sessions
+      // Note: name differs from Appwrite's internal cookie; choose your own
+      res.cookie('appwrite_jwt', jwt, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 1000 * 60 * 60, // 1 hour (jwt lifetime may be shorter)
+      });
+
+      return res.json({ 
+        user,
+        message: 'Session created successfully'
+      });
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid JWT' });
+    }
+  }
+
+  @UseGuards(AppwriteAuthGuard)
+  @Post('userinfo')
+  @ApiOperation({
+    summary: '👤 Get User Info (Protected)',
+    description: 'Get information about the currently authenticated user using Appwrite JWT.',
+  })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: '✅ User information retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+            email: { type: 'string', example: 'user@example.com' },
+            name: { type: 'string', example: 'John Doe' },
+            emailVerification: { type: 'boolean', example: true },
+            $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            $updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            prefs: { type: 'object', example: {} }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 401,
+    description: '❌ Unauthorized - Invalid or missing JWT token',
+  })
+  async userInfo(@Req() req: any) {
+    return { user: req.user };
   }
 }
