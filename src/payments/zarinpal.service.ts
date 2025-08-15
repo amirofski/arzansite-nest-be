@@ -118,9 +118,10 @@ export class ZarinPalService {
       }
 
       // Check maximum amount (ZarinPal typically has limits)
-      if (paymentData.amount > 999999999) {
-        this.logger.error(`Amount ${paymentData.amount} exceeds maximum 999999999`);
-        throw new BadRequestException('Amount is too high (maximum 999,999,999 Rials)');
+      // Updated for Iranian market - allow up to 1 billion Rials (1,000,000,000)
+      if (paymentData.amount > 1000000000) {
+        this.logger.error(`Amount ${paymentData.amount} exceeds maximum 1000000000`);
+        throw new BadRequestException('Amount is too high (maximum 1,000,000,000 Rials)');
       }
       
       this.logger.log(`Amount validation passed: ${paymentData.amount}`);
@@ -134,6 +135,14 @@ export class ZarinPalService {
         if (!this.isSandbox && callbackUrl.protocol !== 'https:') {
           throw new BadRequestException('Callback URL must use HTTPS in production');
         }
+        
+        // Additional validation: ensure URL is properly formatted
+        if (!callbackUrl.hostname || callbackUrl.hostname.length === 0) {
+          throw new BadRequestException('Callback URL must have a valid hostname');
+        }
+        
+        // Log the parsed URL components for debugging
+        this.logger.log(`Callback URL components: protocol=${callbackUrl.protocol}, hostname=${callbackUrl.hostname}, pathname=${callbackUrl.pathname}`);
         
       } catch (urlError) {
         this.logger.error(`Callback URL validation failed: ${urlError.message}`);
@@ -192,6 +201,7 @@ export class ZarinPalService {
           throw new BadRequestException('Invalid mobile number format (should start with 09 and be 11 digits)');
         }
         paymentRequest.metadata!.mobile = paymentData.mobile;
+        this.logger.log(`Added mobile to metadata: ${paymentData.mobile}`);
       }
       if (paymentData.email) {
         // Validate email format
@@ -200,6 +210,7 @@ export class ZarinPalService {
           throw new BadRequestException('Invalid email format');
         }
         paymentRequest.metadata!.email = paymentData.email;
+        this.logger.log(`Added email to metadata: ${paymentData.email}`);
       }
       if (paymentData.orderId) {
         // Validate order ID format
@@ -212,11 +223,15 @@ export class ZarinPalService {
           throw new BadRequestException('Order ID contains only invalid characters');
         }
         paymentRequest.metadata!.order_id = cleanOrderId;
+        this.logger.log(`Added order_id to metadata: ${cleanOrderId}`);
       }
 
       // Only include metadata if it has content
       if (Object.keys(paymentRequest.metadata!).length === 0) {
         delete paymentRequest.metadata;
+        this.logger.log('No metadata to include, removing metadata field');
+      } else {
+        this.logger.log(`Final metadata: ${JSON.stringify(paymentRequest.metadata)}`);
       }
 
       this.logger.log(`Final payment request: ${JSON.stringify(paymentRequest)}`);
