@@ -16,6 +16,171 @@ const databases = new Databases(client);
 const account = new Account(client);
 const users = new Users(client);
 
+// Helper function to check if collection exists
+async function collectionExists(collectionId) {
+    try {
+        await databases.getCollection(APPWRITE_DATABASE_ID, collectionId);
+        return true;
+    } catch (error) {
+        if (error.code === 404) {
+            return false;
+        }
+        throw error;
+    }
+}
+
+// Helper function to safely create collection
+async function ensureCollectionExists(collectionId, collectionSchema) {
+    try {
+        // Check if collection already exists
+        const exists = await collectionExists(collectionId);
+        
+        if (exists) {
+            console.log(`⏭️ Collection '${collectionId}' already exists, skipping...`);
+            return;
+        }
+
+        console.log(`🔨 Creating collection: ${collectionId}`);
+        
+        // Create the collection
+        await databases.createCollection(
+            APPWRITE_DATABASE_ID, 
+            collectionId, 
+            collectionSchema.name, 
+            [], // permissions
+            collectionSchema.documentSecurity
+        );
+
+        console.log(`✅ Collection '${collectionId}' created successfully`);
+
+        // Add attributes
+        for (const attr of collectionSchema.attributes) {
+            try {
+                if (attr.type === 'string') {
+                    await databases.createStringAttribute(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        attr.key,
+                        attr.size || 255,
+                        attr.required,
+                        attr.default,
+                        attr.array
+                    );
+                } else if (attr.type === 'integer') {
+                    await databases.createIntegerAttribute(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        attr.key,
+                        attr.required,
+                        attr.default,
+                        attr.array
+                    );
+                } else if (attr.type === 'double') {
+                    await databases.createFloatAttribute(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        attr.key,
+                        attr.required,
+                        attr.default,
+                        attr.array
+                    );
+                } else if (attr.type === 'boolean') {
+                    await databases.createBooleanAttribute(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        attr.key,
+                        attr.required,
+                        attr.default,
+                        attr.array
+                    );
+                } else if (attr.type === 'datetime') {
+                    await databases.createDatetimeAttribute(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        attr.key,
+                        attr.required,
+                        attr.default,
+                        attr.array
+                    );
+                } else if (attr.type === 'enum') {
+                    await databases.createEnumAttribute(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        attr.key,
+                        attr.enum || [],
+                        attr.required,
+                        attr.default,
+                        attr.array
+                    );
+                }
+                console.log(`  ✅ Added attribute: ${attr.key} (${attr.type})`);
+            } catch (attrError) {
+                console.log(`  ⚠️ Attribute ${attr.key} already exists or error: ${attrError.message}`);
+            }
+        }
+
+        // Add indexes
+        for (const idx of collectionSchema.indexes) {
+            try {
+                if (idx.type === 'key') {
+                    await databases.createIndex(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        idx.key,
+                        'key',
+                        idx.attributes,
+                        idx.orders
+                    );
+                } else if (idx.type === 'unique') {
+                    await databases.createIndex(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        idx.key,
+                        'unique',
+                        idx.attributes,
+                        idx.orders
+                    );
+                } else if (idx.type === 'fulltext') {
+                    await databases.createIndex(
+                        APPWRITE_DATABASE_ID,
+                        collectionId,
+                        idx.key,
+                        'fulltext',
+                        idx.attributes,
+                        idx.orders
+                    );
+                }
+                console.log(`  ✅ Added index: ${idx.key} (${idx.type})`);
+            } catch (idxError) {
+                console.log(`  ⚠️ Index ${idx.key} already exists or error: ${idxError.message}`);
+            }
+        }
+
+    } catch (error) {
+        console.error(`❌ Error creating collection '${collectionId}':`, error.message);
+        throw error;
+    }
+}
+
+// Main function to create all collections safely
+async function createCollectionsSafely() {
+    console.log('🚀 Starting safe collection creation...\n');
+    
+    try {
+        for (const [collectionId, collectionSchema] of Object.entries(schema)) {
+            await ensureCollectionExists(collectionId, collectionSchema);
+            console.log(''); // Add spacing between collections
+        }
+        
+        console.log('🎉 All collections processed successfully!');
+        console.log('📝 Note: Existing collections were skipped, new ones were created.');
+        
+    } catch (error) {
+        console.error('💥 Fatal error during collection creation:', error.message);
+        process.exit(1);
+    }
+}
+
 // Database schema definition
 const schema = {
     // Profiles collection
@@ -362,7 +527,87 @@ const schema = {
             { key: 'type_idx', type: 'key', attributes: ['type'], orders: ['ASC'] },
             { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] }
         ]
+    },
+
+    // NEW: Wizard Orders collection for storing complete wizard data
+    wizard_orders: {
+        name: 'wizard_orders',
+        documentSecurity: false,
+        attributes: [
+            { key: 'userId', type: 'string', size: 36, required: false, array: false },
+            { key: 'sessionId', type: 'string', size: 100, required: true, array: false },
+            { key: 'siteType', type: 'string', size: 20, required: true, array: false, enum: ['personal', 'business'] },
+            { key: 'websiteFramework', type: 'string', size: 16384, required: true, array: false }, // JSON as string
+            { key: 'branding', type: 'string', size: 2048, required: true, array: false }, // JSON as string
+            { key: 'additionalServices', type: 'string', size: 1024, required: true, array: false }, // JSON as string
+            { key: 'domains', type: 'string', size: 4096, required: true, array: false }, // JSON as string
+            { key: 'pricing', type: 'string', size: 2048, required: true, array: false }, // JSON as string
+            { key: 'paymentOptions', type: 'string', size: 512, required: true, array: false }, // JSON as string
+            { key: 'projectFiles', type: 'string', size: 8192, required: true, array: false }, // JSON as string
+            { key: 'status', type: 'string', size: 20, required: true, array: false, enum: ['draft', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] },
+            { key: 'createdAt', type: 'datetime', required: true, array: false },
+            { key: 'updatedAt', type: 'datetime', required: true, array: false },
+            { key: 'completedAt', type: 'datetime', required: false, array: false }
+        ],
+        indexes: [
+            { key: 'userId_idx', type: 'key', attributes: ['userId'], orders: ['ASC'] },
+            { key: 'sessionId_idx', type: 'key', attributes: ['sessionId'], orders: ['ASC'] },
+            { key: 'status_idx', type: 'key', attributes: ['status'], orders: ['ASC'] },
+            { key: 'siteType_idx', type: 'key', attributes: ['siteType'], orders: ['ASC'] },
+            { key: 'createdAt_idx', type: 'key', attributes: ['createdAt'], orders: ['DESC'] },
+            { key: 'updatedAt_idx', type: 'key', attributes: ['updatedAt'], orders: ['DESC'] },
+            { key: 'session_user_idx', type: 'unique', attributes: ['sessionId', 'userId'] }
+        ]
+    },
+
+    // NEW: Domain Extensions collection for managing domain prices and availability
+    domain_extensions: {
+        name: 'domain_extensions',
+        documentSecurity: false,
+        attributes: [
+            { key: 'extension', type: 'string', size: 20, required: true, array: false },
+            { key: 'name', type: 'string', size: 100, required: true, array: false },
+            { key: 'description', type: 'string', size: 500, required: false, array: false },
+            { key: 'price', type: 'double', required: true, array: false },
+            { key: 'available', type: 'boolean', required: true, array: false },
+            { key: 'category', type: 'string', size: 50, required: true, array: false, enum: ['international', 'country', 'specialty'] },
+            { key: 'createdAt', type: 'datetime', required: true, array: false },
+            { key: 'updatedAt', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'extension_idx', type: 'key', attributes: ['extension'], orders: ['ASC'] },
+            { key: 'price_idx', type: 'key', attributes: ['price'], orders: ['ASC'] },
+            { key: 'available_idx', type: 'key', attributes: ['available'], orders: ['ASC'] },
+            { key: 'category_idx', type: 'key', attributes: ['category'], orders: ['ASC'] },
+            { key: 'extension_unique_idx', type: 'unique', attributes: ['extension'] }
+        ]
+    },
+
+    // NEW: Project Files collection for tracking uploaded files
+    project_files: {
+        name: 'project_files',
+        documentSecurity: false,
+        attributes: [
+            { key: 'orderId', type: 'string', size: 36, required: true, array: false },
+            { key: 'filename', type: 'string', size: 255, required: true, array: false },
+            { key: 'originalName', type: 'string', size: 255, required: true, array: false },
+            { key: 'mimeType', type: 'string', size: 100, required: true, array: false },
+            { key: 'size', type: 'integer', required: true, array: false },
+            { key: 'bucketId', type: 'string', size: 36, required: true, array: false },
+            { key: 'fileId', type: 'string', size: 36, required: true, array: false },
+            { key: 'uploadedAt', type: 'datetime', required: true, array: false }
+        ],
+        indexes: [
+            { key: 'orderId_idx', type: 'key', attributes: ['orderId'], orders: ['ASC'] },
+            { key: 'fileId_idx', type: 'key', attributes: ['fileId'], orders: ['ASC'] },
+            { key: 'uploadedAt_idx', type: 'key', attributes: ['uploadedAt'], orders: ['DESC'] }
+        ]
     }
 };
 
 module.exports = { schema, databases, client };
+
+// Execute the safe collection creation if this file is run directly
+if (require.main === module) {
+    createCollectionsSafely();
+}

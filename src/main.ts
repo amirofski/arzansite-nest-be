@@ -134,6 +134,7 @@ For detailed endpoint information, see the sections below.
     .addTag('site-config', '⚙️ Site Configuration')
     .addTag('email', '📧 Email Services')
     .addTag('health', '🏥 Health Monitoring')
+    .addTag('wizard', '🧙‍♂️ Website Design Wizard')
     .addBearerAuth(
       {
         type: 'http',

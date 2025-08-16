@@ -1,0 +1,500 @@
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { AppwriteService } from '../appwrite/appwrite.service';
+import { ConfigService } from '@nestjs/config';
+import { StorageService } from '../storage/storage.service';
+import { DomainsService } from '../domains/domains.service';
+import { EmailService } from '../email/email.service';
+import { PaymentsService } from '../payments/payments.service';
+import { ID } from 'node-appwrite';
+import {
+  WizardOrderDto,
+  SaveProgressDto,
+  CompleteOrderDto,
+  UpdateOrderDto,
+  CalculatePriceDto,
+  OrderStatus,
+  SiteType,
+  PaymentCycle,
+} from './dto/wizard.dto';
+
+@Injectable()
+export class WizardService {
+  private readonly pricingConfig = {
+    basePrice: {
+      [SiteType.PERSONAL]: 500000, // 500,000 Toman
+      [SiteType.BUSINESS]: 800000, // 800,000 Toman
+    },
+    pageCost: 100000, // 100,000 Toman per page
+    sectionCost: 50000, // 50,000 Toman per section
+    additionalServices: {
+      seoOptimization: 200000,
+      socialMediaIntegration: 150000,
+      analyticsSetup: 100000,
+      backupService: 80000,
+      maintenancePlan: 120000,
+      rushDelivery: 300000,
+    },
+    annualDiscount: 0.15, // 15% discount for annual payments
+  };
+
+  constructor(
+    private appwriteService: AppwriteService,
+    private configService: ConfigService,
+    private storageService: StorageService,
+    private domainsService: DomainsService,
+    private emailService: EmailService,
+    private paymentsService: PaymentsService,
+  ) {}
+
+  async saveProgress(saveProgressDto: SaveProgressDto): Promise<WizardOrderDto> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+
+    // Check if progress already exists
+    const { Query } = await import('node-appwrite');
+    const existingProgress = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+      Query.equal('sessionId', saveProgressDto.sessionId),
+      Query.limit(1),
+    ]);
+
+    if (existingProgress.documents && existingProgress.documents.length > 0) {
+      // Update existing progress
+      const existingDoc = existingProgress.documents[0];
+      const updated = await databases.updateDocument(
+        databaseId,
+        wizardOrdersCollection,
+        existingDoc.$id,
+        {
+          ...saveProgressDto,
+          updatedAt: new Date().toISOString(),
+        }
+      );
+      return updated as any;
+    } else {
+      // Create new progress
+      const newDoc = await databases.createDocument(
+        databaseId,
+        wizardOrdersCollection,
+        ID.unique(),
+        {
+          ...saveProgressDto,
+          status: OrderStatus.DRAFT,
+          projectFiles: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      );
+      return newDoc as any;
+    }
+  }
+
+  async getProgress(sessionId: string, userId?: string): Promise<WizardOrderDto> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+
+    const { Query } = await import('node-appwrite');
+    const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+      Query.equal('sessionId', sessionId),
+      Query.limit(1),
+    ]);
+
+    if (!result.documents || result.documents.length === 0) {
+      throw new NotFoundException('Progress not found');
+    }
+
+    const progress = result.documents[0] as any;
+
+    // Check if user has access to this progress
+    if (userId && progress.userId && progress.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return progress;
+  }
+
+  async getUserProgress(userId: string): Promise<WizardOrderDto[]> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+
+    const { Query } = await import('node-appwrite');
+    const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+      Query.equal('userId', userId),
+      Query.orderDesc('updatedAt'),
+    ]);
+
+    return (result.documents as any) || [];
+  }
+
+  async completeOrder(completeOrderDto: CompleteOrderDto): Promise<WizardOrderDto> {
+    // Calculate final pricing
+    const pricing = await this.calculatePricing(completeOrderDto);
+    completeOrderDto.pricing = pricing;
+
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+
+    // Check if order already exists
+    const { Query } = await import('node-appwrite');
+    const existingOrder = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+      Query.equal('sessionId', completeOrderDto.sessionId),
+      Query.limit(1),
+    ]);
+
+    let orderDoc: any;
+
+    if (existingOrder.documents && existingOrder.documents.length > 0) {
+      // Update existing order
+      const existingDoc = existingOrder.documents[0];
+      orderDoc = await databases.updateDocument(
+        databaseId,
+        wizardOrdersCollection,
+        existingDoc.$id,
+        {
+          ...completeOrderDto,
+          status: OrderStatus.PENDING,
+          completedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      );
+    } else {
+      // Create new order
+      orderDoc = await databases.createDocument(
+        databaseId,
+        wizardOrdersCollection,
+        ID.unique(),
+        {
+          ...completeOrderDto,
+          status: OrderStatus.PENDING,
+          completedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      );
+    }
+
+    // Send order confirmation email
+    try {
+                await this.emailService.sendOrderNotification(
+            completeOrderDto.userId,
+            {
+              orderId: orderDoc.$id,
+              ...completeOrderDto
+            }
+          );
+    } catch (error) {
+      console.error('Failed to send order confirmation email:', error);
+    }
+
+    return orderDoc as any;
+  }
+
+  async updateOrder(
+    orderId: string,
+    updateOrderDto: UpdateOrderDto,
+    userId: string,
+    isAdmin: boolean = false
+  ): Promise<WizardOrderDto> {
+    // Check ownership or admin access
+    const existingOrder = await this.getOrder(orderId, userId, isAdmin);
+
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+
+    const updated = await databases.updateDocument(
+      databaseId,
+      wizardOrdersCollection,
+      orderId,
+      {
+        ...updateOrderDto,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+
+    return updated as any;
+  }
+
+  async getOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<WizardOrderDto> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+
+    const data = await databases.getDocument(databaseId, wizardOrdersCollection, orderId).catch(() => null);
+
+    if (!data) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Check ownership or admin access
+    if (!isAdmin && data.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return data as any;
+  }
+
+  async listUserOrders(userId: string): Promise<WizardOrderDto[]> {
+    return this.getUserProgress(userId);
+  }
+
+  async listAllOrders(
+    status?: OrderStatus,
+    page: number = 1,
+    limit: number = 20,
+    search?: string
+  ): Promise<{ orders: WizardOrderDto[]; total: number; page: number; totalPages: number }> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+
+    const { Query } = await import('node-appwrite');
+    const queries: string[] = [Query.orderDesc('updatedAt')];
+
+    if (status) {
+      queries.push(Query.equal('status', status));
+    }
+
+    if (search) {
+      queries.push(Query.search('primaryDomain', search));
+    }
+
+    const offset = (page - 1) * limit;
+    queries.push(Query.offset(offset));
+    queries.push(Query.limit(limit));
+
+    const result = await databases.listDocuments(databaseId, wizardOrdersCollection, queries);
+    const total = result.total;
+
+    return {
+      orders: (result.documents as any) || [],
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async uploadFiles(
+    orderId: string,
+    sessionId: string,
+    files: Express.Multer.File[]
+  ): Promise<{ uploadedFiles: any[]; errors: string[] }> {
+    // Verify order exists and user has access
+    const order = await this.getOrder(orderId, sessionId, true); // Allow session-based access
+
+    const uploadedFiles: any[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      try {
+        // Validate file
+        if (!this.isValidFile(file)) {
+          errors.push(`Invalid file: ${file.originalname}`);
+          continue;
+        }
+
+        // Upload to storage
+        const bucketId = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
+        const uploadResult = await this.storageService.uploadMultipart(bucketId, file);
+
+        if (uploadResult.fileId === 'placeholder-file-id') {
+          // Handle case where storage service is not fully implemented
+          errors.push(`File upload not implemented: ${file.originalname}`);
+          continue;
+        }
+
+        // Create file record
+        const fileRecord = {
+          id: uploadResult.fileId,
+          filename: file.filename || file.originalname,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          url: uploadResult.fileId, // This should be the actual URL
+          uploadedAt: new Date(),
+        };
+
+        // Update order with new file
+        await this.updateOrder(
+          orderId,
+          { projectFiles: [...order.projectFiles, fileRecord] },
+          order.userId || sessionId,
+          false
+        );
+
+        uploadedFiles.push(fileRecord);
+      } catch (error) {
+        errors.push(`Failed to upload ${file.originalname}: ${error.message}`);
+      }
+    }
+
+    return { uploadedFiles, errors };
+  }
+
+  async deleteFile(orderId: string, fileId: string, userId: string, isAdmin: boolean = false): Promise<void> {
+    const order = await this.getOrder(orderId, userId, isAdmin);
+
+    // Find and remove file from order
+    const updatedFiles = order.projectFiles.filter((file: any) => file.id !== fileId);
+    
+    if (updatedFiles.length === order.projectFiles.length) {
+      throw new NotFoundException('File not found in order');
+    }
+
+    // Update order
+    await this.updateOrder(
+      orderId,
+      { projectFiles: updatedFiles },
+      userId,
+      isAdmin
+    );
+
+    // Delete from storage
+    try {
+      const bucketId = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
+      await this.storageService.deleteFile(bucketId, fileId);
+    } catch (error) {
+      console.error('Failed to delete file from storage:', error);
+    }
+  }
+
+  async listOrderFiles(orderId: string, userId: string, isAdmin: boolean = false): Promise<any[]> {
+    const order = await this.getOrder(orderId, userId, isAdmin);
+    return order.projectFiles || [];
+  }
+
+  async getAvailableDomainExtensions(): Promise<any[]> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+
+    try {
+      const { Query } = await import('node-appwrite');
+      const result = await databases.listDocuments(databaseId, domainExtensionsCollection, [
+        Query.equal('available', true),
+        Query.orderAsc('price'),
+      ]);
+      return (result.documents as any) || [];
+    } catch (error) {
+      // Return default extensions if collection doesn't exist
+      return [
+        { extension: '.ir', name: 'Iran', price: 50000, available: true, category: 'country' },
+        { extension: '.com', name: 'Commercial', price: 80000, available: true, category: 'international' },
+        { extension: '.net', name: 'Network', price: 75000, available: true, category: 'international' },
+        { extension: '.org', name: 'Organization', price: 70000, available: true, category: 'international' },
+      ];
+    }
+  }
+
+  async checkDomainAvailability(domain: string, extension: string): Promise<{ available: boolean; domain: string; reason?: string }> {
+    return this.domainsService.checkDomainAvailability(domain, extension);
+  }
+
+  async getDomainPrices(): Promise<any[]> {
+    return this.getAvailableDomainExtensions();
+  }
+
+  async updateDomainPrices(extensionId: string, price: number, available: boolean): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+
+    const updated = await databases.updateDocument(
+      databaseId,
+      domainExtensionsCollection,
+      extensionId,
+      {
+        price,
+        available,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+
+    return updated;
+  }
+
+  async calculatePricing(calculatePriceDto: CalculatePriceDto): Promise<any> {
+    let basePrice = 0;
+    let pagesCost = 0;
+    let sectionsCost = 0;
+    let additionalServicesCost = 0;
+    let domainCost = 0;
+
+    // Base price based on site type
+    if (calculatePriceDto.siteType) {
+      basePrice = this.pricingConfig.basePrice[calculatePriceDto.siteType];
+    }
+
+    // Pages and sections cost
+    if (calculatePriceDto.websiteFramework?.dynamicDesign) {
+      const pages = calculatePriceDto.websiteFramework.dynamicDesign.pages;
+      pagesCost = pages.length * this.pricingConfig.pageCost;
+      
+      const totalSections = pages.reduce((total, page) => total + page.sections.length, 0);
+      sectionsCost = totalSections * this.pricingConfig.sectionCost;
+    }
+
+    // Additional services cost
+    if (calculatePriceDto.additionalServices) {
+      Object.entries(calculatePriceDto.additionalServices).forEach(([service, enabled]) => {
+        if (enabled && this.pricingConfig.additionalServices[service]) {
+          additionalServicesCost += this.pricingConfig.additionalServices[service];
+        }
+      });
+    }
+
+    // Domain cost (simplified - would need actual domain pricing)
+    if (calculatePriceDto.domains) {
+      domainCost = 50000; // Base domain cost
+      if (calculatePriceDto.domains.additionalDomains) {
+        domainCost += calculatePriceDto.domains.additionalDomains.length * 50000;
+      }
+    }
+
+    const subtotal = basePrice + pagesCost + sectionsCost + additionalServicesCost + domainCost;
+    const annualDiscount = calculatePriceDto.paymentCycle === PaymentCycle.ANNUAL 
+      ? subtotal * this.pricingConfig.annualDiscount 
+      : 0;
+
+    const totalPrice = subtotal - annualDiscount;
+    const monthlyPrice = totalPrice;
+    const annualPrice = totalPrice * 12;
+
+    return {
+      basePrice,
+      pagesCost,
+      sectionsCost,
+      additionalServicesCost,
+      domainCost,
+      totalPrice,
+      monthlyPrice,
+      annualPrice,
+      annualDiscount,
+    };
+  }
+
+  async getPricingConfiguration(): Promise<any> {
+    return this.pricingConfig;
+  }
+
+  private isValidFile(file: Express.Multer.File): boolean {
+    const maxSize = parseInt(this.configService.get<string>('MAX_FILE_SIZE') || '10485760'); // 10MB default
+    const allowedTypes = (this.configService.get<string>('ALLOWED_FILE_TYPES') || 'image/*,application/pdf,text/*').split(',');
+
+    if (file.size > maxSize) {
+      return false;
+    }
+
+    // Check if file type is allowed
+    return allowedTypes.some(type => {
+      if (type.endsWith('/*')) {
+        const baseType = type.replace('/*', '');
+        return file.mimetype.startsWith(baseType);
+      }
+      return file.mimetype === type;
+    });
+  }
+}
