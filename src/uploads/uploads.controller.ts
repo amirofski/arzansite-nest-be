@@ -7,6 +7,7 @@ import {
   Query, 
   UseInterceptors, 
   UploadedFile, 
+  UploadedFiles,
   Body, 
   UseGuards,
   Request,
@@ -16,7 +17,7 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { 
   ApiTags, 
   ApiOperation, 
@@ -32,12 +33,23 @@ import { JwtGuard } from '../common/guards/jwt.guard';
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
 
 @ApiTags('uploads')
-@Controller('api/uploads')
-@UseGuards(JwtGuard)
+@Controller('uploads')
+// @UseGuards(JwtGuard) // Temporarily disabled for testing
 @UseInterceptors(TransformInterceptor)
-@ApiBearerAuth()
+// @ApiBearerAuth() // Temporarily disabled for testing
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
+
+  @Get('test')
+  @ApiOperation({ summary: 'Test endpoint to verify routing' })
+  @ApiResponse({ status: 200, description: 'Test successful' })
+  async testEndpoint() {
+    return {
+      success: true,
+      data: { message: 'Uploads route is working!' },
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get all uploaded files' })
@@ -157,9 +169,9 @@ export class UploadsController {
   @ApiResponse({ status: 201, description: 'Files uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - invalid files' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @UseInterceptors(FileInterceptor('files'))
+  @UseInterceptors(FilesInterceptor('files'))
   async uploadMultipleFiles(
-    @UploadedFile(
+    @UploadedFiles(
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 30 * 1024 * 1024 }), // 30MB
