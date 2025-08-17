@@ -20,6 +20,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
 import { AdminModule } from './admin/admin.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { WizardModule } from './wizard/wizard.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { WizardModule } from './wizard/wizard.module';
     AdminModule,
     ScheduledTasksModule,
     WizardModule,
+    UploadsModule,
   ],
   controllers: [HealthController],
 })
