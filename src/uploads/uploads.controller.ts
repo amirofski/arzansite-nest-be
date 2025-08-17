@@ -34,9 +34,9 @@ import { TransformInterceptor } from '../common/interceptors/transform.intercept
 
 @ApiTags('uploads')
 @Controller('uploads')
-// @UseGuards(JwtGuard) // Temporarily disabled for testing
+@UseGuards(JwtGuard)
 @UseInterceptors(TransformInterceptor)
-// @ApiBearerAuth() // Temporarily disabled for testing
+@ApiBearerAuth()
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
