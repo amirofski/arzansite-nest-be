@@ -1,14 +1,15 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
+import * as bodyParser from 'body-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ErrorInterceptor } from './common/interceptors/error.interceptor';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,6 +19,10 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser());
+
+  // Increase body parser limits for file uploads
+  app.use(bodyParser.json({ limit: '30mb' }));
+  app.use(bodyParser.urlencoded({ limit: '30mb', extended: true }));
 
   // CORS configuration
   const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || [
@@ -136,6 +141,7 @@ For detailed endpoint information, see the sections below.
     .addTag('email', '📧 Email Services')
     .addTag('health', '🏥 Health Monitoring')
     .addTag('wizard', '🧙‍♂️ Website Design Wizard')
+    .addTag('uploads', '📤 File Upload System')
     .addBearerAuth(
       {
         type: 'http',
@@ -204,6 +210,8 @@ For detailed endpoint information, see the sections below.
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📡 WebSocket gateway available at: ws://localhost:${port}/ws`);
   console.log(`📚 API Documentation available at: http://localhost:${port}/api/docs`);
+  console.log(`📁 File upload limit: 30MB`);
+  console.log(`🔐 API prefix: /api`);
 }
 
 bootstrap();
