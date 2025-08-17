@@ -950,4 +950,222 @@ export class AuthController {
   async userInfo(@Req() req: any) {
     return { user: req.user };
   }
+
+  @Post('exchange-jwt')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '🔄 Exchange Appwrite JWT for Backend JWT',
+    description: 'Exchange an Appwrite JWT token for a backend JWT token. This allows frontend to authenticate with the backend using Appwrite credentials.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        appwriteJwt: {
+          type: 'string',
+          description: 'Appwrite JWT token from account.createJWT()',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+        }
+      },
+      required: ['appwriteJwt']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ JWT exchange successful',
+    schema: {
+      type: 'object',
+      properties: {
+        access_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          description: 'Backend JWT access token for API authentication'
+        },
+        refresh_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          description: 'Backend JWT refresh token'
+        },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+            email: { type: 'string', example: 'user@example.com' },
+            name: { type: 'string', example: 'John Doe' },
+            emailVerification: { type: 'boolean', example: true },
+          }
+        },
+        message: {
+          type: 'string',
+          example: 'JWT exchange successful. Use the access_token for API requests.',
+          description: 'Success message'
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - Appwrite JWT required',
+  })
+  @ApiResponse({
+    status: 401,
+    description: '❌ Unauthorized - Invalid Appwrite JWT',
+  })
+  async exchangeJwt(@Body() body: { appwriteJwt: string }) {
+    return this.authService.exchangeAppwriteJwt(body.appwriteJwt);
+  }
+
+  @Post('session-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '🔐 Authenticate using Appwrite Session ID',
+    description: 'Alternative authentication method using Appwrite session ID instead of JWT. This bypasses JWT permission issues.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: 'Appwrite session ID from account.createEmailPasswordSession()',
+          example: '68a230dc276cc04a4ea9'
+        },
+        email: {
+          type: 'string',
+          description: 'User email for verification',
+          example: 'user@example.com'
+        }
+      },
+      required: ['sessionId', 'email']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ Session authentication successful',
+    schema: {
+      type: 'object',
+      properties: {
+        access_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          description: 'Backend JWT access token for API authentication'
+        },
+        refresh_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          description: 'Backend JWT refresh token'
+        },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '68a230dc276cc04a4ea9' },
+            email: { type: 'string', example: 'user@example.com' },
+            name: { type: 'string', example: 'user' },
+            emailVerification: { type: 'boolean', example: true },
+          }
+        },
+        message: {
+          type: 'string',
+          example: 'Session authentication successful. Use the access_token for API requests.',
+          description: 'Success message'
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - Session ID and email required',
+  })
+  @ApiResponse({
+    status: 401,
+    description: '❌ Unauthorized - Invalid session or credentials',
+  })
+  async authenticateSession(@Body() body: { sessionId: string; email: string }) {
+    return this.authService.authenticateWithSession(body.sessionId, body.email);
+  }
+
+  @Post('session-logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '🚪 Logout and invalidate Appwrite session',
+    description: 'Logout user by deleting the Appwrite session and invalidating backend tokens.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: 'Appwrite session ID to logout',
+          example: '68a230dc276cc04a4ea9'
+        }
+      },
+      required: ['sessionId']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ Session logged out successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: '❌ Unauthorized - Invalid session',
+  })
+  async logoutSession(@Body() body: { sessionId: string }) {
+    return this.authService.logoutSession(body.sessionId);
+  }
+
+  @Get('session-info/:sessionId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'ℹ️ Get session information and user details',
+    description: 'Retrieve information about a specific session and its associated user.',
+  })
+  @ApiParam({
+    name: 'sessionId',
+    description: 'Appwrite session ID',
+    example: '68a230dc276cc04a4ea9'
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ Session information retrieved',
+  })
+  async getSessionInfo(@Param('sessionId') sessionId: string) {
+    return this.authService.getSessionInfo(sessionId);
+  }
+
+  @Post('session-validate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '✅ Validate session status',
+    description: 'Check if a session is still valid and active.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: 'Appwrite session ID to validate',
+          example: '68a230dc276cc04a4ea9'
+        }
+      },
+      required: ['sessionId']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ Session validation result',
+    schema: {
+      type: 'object',
+      properties: {
+        valid: { type: 'boolean', example: true },
+        sessionId: { type: 'string', example: '68a230dc276cc04a4ea9' }
+      }
+    }
+  })
+  async validateSession(@Body() body: { sessionId: string }) {
+    const isValid = await this.authService.validateSession(body.sessionId);
+    return { valid: isValid, sessionId: body.sessionId };
+  }
 }

@@ -85,12 +85,62 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
+  async getCurrentUserFromSession(sessionId: string) {
+    try {
+      const client = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setSession(sessionId);
+
+      const account = new Account(client);
+      const user = await account.get();
+      return user;
+    } catch (error) {
+      throw new Error(`Failed to get current user from session: ${error.message}`);
+    }
+  }
+
   async deleteSession(sessionId: string) {
     try {
-      await this.account.deleteSession(sessionId);
-      return { success: true };
+      const client = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setSession(sessionId);
+
+      const account = new Account(client);
+      await account.deleteSession(sessionId);
+      return { success: true, message: 'Session deleted successfully' };
     } catch (error) {
       throw new Error(`Failed to delete session: ${error.message}`);
+    }
+  }
+
+  async listUserSessions(userId: string) {
+    try {
+      const client = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId)
+        .setKey(this.config.apiKey);
+
+      const account = new Account(client);
+      const sessions = await account.listSessions();
+      return sessions;
+    } catch (error) {
+      throw new Error(`Failed to list user sessions: ${error.message}`);
+    }
+  }
+
+  async createEmailPasswordSession(email: string, password: string) {
+    try {
+      const client = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId);
+
+      const account = new Account(client);
+      const session = await account.createEmailPasswordSession(email, password);
+      return session;
+    } catch (error) {
+      throw new Error(`Failed to create email password session: ${error.message}`);
     }
   }
 

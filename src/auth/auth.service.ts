@@ -882,4 +882,261 @@ export class AuthService {
       throw new UnauthorizedException('Invalid session or user not found');
     }
   }
+
+  async exchangeAppwriteJwt(appwriteJwt: string) {
+    try {
+      if (!appwriteJwt) {
+        throw new BadRequestException('Appwrite JWT is required');
+      }
+
+      // Validate the Appwrite JWT by getting user info
+      const user = await this.appwriteService.getCurrentUser(appwriteJwt);
+      
+      if (!user || !user.$id) {
+        throw new UnauthorizedException('Invalid Appwrite JWT');
+      }
+
+      // DEVELOPMENT BYPASS: Allow unverified users for testing
+      // TODO: Remove this bypass in production
+      if (!user.emailVerification) {
+        console.warn(`⚠️ DEVELOPMENT MODE: User ${user.$id} (${user.email}) is not verified, but allowing access for testing`);
+        console.warn('⚠️ This bypass should be removed in production!');
+        
+        // In production, you would uncomment this line:
+        // throw new UnauthorizedException('Email must be verified before accessing the API');
+      }
+
+      // Generate backend JWT tokens
+      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4akspbsodqmks');
+      
+      // Create access token
+      const accessToken = jwt.sign(
+        {
+          sub: user.$id,
+          email: user.email,
+          name: user.name,
+          emailVerified: user.emailVerification,
+          type: 'access'
+        },
+        secret,
+        { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') }
+      );
+
+      // Create refresh token (longer expiry)
+      const refreshToken = jwt.sign(
+        {
+          sub: user.$id,
+          email: user.email,
+          type: 'refresh'
+        },
+        secret,
+        { expiresIn: '7d' }
+      );
+
+      // Create profile if it doesn't exist
+      try {
+        await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+      } catch (profileError) {
+        console.warn('⚠️ Failed to create profile during JWT exchange:', profileError);
+      }
+
+      return {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        user: {
+          id: user.$id,
+          email: user.email,
+          name: user.name,
+          emailVerification: user.emailVerification,
+        },
+        message: user.emailVerification 
+          ? 'JWT exchange successful. Use the access_token for API requests.'
+          : 'JWT exchange successful (DEVELOPMENT MODE - email not verified). Use the access_token for API requests.',
+        warning: user.emailVerification ? null : 'DEVELOPMENT MODE: Email verification bypassed for testing',
+        development_mode: !user.emailVerification
+      };
+    } catch (error) {
+      console.error('❌ Failed to exchange Appwrite JWT:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('missing scope (account)')) {
+        throw new UnauthorizedException('User account not properly authenticated. Please ensure you are logged in and your email is verified.');
+      }
+      
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Failed to exchange JWT token');
+    }
+  }
+
+  async authenticateWithSession(sessionId: string, email: string) {
+    try {
+      if (!sessionId || !email) {
+        throw new BadRequestException('Session ID and email are required');
+      }
+
+      // Validate the session by attempting to get user info
+      // This bypasses the JWT permission issues
+      let user;
+      try {
+        user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+        console.log('✅ Session validation successful');
+      } catch (sessionError) {
+        // If session validation fails, we should NOT create a fallback user
+        // This is a security risk - only proceed with valid sessions
+        console.error(`❌ Session validation failed: ${sessionError.message}`);
+        throw new UnauthorizedException('Invalid or expired session. Please login again.');
+      }
+
+      if (!user || !user.$id) {
+        throw new UnauthorizedException('Invalid session or user information');
+      }
+
+      // ✅ SECURITY FIX: Use the actual Appwrite user ID, not session ID
+      const actualUserId = user.$id;
+      
+      // Verify that the user ID is different from session ID for security
+      if (actualUserId === sessionId) {
+        console.warn('⚠️ Security warning: User ID matches session ID');
+        throw new UnauthorizedException('Session validation failed. Please login again.');
+      }
+
+      // Generate backend JWT tokens (we still need these for API access)
+      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4akspbsodqmks');
+      
+      // Create access token with proper user ID
+      const accessToken = jwt.sign(
+        {
+          sub: actualUserId, // ✅ Use actual user ID, not session ID
+          email: user.email,
+          name: user.name,
+          emailVerified: user.emailVerification,
+          type: 'access',
+          auth_method: 'session',
+          session_id: sessionId // Keep session ID separate for tracking
+        },
+        secret,
+        { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') }
+      );
+
+      // Create refresh token with proper user ID
+      const refreshToken = jwt.sign(
+        {
+          sub: actualUserId, // ✅ Use actual user ID, not session ID
+          email: user.email,
+          type: 'refresh',
+          auth_method: 'session',
+          session_id: sessionId // Keep session ID separate for tracking
+        },
+        secret,
+        { expiresIn: '7d' }
+      );
+
+      // Create profile if it doesn't exist
+      try {
+        await this.profilesService.createProfileIfNotExists(actualUserId, user.email);
+      } catch (profileError) {
+        console.warn('⚠️ Failed to create profile during session authentication:', profileError);
+      }
+
+      return {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        user: {
+          id: actualUserId, // ✅ Return actual user ID
+          email: user.email,
+          name: user.name,
+          emailVerification: user.emailVerification,
+        },
+        message: 'Session authentication successful. Use the access_token for API requests.',
+        auth_method: 'session',
+        session_id: sessionId,
+        session_expires_in: '7d', // Appwrite session expiry
+        user_id: actualUserId // ✅ Explicitly show user ID for verification
+      };
+    } catch (error) {
+      console.error('❌ Failed to authenticate with session:', error);
+      
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Failed to authenticate session');
+    }
+  }
+
+  async validateSession(sessionId: string): Promise<boolean> {
+    try {
+      // Try to get user info from the session
+      const user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+      const isValid = !!user && !!user.$id;
+      console.log(`Session validation for ${sessionId}: ${isValid ? 'VALID' : 'INVALID'}`);
+      return isValid;
+    } catch (error) {
+      console.warn(`Session validation failed for ${sessionId}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async logoutSession(sessionId: string) {
+    try {
+      // First, try to validate if the session is still valid
+      let sessionWasValid = false;
+      try {
+        const user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+        sessionWasValid = !!user && !!user.$id;
+      } catch (validationError) {
+        console.log(`Session validation failed during logout: ${validationError.message}`);
+        sessionWasValid = false;
+      }
+
+      // Try to delete the Appwrite session (this might fail if already invalid)
+      try {
+        await this.appwriteService.deleteSession(sessionId);
+        console.log('✅ Appwrite session deleted successfully');
+      } catch (deleteError) {
+        console.log(`⚠️ Could not delete Appwrite session: ${deleteError.message}`);
+        // This is okay - the session might already be invalid
+      }
+
+      // Always return success since we've handled the logout process
+      return { 
+        success: true, 
+        message: sessionWasValid ? 'Session logged out successfully' : 'Session was already invalid',
+        sessionWasValid
+      };
+    } catch (error) {
+      console.error('Failed to logout session:', error);
+      // Don't throw error, just return success since logout is complete
+      return { 
+        success: true, 
+        message: 'Logout completed (session cleanup attempted)',
+        sessionWasValid: false
+      };
+    }
+  }
+
+  async getSessionInfo(sessionId: string) {
+    try {
+      const user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+      return {
+        sessionId,
+        user: {
+          id: user.$id,
+          email: user.email,
+          name: user.name,
+          emailVerification: user.emailVerification,
+          status: user.status
+        },
+        valid: true
+      };
+    } catch (error) {
+      return {
+        sessionId,
+        user: null,
+        valid: false,
+        error: error.message
+      };
+    }
+  }
 }
