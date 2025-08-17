@@ -610,8 +610,8 @@ export class AuthService {
         sessionId: session.$id,
         emailVerified: user.emailVerification
       };
-      const secret = this.configService.get<string>('JWT_SECRET', 'change_me');
-      const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') });
+      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
+      const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '7d') });
       const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, secret, { expiresIn: '7d' });
 
       return { 
@@ -646,8 +646,8 @@ export class AuthService {
 
       // Issue backend JWT (stateless) with basic claims
       const payload = { sub: user.$id, email: user.email };
-      const secret = this.configService.get<string>('JWT_SECRET', 'change_me');
-      const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') });
+      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
+      const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '7d') });
       const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, secret, { expiresIn: '7d' });
 
       return { 
@@ -665,7 +665,7 @@ export class AuthService {
 
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
     try {
-      const decoded = jwt.verify(refreshTokenDto.refresh_token, this.configService.get<string>('JWT_SECRET', 'change_me')) as any;
+      const decoded = jwt.verify(refreshTokenDto.refresh_token, this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks')) as any;
       
       if (decoded.type !== 'refresh') {
         throw new UnauthorizedException('Invalid refresh token type');
@@ -673,8 +673,8 @@ export class AuthService {
 
       // Issue new access token
       const payload = { sub: decoded.sub, email: decoded.email, sessionId: decoded.sessionId };
-      const secret = this.configService.get<string>('JWT_SECRET', 'change_me');
-      const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') });
+      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
+      const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '7d') });
 
       return { 
         access_token: accessToken,
@@ -690,7 +690,7 @@ export class AuthService {
 
   async signOut(accessToken: string) {
     try {
-      const decoded = jwt.verify(accessToken, this.configService.get<string>('JWT_SECRET', 'change_me')) as any;
+      const decoded = jwt.verify(accessToken, this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks')) as any;
       
       // If we have a session ID, delete the Appwrite session
       if (decoded.sessionId) {
