@@ -116,4 +116,84 @@ export class DomainsService {
 
     return [...new Set(domains)]; // Remove duplicates
   }
+
+  async getAvailableDomainExtensions(): Promise<any[]> {
+    // Get available domain extensions from Appwrite
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+    
+    try {
+      const { Query } = await import('node-appwrite');
+      const result = await databases.listDocuments(databaseId, domainExtensionsCollection, [
+        Query.equal('available', true),
+        Query.orderAsc('extension'),
+      ]);
+      
+      return (result.documents as any) || [];
+    } catch (error) {
+      console.error('Error fetching domain extensions:', error);
+      // Return default extensions if collection doesn't exist
+      return [
+        { id: '1', extension: '.ir', price: 50000, available: true },
+        { id: '2', extension: '.com', price: 80000, available: true },
+        { id: '3', extension: '.org', price: 70000, available: true },
+        { id: '4', extension: '.net', price: 75000, available: true },
+      ];
+    }
+  }
+
+  async getDomainPrices(): Promise<any[]> {
+    // Get domain prices from Appwrite
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+    
+    try {
+      const { Query } = await import('node-appwrite');
+      const result = await databases.listDocuments(databaseId, domainExtensionsCollection, [
+        Query.orderAsc('extension'),
+      ]);
+      
+      return (result.documents as any) || [];
+    } catch (error) {
+      console.error('Error fetching domain prices:', error);
+      // Return default prices if collection doesn't exist
+      return [
+        { id: '1', extension: '.ir', price: 50000, available: true },
+        { id: '2', extension: '.com', price: 80000, available: true },
+        { id: '3', extension: '.org', price: 70000, available: true },
+        { id: '4', extension: '.net', price: 75000, available: true },
+      ];
+    }
+  }
+
+  async updateDomainPrices(
+    extensionId: string,
+    price: number,
+    available: boolean,
+  ): Promise<any> {
+    // Update domain prices in Appwrite (admin only)
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+    
+    try {
+      const updated = await databases.updateDocument(
+        databaseId,
+        domainExtensionsCollection,
+        extensionId,
+        {
+          price,
+          available,
+          updatedAt: new Date().toISOString(),
+        }
+      );
+      
+      return updated;
+    } catch (error) {
+      console.error('Error updating domain prices:', error);
+      throw new BadRequestException('Failed to update domain prices');
+    }
+  }
 }

@@ -36,6 +36,7 @@ import {
   OrderStatus,
   DomainAvailabilityDto,
   DomainPriceDto,
+  SaveDesignDto,
 } from './dto/wizard.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -284,5 +285,29 @@ export class WizardController {
   @ApiResponse({ status: 200, description: 'Pricing configuration retrieved successfully' })
   async getPricingConfiguration() {
     return this.wizardService.getPricingConfiguration();
+  }
+
+  @Post('designs')
+  @ApiOperation({ summary: 'Save Dynamic Design Structure' })
+  @ApiResponse({ status: 201, description: 'Design saved successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
+  async saveDesign(@Body() saveDesignDto: SaveDesignDto, @Request() req: any) {
+    const userId = req.user?.userId || req.user?.id;
+    return this.wizardService.saveDesign(saveDesignDto, userId);
+  }
+
+  @Get('designs/:orderId')
+  @ApiOperation({ summary: 'Get Design by Order' })
+  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Design retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Design not found' })
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
+  async getDesign(@Param('orderId') orderId: string, @Request() req: any) {
+    const userId = req.user?.userId || req.user?.id;
+    return this.wizardService.getDesign(orderId, userId);
   }
 }

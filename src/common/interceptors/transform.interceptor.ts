@@ -8,9 +8,20 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 export interface Response<T> {
-  data: T;
   success: boolean;
-  message?: string;
+  data: T;
+  timestamp: string;
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
   timestamp: string;
 }
 
@@ -24,8 +35,8 @@ export class TransformInterceptor<T>
   ): Observable<Response<T>> {
     return next.handle().pipe(
       map((data) => ({
-        data,
         success: true,
+        data,
         timestamp: new Date().toISOString(),
       })),
     );

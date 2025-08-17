@@ -397,3 +397,38 @@ export class DomainPriceDto {
   @IsBoolean()
   available: boolean;
 }
+
+export class DesignOptionsDto {
+  @IsString()
+  siteType: string;
+
+  @IsArray()
+  modules: unknown[];
+
+  @IsObject()
+  branding: Record<string, unknown>;
+
+  @IsObject()
+  userInfo: Record<string, unknown>;
+
+  @IsObject()
+  pricing: Record<string, unknown>;
+}
+
+export class SaveDesignDto {
+  @IsString()
+  orderId: string;
+
+  @ValidateNested()
+  @Type(() => DynamicDesignDto)
+  dynamicDesign: DynamicDesignDto;
+
+  @ValidateNested()
+  @Type(() => DesignOptionsDto)
+  options: DesignOptionsDto;
+}
+
+export class GetDesignDto {
+  @IsString()
+  orderId: string;
+}

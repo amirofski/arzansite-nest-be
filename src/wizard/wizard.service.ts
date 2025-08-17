@@ -5,7 +5,7 @@ import { StorageService } from '../storage/storage.service';
 import { DomainsService } from '../domains/domains.service';
 import { EmailService } from '../email/email.service';
 import { PaymentsService } from '../payments/payments.service';
-import { ID } from 'node-appwrite';
+import { ID, Query } from 'node-appwrite';
 import {
   WizardOrderDto,
   SaveProgressDto,
@@ -15,6 +15,7 @@ import {
   OrderStatus,
   SiteType,
   PaymentCycle,
+  SaveDesignDto,
 } from './dto/wizard.dto';
 
 @Injectable()
@@ -52,7 +53,6 @@ export class WizardService {
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
     // Check if progress already exists
-    const { Query } = await import('node-appwrite');
     const existingProgress = await databases.listDocuments(databaseId, wizardOrdersCollection, [
       Query.equal('sessionId', saveProgressDto.sessionId),
       Query.limit(1),
@@ -94,7 +94,6 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
-    const { Query } = await import('node-appwrite');
     const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
       Query.equal('sessionId', sessionId),
       Query.limit(1),
@@ -119,7 +118,6 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
-    const { Query } = await import('node-appwrite');
     const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
       Query.equal('userId', userId),
       Query.orderDesc('updatedAt'),
@@ -138,7 +136,6 @@ export class WizardService {
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
     // Check if order already exists
-    const { Query } = await import('node-appwrite');
     const existingOrder = await databases.listDocuments(databaseId, wizardOrdersCollection, [
       Query.equal('sessionId', completeOrderDto.sessionId),
       Query.limit(1),
@@ -251,7 +248,6 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
-    const { Query } = await import('node-appwrite');
     const queries: string[] = [Query.orderDesc('updatedAt')];
 
     if (status) {
@@ -372,7 +368,6 @@ export class WizardService {
     const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
 
     try {
-      const { Query } = await import('node-appwrite');
       const result = await databases.listDocuments(databaseId, domainExtensionsCollection, [
         Query.equal('available', true),
         Query.orderAsc('price'),
@@ -478,6 +473,86 @@ export class WizardService {
 
   async getPricingConfiguration(): Promise<any> {
     return this.pricingConfig;
+  }
+
+  async saveDesign(saveDesignDto: SaveDesignDto, userId: string): Promise<any> {
+    // First verify the order exists and user has access
+    const order = await this.getOrder(saveDesignDto.orderId, userId, false);
+    
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Save the dynamic design structure
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
+
+    // Check if design already exists for this order
+    const existing = await databases.listDocuments(databaseId, designsCollection, [
+      Query.equal('order_id', saveDesignDto.orderId),
+      Query.limit(1),
+    ]);
+
+    if (existing.documents.length > 0) {
+      // Update existing design
+      await databases.updateDocument(
+        databaseId, 
+        designsCollection, 
+        existing.documents[0].$id, 
+        {
+          dynamic_design: saveDesignDto.dynamicDesign,
+          options: saveDesignDto.options,
+          updated_at: new Date().toISOString(),
+        } as any
+      );
+    } else {
+      // Create new design
+      await databases.createDocument(
+        databaseId, 
+        designsCollection, 
+        ID.unique(), 
+        {
+          order_id: saveDesignDto.orderId,
+          user_id: userId,
+          dynamic_design: saveDesignDto.dynamicDesign,
+          options: saveDesignDto.options,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any
+      );
+    }
+
+    return { success: true, message: 'Design saved successfully' };
+  }
+
+  async getDesign(orderId: string, userId: string): Promise<any> {
+    // First verify the order exists and user has access
+    const order = await this.getOrder(orderId, userId, false);
+    
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Get the design data
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
+
+    const design = await databases.listDocuments(databaseId, designsCollection, [
+      Query.equal('order_id', orderId),
+      Query.limit(1),
+    ]);
+
+    if (design.documents.length === 0) {
+      return { dynamicDesign: null, options: null };
+    }
+
+    const designDoc = design.documents[0] as any;
+    return {
+      dynamicDesign: designDoc.dynamic_design || null,
+      options: designDoc.options || null,
+    };
   }
 
   private isValidFile(file: Express.Multer.File): boolean {

@@ -21,6 +21,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  payment_status?: string;
+
+  @IsOptional()
+  @IsString()
   comments?: string;
 
   @IsOptional()
