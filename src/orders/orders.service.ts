@@ -3,7 +3,8 @@ import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
 import { ID } from 'node-appwrite';
 import { Order } from '../common/types/database.types';
-import { CreateOrderDto, UpdateOrderDto } from './dto/order.dto';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 
 @Injectable()
 export class OrdersService {
@@ -48,11 +49,44 @@ export class OrdersService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
 
+    // Extract title and description from the payload
+    const title = createOrderDto.title || `Order for ${createOrderDto.siteType || 'website'}`;
+    const description = createOrderDto.description || `Website order from wizard session ${createOrderDto.sessionId}`;
+    const price = createOrderDto.price || createOrderDto.wizardData?.pricing?.totalPrice || 0;
+
+    // Consolidate all wizard data into one field
+    const wizardData = {
+      siteType: createOrderDto.siteType,
+      websiteFramework: createOrderDto.wizardData?.websiteFramework,
+      branding: createOrderDto.wizardData?.branding,
+      additionalServices: createOrderDto.wizardData?.additionalServices,
+      domains: createOrderDto.wizardData?.domains,
+      pricing: createOrderDto.wizardData?.pricing,
+      sessionId: createOrderDto.sessionId
+    };
+
     const orderDoc = await databases.createDocument(databaseId, ordersCollection, ID.unique(), {
-      ...createOrderDto,
+      // Basic order fields
+      title,
+      description,
+      price,
       user_id: userId,
       status: 'pending',
-      payment_status: 'pending',
+      payment_status: createOrderDto.payment_status || 'pending',
+      comments: createOrderDto.comments,
+      total_pages: createOrderDto.total_pages || createOrderDto.wizardData?.websiteFramework?.dynamicDesign?.pages?.length || 0,
+      total_sections: createOrderDto.total_sections || 
+        createOrderDto.wizardData?.websiteFramework?.dynamicDesign?.pages?.reduce((total, page) => total + (page.sections?.length || 0), 0) || 0,
+      
+      // Consolidated wizard data
+      wizardData: JSON.stringify(wizardData),
+      
+      // Payment fields
+      payment_gateway: createOrderDto.payment_gateway,
+      callback_url: createOrderDto.callback_url,
+      return_url: createOrderDto.return_url,
+      
+      // Timestamps
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as any);

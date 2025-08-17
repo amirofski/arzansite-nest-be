@@ -13,7 +13,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, UpdateOrderDto } from './dto/order.dto';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard, Roles } from '../common/guards/roles.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';

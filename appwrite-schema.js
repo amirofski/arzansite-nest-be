@@ -228,6 +228,7 @@ const schema = {
             { key: 'title', type: 'string', size: 255, required: true, array: false },
             { key: 'description', type: 'string', size: 1000, required: false, array: false },
             { key: 'status', type: 'string', size: 20, required: true, array: false, enum: ['pending', 'in_progress', 'completed', 'cancelled'] },
+            { key: 'payment_status', type: 'string', size: 20, required: false, array: false, enum: ['pending', 'processing', 'succeeded', 'failed', 'cancelled'] },
             { key: 'price', type: 'double', required: false, array: false },
             { key: 'comments', type: 'string', size: 1000, required: false, array: false },
             { key: 'design_data', type: 'string', size: 8192, required: false, array: false }, // JSON as string
@@ -235,13 +236,27 @@ const schema = {
             { key: 'total_pages', type: 'integer', required: false, array: false },
             { key: 'total_sections', type: 'integer', required: false, array: false },
             { key: 'design_options', type: 'string', size: 2048, required: false, array: false }, // JSON as string
+            { key: 'sessionId', type: 'string', size: 100, required: false, array: false },
+            { key: 'siteType', type: 'string', size: 50, required: false, array: false },
+            { key: 'websiteFramework', type: 'string', size: 8192, required: false, array: false }, // JSON as string
+            { key: 'branding', type: 'string', size: 2048, required: false, array: false }, // JSON as string
+            { key: 'additionalServices', type: 'string', size: 2048, required: false, array: false }, // JSON as string
+            { key: 'domains', type: 'string', size: 2048, required: false, array: false }, // JSON as string
+            { key: 'pricing', type: 'string', size: 2048, required: false, array: false }, // JSON as string
+            { key: 'payment_gateway', type: 'string', size: 50, required: false, array: false },
+            { key: 'callback_url', type: 'string', size: 500, required: false, array: false },
+            { key: 'return_url', type: 'string', size: 500, required: false, array: false },
+            { key: 'zarinpal_authority', type: 'string', size: 100, required: false, array: false },
+            { key: 'zarinpal_ref_id', type: 'string', size: 100, required: false, array: false },
             { key: 'created_at', type: 'datetime', required: true, array: false },
             { key: 'updated_at', type: 'datetime', required: true, array: false }
         ],
         indexes: [
             { key: 'user_id_idx', type: 'key', attributes: ['user_id'], orders: ['ASC'] },
             { key: 'status_idx', type: 'key', attributes: ['status'], orders: ['ASC'] },
+            { key: 'payment_status_idx', type: 'key', attributes: ['payment_status'], orders: ['ASC'] },
             { key: 'price_idx', type: 'key', attributes: ['price'], orders: ['ASC'] },
+            { key: 'sessionId_idx', type: 'key', attributes: ['sessionId'], orders: ['ASC'] },
             { key: 'created_at_idx', type: 'key', attributes: ['created_at'], orders: ['DESC'] },
             { key: 'updated_at_idx', type: 'key', attributes: ['updated_at'], orders: ['DESC'] }
         ]
