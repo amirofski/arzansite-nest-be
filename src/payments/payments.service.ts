@@ -126,7 +126,7 @@ export class PaymentsService {
           transaction_type: 'payment_verification',
           zarinpal_authority: paymentVerifyDto.authority,
           zarinpal_ref_id: refId,
-          amount: paymentResponse.data.ref_id, // Use the verified amount
+          amount: orderAmount, // Use the original order amount
           status: 'completed',
           gateway_response: paymentResponse,
         });

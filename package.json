@@ -56,7 +56,8 @@
     "rxjs": "^7.8.1",
     "socket.io": "^4.7.2",
     "swagger-ui-express": "^4.6.3",
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "zarinpal-node-sdk": "^2.2.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",

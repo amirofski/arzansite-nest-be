@@ -578,7 +578,10 @@ export class ZarinPalService {
    * Get payment URL for redirect
    */
   getPaymentUrl(authority: string): string {
-    return `https://payment.zarinpal.com/pg/StartPay/${authority}`;
+    const baseUrl = this.isSandbox
+      ? 'https://sandbox.zarinpal.com'
+      : 'https://payment.zarinpal.com';
+    return `${baseUrl}/pg/StartPay/${authority}`;
   }
 
   /**
