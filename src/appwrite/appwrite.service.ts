@@ -48,15 +48,28 @@ export class AppwriteService implements OnModuleInit {
   // Authentication methods
   async createUser(email: string, password: string, name?: string) {
     try {
-      const user = await this.users.create(
+      // ✅ FIX: Use account.create() instead of users.create() to avoid "guests" role issue
+      // According to Appwrite GitHub issue #9078, users.create() creates users with "guests" role
+      // which lacks the "account" scope needed for session validation
+      
+      const client = new Client()
+        .setEndpoint(this.config.endpoint)
+        .setProject(this.config.projectId);
+      
+      const account = new Account(client);
+      
+      // Use account.create() which creates users with proper "users" role
+      const user = await account.create(
         ID.unique(),
         email,
-        undefined,
         password,
         name
       );
+      
+      console.log('✅ User created with account.create() - should have proper role');
       return user;
     } catch (error) {
+      console.error('❌ Failed to create user with account.create():', error.message);
       throw new Error(`Failed to create user: ${error.message}`);
     }
   }
