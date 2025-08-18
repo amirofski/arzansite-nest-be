@@ -878,6 +878,8 @@ export class AuthController {
     // Clear OAuth session cookies
     res.clearCookie('appwrite_session');
     res.clearCookie('user_info');
+    // Clear backend session cookie set by /auth/session
+    res.clearCookie('appwrite_jwt');
     
     return res.json({ 
       message: 'Successfully signed out from OAuth session' 

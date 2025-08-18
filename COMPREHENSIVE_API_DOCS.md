@@ -13,7 +13,7 @@
 
 The ArzanSite Backend API provides a comprehensive set of services for managing user accounts, orders, designs, payments, and more. Built with NestJS and integrated with Appwrite, it offers:
 
-- **🔐 Secure Authentication** with JWT tokens
+- **🔐 Secure Authentication** with Appwrite sessions (HttpOnly cookie)
 - **📧 Custom Email Services** with SMTP integration
 - **💳 Payment Processing** with multiple gateways
 - **🗄️ Database Operations** via Appwrite
@@ -25,20 +25,50 @@ The ArzanSite Backend API provides a comprehensive set of services for managing 
 | Environment | Base URL | Description |
 |-------------|----------|-------------|
 | **Local Development** | `http://localhost:3000/api` | For development and testing |
-| **Production** | `https://app.arzansite.com/api` | Live production environment |
+| **Production** | `https://nest.arzansite.com/api` | Live production environment |
 
-## 🔐 Authentication
+## 🔐 Authentication (Session-based)
 
-### JWT Token Format
-```bash
-Authorization: Bearer <your-jwt-token>
+The backend now uses a secure HttpOnly cookie for authentication instead of requiring Authorization headers.
+
+- **Cookie name**: `appwrite_jwt`
+- **How it is set**: Call `POST /api/auth/session` with a valid Appwrite JWT. The backend validates the JWT with Appwrite and sets the cookie.
+- **How to call APIs**: From browsers, send requests with credentials so the cookie is included. No `Authorization` header is required.
+
+Frontend example (browser):
+```javascript
+// 1) Create an Appwrite session/JWT on the frontend
+// (example using Appwrite Web SDK)
+import { Client, Account } from 'appwrite';
+
+const client = new Client().setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT).setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
+const account = new Account(client);
+
+// If not already logged in:
+await account.createEmailPasswordSession(email, password);
+
+// Get a short-lived JWT from Appwrite
+const { jwt } = await account.createJWT();
+
+// 2) Create backend session cookie
+await fetch('/api/auth/session', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include',
+  body: JSON.stringify({ jwt })
+});
+
+// 3) Call protected APIs with credentials (cookie is sent automatically)
+const me = await fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json());
 ```
 
-### Token Types
-- **Access Token**: Valid for 1 hour, used for API requests
-- **Refresh Token**: Valid for 7 days, used to get new access tokens
+Logout options:
+- Clear backend cookie only: `POST /api/auth/oauth/logout` (clears `appwrite_jwt`)
+- Invalidate Appwrite session + backend cookie: `POST /api/auth/session-logout` with `{ sessionId }`
 
 ## 📚 API Endpoints
+
+Note: All protected endpoints accept the session cookie. In browsers, prefer cookie-based auth (no Authorization header). If you use non-browser clients, you may still send `Authorization: Bearer <token>`; the guard accepts either header or cookie.
 
 ### 🔐 Authentication (`/auth`)
 
@@ -74,35 +104,19 @@ Content-Type: application/json
 }
 ```
 
-#### 2. User Login
+#### 2. Create Backend Session Cookie
 ```http
-POST /api/auth/login
+POST /api/auth/session
 Content-Type: application/json
 
-{
-  "email": "user@example.com",
-  "password": "SecurePassword123!"
-}
+{ "jwt": "<Appwrite JWT from account.createJWT()>" }
 ```
 
-**Response (200):**
+Sets `appwrite_jwt` HttpOnly cookie if the JWT is valid. Response:
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "64f8a1b2c3d4e5f6a7b8c9d0",
-    "email": "user@example.com",
-    "emailVerified": true
-  },
-  "session": {
-    "$id": "64f8a1b2c3d4e5f6a7b8c9d0",
-    "userId": "64f8a1b2c3d4e5f6a7b8c9d0"
-  },
-  "redirect": {
-    "url": "/dashboard",
-    "message": "Login successful! Redirecting to dashboard..."
-  }
+  "user": { "$id": "<userId>", "email": "user@example.com", "emailVerification": true },
+  "message": "Session created successfully"
 }
 ```
 
@@ -170,23 +184,17 @@ Content-Type: application/json
 }
 ```
 
-#### 6. User Logout
+#### 6. Logout (clear backend cookie only)
 ```http
-POST /api/auth/logout
-Authorization: Bearer <access_token>
+POST /api/auth/oauth/logout
 ```
 
-**Response (200):**
-```json
-{
-  "message": "Successfully signed out"
-}
-```
+Clears `appwrite_jwt` cookie.
 
 #### 7. Get Current User
 ```http
 GET /api/auth/me
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 **Response (200):**
@@ -202,13 +210,13 @@ Authorization: Bearer <access_token>
 #### 1. Get My Profile
 ```http
 GET /api/profiles/me
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 2. Update My Profile
 ```http
 PATCH /api/profiles/me
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -222,7 +230,7 @@ Content-Type: application/json
 #### 3. Get All Profiles (Admin Only)
 ```http
 GET /api/profiles
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 ### 📦 Order Management (`/orders`)
@@ -230,7 +238,7 @@ Authorization: Bearer <access_token>
 #### 1. Get Orders
 ```http
 GET /api/orders?mine=true
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 **Query Parameters:**
@@ -240,7 +248,7 @@ Authorization: Bearer <access_token>
 #### 2. Create Order
 ```http
 POST /api/orders
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -255,13 +263,13 @@ Content-Type: application/json
 #### 3. Get Specific Order
 ```http
 GET /api/orders/64f8a1b2c3d4e5f6a7b8c9d0
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 4. Update Order
 ```http
 PATCH /api/orders/64f8a1b2c3d4e5f6a7b8c9d0
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -273,7 +281,7 @@ Content-Type: application/json
 #### 5. Delete Order
 ```http
 DELETE /api/orders/64f8a1b2c3d4e5f6a7b8c9d0
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 ### 🎨 Design Management (`/orders/:orderId/design`)
@@ -281,7 +289,7 @@ Authorization: Bearer <access_token>
 #### 1. Save Design
 ```http
 POST /api/orders/64f8a1b2c3d4e5f6a7b8c9d0/design
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -297,19 +305,19 @@ Content-Type: application/json
 #### 2. Get Design
 ```http
 GET /api/orders/64f8a1b2c3d4e5f6a7b8c9d0/design
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 3. Get Design Options
 ```http
 GET /api/orders/64f8a1b2c3d4e5f6a7b8c9d0/design/options
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 4. Update Design Options
 ```http
 PATCH /api/orders/64f8a1b2c3d4e5f6a7b8c9d0/design/options
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -325,25 +333,25 @@ Content-Type: application/json
 #### 1. Get My Wallet
 ```http
 GET /api/wallets/me
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 2. Get My Balance
 ```http
 GET /api/wallets/me/balance
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 3. Get My Transactions
 ```http
 GET /api/wallets/me/transactions?limit=10&offset=0
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 4. Create Transaction
 ```http
 POST /api/wallets/me/transactions
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -356,7 +364,7 @@ Content-Type: application/json
 #### 5. Refund Order
 ```http
 POST /api/wallets/refund-order
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -371,39 +379,40 @@ Content-Type: application/json
 #### 1. Request Payment
 ```http
 POST /api/payments/request
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
-  "orderId": "64f8a1b2c3d4e5f6a7b8c9d0",
-  "amount": 150.00,
-  "currency": "USD",
-  "gateway": "zarinpal"
+  "amount": 3000000,
+  "description": "Order #12345",
+  "callbackUrl": "https://yourapp.com/pay/callback?order_id=12345",
+  "orderId": "12345",
+  "mobile": "09xxxxxxxxx",
+  "email": "user@example.com"
 }
 ```
 
 #### 2. Verify Payment
 ```http
 POST /api/payments/verify
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
-  "paymentId": "64f8a1b2c3d4e5f6a7b8c9d0",
-  "transactionId": "txn_123456789"
+  "authority": "A000000000000000000000000000000000000",
+  "amount": 3000000
 }
 ```
 
 #### 3. Refund Payment
 ```http
 POST /api/payments/refund
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
-  "paymentId": "64f8a1b2c3d4e5f6a7b8c9d0",
-  "amount": 75.00,
-  "reason": "Partial refund"
+  "orderId": "12345",
+  "amount": 3000000
 }
 ```
 
@@ -412,43 +421,70 @@ Content-Type: application/json
 #### 1. Get My Transactions
 ```http
 GET /api/transactions/my?limit=20&offset=0
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 2. Get Transaction by ID
 ```http
 GET /api/transactions/64f8a1b2c3d4e5f6a7b8c9d0
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 #### 3. Get Transactions for Order
 ```http
 GET /api/transactions/order/64f8a1b2c3d4e5f6a7b8c9d0
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
-### 📁 File Storage (`/storage`)
+### 📁 File Uploads (`/uploads`)
 
 #### 1. Upload File
 ```http
-POST /api/storage/uploads
-Authorization: Bearer <access_token>
+POST /api/uploads
+Cookie: appwrite_jwt=...
 Content-Type: multipart/form-data
 
 file: <file>
-bucketId: "64f8a1b2c3d4e5f6a7b8c9d0"
+orderId: <optional>
+fileType: document|design|avatar
 ```
 
-#### 2. Get File URL
+#### 2. List uploads
 ```http
-GET /api/storage/file-url?fileId=64f8a1b2c3d4e5f6a7b8c9d0
-Authorization: Bearer <access_token>
+GET /api/uploads?userId=...&orderId=...
+Cookie: appwrite_jwt=...
 ```
 
-#### 3. Get Signed URL
+#### 3. Get by id
 ```http
-GET /api/storage/uploads/signed-url?fileId=64f8a1b2c3d4e5f6a7b8c9d0
-Authorization: Bearer <access_token>
+GET /api/uploads/:id?bucketType=document|design|avatar
+Cookie: appwrite_jwt=...
+```
+
+#### 4. Upload multiple
+```http
+POST /api/uploads/bulk
+Cookie: appwrite_jwt=...
+Content-Type: multipart/form-data
+
+files[]: <file>…
+orderId: <optional>
+fileType: document|design|avatar
+```
+
+#### 5. Delete file
+```http
+DELETE /api/uploads/:id?bucketType=document|design|avatar
+Cookie: appwrite_jwt=...
+```
+
+#### 6. Delete multiple
+```http
+DELETE /api/uploads/bulk
+Cookie: appwrite_jwt=...
+Content-Type: application/json
+
+{ "fileIds": ["id1","id2"], "bucketType": "design" }
 ```
 
 ### ☁️ Appwrite Services (`/appwrite`)
@@ -456,7 +492,7 @@ Authorization: Bearer <access_token>
 #### 1. Database Operations
 ```http
 POST /api/db/collection_id
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -470,7 +506,7 @@ Content-Type: application/json
 #### 2. Execute Cloud Function
 ```http
 POST /api/functions/execute
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -485,7 +521,7 @@ Content-Type: application/json
 #### 3. Storage Operations
 ```http
 GET /api/storage/bucket_id
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 ### 🌐 Domain Management (`/domains`)
@@ -510,7 +546,7 @@ GET /api/site-config/current
 #### 2. Update Configuration
 ```http
 PATCH /api/site-config
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -525,7 +561,7 @@ Content-Type: application/json
 #### 1. Send Test Email
 ```http
 POST /api/emails/test
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 Content-Type: application/json
 
 {
@@ -538,7 +574,7 @@ Content-Type: application/json
 #### 2. Get Email Status
 ```http
 GET /api/emails/status
-Authorization: Bearer <access_token>
+Cookie: appwrite_jwt=...
 ```
 
 ### 🏥 Health Monitoring (`/health`)
@@ -566,7 +602,7 @@ GET /api/health
 - **200** - Success
 - **201** - Created
 - **400** - Bad Request (validation errors)
-- **401** - Unauthorized (invalid/missing token)
+- **401** - Unauthorized (invalid/missing session)
 - **403** - Forbidden (insufficient permissions)
 - **404** - Not Found
 - **429** - Too Many Requests (rate limited)
@@ -591,15 +627,15 @@ Access interactive API documentation at:
 - **Frontend**: Test with your application
 
 ### Authentication Testing
-1. **Register** a new user
-2. **Verify** email (check inbox)
-3. **Login** to get tokens
-4. **Use** access token for protected endpoints
-5. **Refresh** token when needed
+1. Register a new user
+2. Verify email (check inbox)
+3. Create Appwrite session on frontend and get JWT via `account.createJWT()`
+4. Call `POST /api/auth/session` to set `appwrite_jwt` cookie
+5. Call protected endpoints with `credentials: 'include'`
 
 ## 🔒 Security Features
 
-- **JWT Authentication** with secure token handling
+- **Session Authentication** using Appwrite JWT stored in HttpOnly cookie
 - **Role-Based Access Control** (RBAC)
 - **Input Validation** with class-validator
 - **CORS Protection** for cross-origin requests
@@ -621,27 +657,25 @@ const config = {
 };
 ```
 
-### Authentication Flow
+### Authentication Flow (Session)
 ```javascript
-// 1. Login
-const loginResponse = await fetch(`${config.apiBaseUrl}/auth/login`, {
+// Create Appwrite session and backend cookie, then call APIs with credentials: 'include'
+import { Client, Account } from 'appwrite';
+
+const client = new Client().setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT).setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
+const account = new Account(client);
+
+await account.createEmailPasswordSession(email, password);
+const { jwt } = await account.createJWT();
+
+await fetch(`${config.apiBaseUrl}/auth/session`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password })
+  credentials: 'include',
+  body: JSON.stringify({ jwt })
 });
 
-// 2. Store tokens
-const { access_token, refresh_token } = await loginResponse.json();
-localStorage.setItem('access_token', access_token);
-localStorage.setItem('refresh_token', refresh_token);
-
-// 3. Use in API calls
-const response = await fetch(`${config.apiBaseUrl}/profiles/me`, {
-  headers: { 
-    'Authorization': `Bearer ${access_token}`,
-    'Content-Type': 'application/json'
-  }
-});
+const me = await fetch(`${config.apiBaseUrl}/auth/me`, { credentials: 'include' }).then(r => r.json());
 ```
 
 ### Error Handling

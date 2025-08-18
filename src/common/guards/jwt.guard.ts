@@ -14,7 +14,7 @@ export class JwtGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const token = this.extractTokenFromHeader(request);
+    const token = this.extractTokenFromRequest(request);
 
     if (!token) {
       throw new UnauthorizedException('No token provided');
@@ -34,9 +34,28 @@ export class JwtGuard implements CanActivate {
     return true;
   }
 
-  private extractTokenFromHeader(request: any): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+  private extractTokenFromRequest(request: any): string | undefined {
+    // 1) Authorization header: Bearer <token>
+    const [type, bearerToken] = request.headers.authorization?.split(' ') ?? [];
+    if (type === 'Bearer' && bearerToken) {
+      return bearerToken;
+    }
+
+    // 2) HttpOnly cookie set by backend after /auth/session: appwrite_jwt
+    const cookieToken: string | undefined = request?.cookies?.['appwrite_jwt'];
+    if (cookieToken && typeof cookieToken === 'string') {
+      return cookieToken;
+    }
+
+    // 3) Fallbacks sometimes used by auth endpoints
+    if (request?.body?.jwt && typeof request.body.jwt === 'string') {
+      return request.body.jwt;
+    }
+    if (request?.body?.appwriteJwt && typeof request.body.appwriteJwt === 'string') {
+      return request.body.appwriteJwt;
+    }
+
+    return undefined;
   }
 
   private async verifyWithAppwrite(jwt: string): Promise<any> {
