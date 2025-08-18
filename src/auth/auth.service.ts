@@ -1065,6 +1065,23 @@ export class AuthService {
     }
   }
 
+  async authenticateWithEmailPassword(email: string, password: string) {
+    // Create an Appwrite session using email/password, then authenticate via session
+    try {
+      if (!email || !password) {
+        throw new BadRequestException('Email and password are required');
+      }
+
+      const session = await this.appwriteService.createSession(email, password);
+      return this.authenticateWithSession(session.$id, email);
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
+
   async validateSession(sessionId: string): Promise<boolean> {
     try {
       // Try to get user info from the session

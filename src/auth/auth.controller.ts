@@ -10,6 +10,7 @@ import {
   Param,
   Query,
   UnauthorizedException,
+  BadRequestException,
   Res,
   Redirect,
   Req,
@@ -1022,7 +1023,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: '🔐 Authenticate using Appwrite Session ID',
-    description: 'Alternative authentication method using Appwrite session ID instead of JWT. This bypasses JWT permission issues.',
+    description: 'Authenticate with Appwrite session ID or directly with email/password. If email/password is provided, a session is created and used for authentication.',
   })
   @ApiBody({
     schema: {
@@ -1037,9 +1038,14 @@ export class AuthController {
           type: 'string',
           description: 'User email for verification',
           example: 'user@example.com'
+        },
+        password: {
+          type: 'string',
+          description: 'User password (optional alternative to sessionId)',
+          example: 'password123'
         }
       },
-      required: ['sessionId', 'email']
+      required: []
     }
   })
   @ApiResponse({
@@ -1083,8 +1089,14 @@ export class AuthController {
     status: 401,
     description: '❌ Unauthorized - Invalid session or credentials',
   })
-  async authenticateSession(@Body() body: { sessionId: string; email: string }) {
-    return this.authService.authenticateWithSession(body.sessionId, body.email);
+  async authenticateSession(@Body() body: { sessionId?: string; email?: string; password?: string }) {
+    if (body.sessionId && body.email) {
+      return this.authService.authenticateWithSession(body.sessionId, body.email);
+    }
+    if (body.email && body.password) {
+      return this.authService.authenticateWithEmailPassword(body.email, body.password);
+    }
+    throw new BadRequestException('Provide either sessionId+email or email+password');
   }
 
   @Post('session-logout')
