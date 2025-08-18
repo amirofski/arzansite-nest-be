@@ -93,14 +93,31 @@ export class AppwriteService implements OnModuleInit {
 
   async getCurrentUserFromSession(sessionId: string) {
     try {
-      const client = new Client()
+      // Heuristic: if token looks like a JWT (has dots), use JWT mode; otherwise try session
+      const looksLikeJwt = typeof sessionId === 'string' && sessionId.includes('.') && sessionId.split('.').length === 3;
+
+      if (!looksLikeJwt) {
+        try {
+          const client = new Client()
+            .setEndpoint(this.config.endpoint)
+            .setProject(this.config.projectId)
+            .setSession(sessionId);
+          const account = new Account(client);
+          const user = await account.get();
+          return user;
+        } catch (sessionErr: any) {
+          // Fall through to try JWT if the provided token was actually a JWT or session failed
+        }
+      }
+
+      // Fallback: treat provided value as JWT and try fetching the user
+      const jwtClient = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
-        .setSession(sessionId);
-
-      const account = new Account(client);
-      const user = await account.get();
-      return user;
+        .setJWT(sessionId);
+      const jwtAccount = new Account(jwtClient);
+      const jwtUser = await jwtAccount.get();
+      return jwtUser;
     } catch (error) {
       throw new Error(`Failed to get current user from session: ${error.message}`);
     }

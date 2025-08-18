@@ -700,6 +700,30 @@ export class AuthController {
     return this.authService.startOAuth('github', body.successUrl, body.failureUrl);
   }
 
+  // Generic OAuth start endpoint to support multiple providers (e.g., google, github)
+  @Post('oauth/:provider/start')
+  @ApiOperation({
+    summary: '🚀 Initiate OAuth Flow (Generic)',
+    description: 'Start OAuth authentication flow for supported providers like Google and GitHub.'
+  })
+  @ApiParam({ name: 'provider', description: 'OAuth provider (e.g., google, github)', example: 'google' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        successUrl: { type: 'string', example: 'https://arzansite.com/auth/oauth/callback' },
+        failureUrl: { type: 'string', example: 'https://arzansite.com/auth/login?error=oauth_failed' }
+      },
+      required: ['successUrl', 'failureUrl']
+    }
+  })
+  async startOAuthGeneric(
+    @Param('provider') provider: string,
+    @Body() body: { successUrl: string; failureUrl: string },
+  ) {
+    return this.authService.startOAuth(provider, body.successUrl, body.failureUrl);
+  }
+
   @Post('oauth/github/callback')
   @ApiOperation({
     summary: '🔄 GitHub OAuth Callback Handler',
@@ -735,6 +759,32 @@ export class AuthController {
     @Body() body: { userId: string; secret: string },
     @Res() res: Response,
   ) {
+    return this.authService.handleOAuthCallback(body.userId, body.secret, res);
+  }
+
+  // Generic OAuth callback to support multiple providers
+  @Post('oauth/:provider/callback')
+  @ApiOperation({
+    summary: '🔄 OAuth Callback Handler (Generic)',
+    description: 'Handle OAuth callback from Appwrite after successful authentication for supported providers.'
+  })
+  @ApiParam({ name: 'provider', description: 'OAuth provider (e.g., google, github)', example: 'google' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', description: 'User ID from Appwrite OAuth session' },
+        secret: { type: 'string', description: 'Session secret from Appwrite OAuth session' }
+      },
+      required: ['userId', 'secret']
+    }
+  })
+  async handleOAuthCallbackGeneric(
+    @Param('provider') _provider: string,
+    @Body() body: { userId: string; secret: string },
+    @Res() res: Response,
+  ) {
+    // Provider is not used server-side because Appwrite returns userId/secret; we complete session with those
     return this.authService.handleOAuthCallback(body.userId, body.secret, res);
   }
 
