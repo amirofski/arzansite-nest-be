@@ -111,17 +111,27 @@ export class EmailService {
     } catch (error) {
       this.logger.error('❌ SMTP connection verification failed:', error);
       
-      // Don't throw error immediately, just log it
-      // The application can still start, and emails will be attempted
-      this.logger.warn('⚠️ SMTP verification failed, but application will continue. Emails may fail.');
-      
-      // Log the specific error for debugging
-      if (error.message.includes('TLS')) {
+      // Handle specific authentication errors
+      if (error.code === 'EAUTH' || error.message.includes('535 Incorrect authentication data')) {
+        this.logger.error('🔐 SMTP Authentication Error: Invalid username or password');
+        this.logger.error('   Please check your SMTP_USER and SMTP_PASS environment variables');
+        this.logger.error('   Current SMTP_USER:', this.configService.get<string>('SMTP_USER'));
+        this.logger.error('   SMTP_HOST:', this.configService.get<string>('SMTP_HOST'));
+        this.logger.error('   SMTP_PORT:', this.configService.get<string>('SMTP_PORT'));
+      } else if (error.message.includes('TLS')) {
         this.logger.error('🔧 TLS/SSL connection issue detected. This may be due to:');
         this.logger.error('   - SMTP server configuration issues');
         this.logger.error('   - Firewall/proxy blocking secure connections');
         this.logger.error('   - Incorrect port or security settings');
+      } else if (error.code === 'ECONNECTION') {
+        this.logger.error('🌐 Connection Error: Cannot connect to SMTP server');
+        this.logger.error('   Please check your SMTP_HOST and SMTP_PORT settings');
       }
+      
+      // Don't throw error immediately, just log it
+      // The application can still start, and emails will be attempted
+      this.logger.warn('⚠️ SMTP verification failed, but application will continue. Emails may fail.');
+      this.logger.warn('💡 To fix SMTP issues, check your .env file and update SMTP credentials');
     }
   }
 
@@ -188,6 +198,11 @@ export class EmailService {
   }
 
   private isRetryableError(error: any): boolean {
+    // Don't retry on authentication errors
+    if (error.code === 'EAUTH' || error.message.includes('535 Incorrect authentication data')) {
+      return false;
+    }
+    
     // Retry on network errors, timeouts, and temporary SMTP errors
     const retryableCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH'];
     const retryableMessages = ['timeout', 'connection', 'temporary', 'rate limit', 'quota', 'temporary failure'];
@@ -195,7 +210,7 @@ export class EmailService {
     return (
       retryableCodes.some(code => error.code === code) ||
       retryableMessages.some(msg => error.message?.toLowerCase().includes(msg)) ||
-      error.responseCode >= 400 && error.responseCode < 500 // Retry on 4xx errors (except 4xx client errors)
+      (error.responseCode >= 400 && error.responseCode < 500 && error.responseCode !== 535) // Retry on 4xx errors (except 535 auth error)
     );
   }
 

@@ -13,6 +13,9 @@ import {
   Res,
   Redirect,
   Req,
+  Logger,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import {
   ApiTags,

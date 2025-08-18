@@ -26,12 +26,29 @@ import { UploadsModule } from './uploads/uploads.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env', '.env.local', '.env.production'],
+      cache: true,
+      expandVariables: true,
     }),
     ThrottlerModule.forRoot([
       {
         ttl: parseInt(process.env.THROTTLE_TTL || '60'),
         limit: parseInt(process.env.THROTTLE_LIMIT || '100'),
+      },
+      {
+        name: 'short',
+        ttl: 1000,
+        limit: 3,
+      },
+      {
+        name: 'medium',
+        ttl: 10000,
+        limit: 20,
+      },
+      {
+        name: 'long',
+        ttl: 60000,
+        limit: 100,
       },
     ]),
     AppwriteModule,

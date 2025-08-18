@@ -1,13 +1,14 @@
-const { Client, Account } = require('node-appwrite');
 require('dotenv').config({ path: './appwrite-config.env' });
+
+const { Client, Account } = require('node-appwrite');
 
 async function testAppwriteAuth() {
   console.log('🧪 Testing Appwrite Authentication Guard...\n');
 
-  // Initialize Appwrite client
+  // Initialize Appwrite client with latest patterns
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_ENDPOINT || '')
-    .setProject(process.env.APPWRITE_PROJECT || '')
+    .setProject(process.env.APPWRITE_PROJECT_ID || '')
     .setKey(process.env.APPWRITE_API_KEY || '');
 
   const account = new Account(client);
@@ -27,7 +28,7 @@ async function testAppwriteAuth() {
     // Test 2: Test with invalid credentials
     console.log('\n2️⃣ Testing with invalid credentials...');
     try {
-      const session = await account.createEmailSession('invalid@email.com', 'wrongpassword');
+      const session = await account.createEmailPasswordSession('invalid@email.com', 'wrongpassword');
       console.log('❌ Unexpected: Session created with invalid credentials');
       console.log('Session:', session);
     } catch (error) {
@@ -54,20 +55,19 @@ async function testAppwriteAuth() {
 
     console.log('\n🎯 Appwrite Authentication Guard Test Summary:');
     console.log('✅ JWT creation requires authentication');
-    console.log('✅ Invalid credentials are rejected');
-    console.log('✅ Invalid JWT tokens are rejected');
+    console.log('✅ Invalid credentials are properly rejected');
+    console.log('✅ Invalid JWT tokens are properly rejected');
     console.log('✅ JWT clearing works correctly');
-    
-    console.log('\n📝 Next steps:');
-    console.log('1. Start your NestJS server');
-    console.log('2. Test the /auth/session endpoint with a valid JWT');
-    console.log('3. Test protected routes with the AppwriteAuthGuard');
-    console.log('4. Verify that invalid tokens are rejected');
 
   } catch (error) {
-    console.error('❌ Test failed with error:', error);
+    console.error('❌ Test failed with unexpected error:', error.message);
+    process.exit(1);
   }
 }
 
 // Run the test
-testAppwriteAuth().catch(console.error);
+if (require.main === module) {
+  testAppwriteAuth();
+}
+
+module.exports = { testAppwriteAuth };

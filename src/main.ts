@@ -9,67 +9,147 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ErrorInterceptor } from './common/interceptors/error.interceptor';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
+  const logger = new Logger('Bootstrap');
+  
+  try {
+    const app = await NestFactory.create(AppModule, {
+      logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+      cors: false, // We'll configure CORS manually for better control
+    });
+    
+    const configService = app.get(ConfigService);
 
-  // Security middleware
-  app.use(helmet());
-  app.use(compression());
-  app.use(cookieParser());
-
-  // Increase body parser limits for file uploads
-  app.use(bodyParser.json({ limit: '30mb' }));
-  app.use(bodyParser.urlencoded({ limit: '30mb', extended: true }));
-
-  // CORS configuration
-  const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || [
-    'https://arzansite.com',
-    'https://www.arzansite.com',
-    'http://localhost:8080',
-    'http://localhost:5173',
-  ];
-
-  app.enableCors({
-    origin: corsOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'Accept',
-      'Origin',
-      'Upgrade',
-      'Connection',
-    ],
-  });
-
-  // Global pipes
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
+    // Enhanced security middleware with latest configurations
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          imgSrc: ["'self'", "data:", "https:"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          connectSrc: ["'self'", "https://app.arzansite.com"],
+        },
       },
-    }),
-  );
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }));
+    
+    app.use(compression({
+      level: 6,
+      threshold: 1024,
+      filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }));
+    
+    app.use(cookieParser());
 
-  // Global filters and interceptors
-  app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new TransformInterceptor(), new ErrorInterceptor());
+    // Enhanced body parser with better limits and security
+    app.use(bodyParser.json({ 
+      limit: '30mb',
+      verify: (req, res, buf) => {
+        try {
+          JSON.parse(buf.toString());
+        } catch (e) {
+          throw new Error('Invalid JSON');
+        }
+      }
+    }));
+    
+    app.use(bodyParser.urlencoded({ 
+      limit: '30mb', 
+      extended: true,
+      parameterLimit: 1000,
+    }));
 
-  // Global prefix
-  app.setGlobalPrefix('api');
+    // Enhanced CORS configuration
+    const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || [
+      'https://arzansite.com',
+      'https://www.arzansite.com',
+      'http://localhost:8080',
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ];
 
-  // Swagger configuration
-  const config = new DocumentBuilder()
-    .setTitle('ArzanSite API')
-    .setDescription(`
+    app.enableCors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (corsOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          logger.warn(`CORS blocked request from origin: ${origin}`);
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'Upgrade',
+        'Connection',
+        'X-API-Key',
+        'X-Client-Version',
+      ],
+      exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+      maxAge: 86400, // 24 hours
+    });
+
+    // Enhanced global pipes with better validation
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: {
+          enableImplicitConversion: true,
+        },
+        forbidUnknownValues: true,
+        skipMissingProperties: false,
+        skipNullProperties: false,
+        skipUndefinedProperties: false,
+        validationError: {
+          target: false,
+          value: false,
+        },
+        exceptionFactory: (errors) => {
+          const messages = errors.map(error => 
+            Object.values(error.constraints || {}).join(', ')
+          );
+          return new Error(`Validation failed: ${messages.join('; ')}`);
+        },
+      }),
+    );
+
+    // Global filters and interceptors
+    app.useGlobalFilters(new HttpExceptionFilter());
+    app.useGlobalInterceptors(new TransformInterceptor(), new ErrorInterceptor());
+
+    // Global prefix
+    app.setGlobalPrefix('api', {
+      exclude: [
+        { path: 'health', method: 'GET' as any },
+        { path: 'api/docs', method: 'GET' as any },
+        { path: 'api/docs-json', method: 'GET' as any },
+      ],
+    });
+
+    // Enhanced Swagger configuration
+    const config = new DocumentBuilder()
+      .setTitle('ArzanSite API')
+      .setDescription(`
 # ArzanSite Backend API Documentation
 
 This API provides comprehensive backend services for ArzanSite, including:
@@ -118,100 +198,116 @@ This API provides comprehensive backend services for ArzanSite, including:
 - Swagger/OpenAPI documentation
 
 For detailed endpoint information, see the sections below.
-    `)
-    .setVersion('1.0.0')
-    .setContact('ArzanSite Team', 'https://arzansite.com', 'support@arzansite.com')
-    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
-    .addServer('http://localhost:3000', 'Local Development')
-    .addServer('https://app.arzansite.com', 'Production')
-    .addTag('auth', '🔐 Authentication & User Management (including OAuth)')
-    .addTag('profiles', '👤 User Profiles')
-    .addTag('orders', '📦 Order Management')
-    .addTag('designs', '🎨 Design Management')
-    .addTag('wallets', '💰 Wallet & Transactions')
-    .addTag('invoices', '📄 Invoice Management')
-    .addTag('receipts', '🧾 Digital Receipts')
-    .addTag('admin', '👨‍💼 Administrative Controls')
-    .addTag('payments', '💳 Payment Processing')
-    .addTag('transactions', '📊 Transaction History')
-    .addTag('storage', '📁 File Storage')
-    .addTag('appwrite', '☁️ Appwrite Services')
-    .addTag('domains', '🌐 Domain Management')
-    .addTag('site-config', '⚙️ Site Configuration')
-    .addTag('email', '📧 Email Services')
-    .addTag('health', '🏥 Health Monitoring')
-    .addTag('wizard', '🧙‍♂️ Website Design Wizard')
-    .addTag('uploads', '📤 File Upload System')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
-      },
-      'JWT-auth',
-    )
-    .addApiKey(
-      {
-        type: 'apiKey',
-        name: 'X-API-Key',
-        in: 'header',
-        description: 'API key for external services',
-      },
-      'API-Key',
-    )
-    .build();
+      `)
+      .setVersion('2.0.0')
+      .setContact('ArzanSite Team', 'https://arzansite.com', 'support@arzansite.com')
+      .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+      .addServer('http://localhost:3000', 'Local Development')
+      .addServer('https://app.arzansite.com', 'Production')
+      .addTag('auth', '🔐 Authentication & User Management (including OAuth)')
+      .addTag('profiles', '👤 User Profiles')
+      .addTag('orders', '📦 Order Management')
+      .addTag('designs', '🎨 Design Management')
+      .addTag('wallets', '💰 Wallet & Transactions')
+      .addTag('invoices', '📄 Invoice Management')
+      .addTag('receipts', '🧾 Digital Receipts')
+      .addTag('admin', '👨‍💼 Administrative Controls')
+      .addTag('payments', '💳 Payment Processing')
+      .addTag('transactions', '📊 Transaction History')
+      .addTag('storage', '📁 File Storage')
+      .addTag('appwrite', '☁️ Appwrite Services')
+      .addTag('domains', '🌐 Domain Management')
+      .addTag('site-config', '⚙️ Site Configuration')
+      .addTag('email', '📧 Email Services')
+      .addTag('health', '🏥 Health Monitoring')
+      .addTag('wizard', '🧙‍♂️ Website Design Wizard')
+      .addTag('uploads', '📤 File Upload System')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'JWT',
+          description: 'Enter JWT token',
+          in: 'header',
+        },
+        'JWT-auth',
+      )
+      .addApiKey(
+        {
+          type: 'apiKey',
+          name: 'X-API-Key',
+          in: 'header',
+          description: 'API key for external services',
+        },
+        'API-Key',
+      )
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  
-  // Custom Swagger UI options
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      docExpansion: 'list',
-      filter: true,
-      showRequestHeaders: true,
-      showCommonExtensions: true,
-      defaultModelsExpandDepth: 2,
-      defaultModelExpandDepth: 2,
-      displayRequestDuration: true,
-      tryItOutEnabled: true,
-      requestInterceptor: (request: any) => {
-        // Add default headers for testing
-        if (!request.headers) request.headers = {};
-        if (!request.headers['Content-Type']) {
-          request.headers['Content-Type'] = 'application/json';
-        }
-        return request;
+    const document = SwaggerModule.createDocument(app, config);
+    
+    // Enhanced Swagger UI options
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        docExpansion: 'list',
+        filter: true,
+        showRequestHeaders: true,
+        showCommonExtensions: true,
+        defaultModelsExpandDepth: 2,
+        defaultModelExpandDepth: 2,
+        displayRequestDuration: true,
+        tryItOutEnabled: true,
+        requestInterceptor: (request: any) => {
+          // Add default headers for testing
+          if (!request.headers) request.headers = {};
+          if (!request.headers['Content-Type']) {
+            request.headers['Content-Type'] = 'application/json';
+          }
+          return request;
+        },
+        responseInterceptor: (response: any) => {
+          // Log API usage for analytics
+          logger.debug(`API accessed: ${response.url}`);
+          return response;
+        },
       },
-    },
-    customSiteTitle: 'ArzanSite API Documentation',
-    customCss: `
-      .swagger-ui .topbar { display: none }
-      .swagger-ui .info .title { color: #2c3e50; font-size: 36px; }
-      .swagger-ui .info .description { font-size: 16px; line-height: 1.6; }
-      .swagger-ui .scheme-container { background: #f8f9fa; padding: 20px; border-radius: 8px; }
-      .swagger-ui .opblock.opblock-get .opblock-summary-method { background: #61affe; }
-      .swagger-ui .opblock.opblock-post .opblock-summary-method { background: #49cc90; }
-      .swagger-ui .opblock.opblock-put .opblock-summary-method { background: #fca130; }
-      .swagger-ui .opblock.opblock-delete .opblock-summary-method { background: #f93e3e; }
-      .swagger-ui .opblock.opblock-patch .opblock-summary-method { background: #50e3c2; }
-    `,
-    customJs: [
-      'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js',
-    ],
-  });
+      customSiteTitle: 'ArzanSite API Documentation',
+      customCss: `
+        .swagger-ui .topbar { display: none }
+        .swagger-ui .info .title { color: #2c3e50; font-size: 36px; }
+        .swagger-ui .info .description { font-size: 16px; line-height: 1.6; }
+        .swagger-ui .scheme-container { background: #f8f9fa; padding: 20px; border-radius: 8px; }
+        .swagger-ui .opblock.opblock-get .opblock-summary-method { background: #61affe; }
+        .swagger-ui .opblock.opblock-post .opblock-summary-method { background: #49cc90; }
+        .swagger-ui .opblock.opblock-put .opblock-summary-method { background: #fca130; }
+        .swagger-ui .opblock.opblock-delete .opblock-summary-method { background: #f93e3e; }
+        .swagger-ui .opblock.opblock-patch .opblock-summary-method { background: #50e3c2; }
+        .swagger-ui .info .scheme-container { margin: 20px 0; }
+        .swagger-ui .info .scheme-container .schemes-title { font-weight: bold; }
+      `,
+      customJs: [
+        'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js',
+      ],
+    });
 
-  const port = configService.get<number>('PORT', 3000);
-  await app.listen(port);
+    const port = configService.get<number>('PORT', 3000);
+    const host = configService.get<string>('HOST', '0.0.0.0');
+    
+    await app.listen(port, host);
 
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(`📡 WebSocket gateway available at: ws://localhost:${port}/ws`);
-  console.log(`📚 API Documentation available at: http://localhost:${port}/api/docs`);
-  console.log(`📁 File upload limit: 30MB`);
-  console.log(`🔐 API prefix: /api`);
+    logger.log(`🚀 Application is running on: http://${host}:${port}`);
+    logger.log(`📡 WebSocket gateway available at: ws://${host}:${port}/ws`);
+    logger.log(`📚 API Documentation available at: http://${host}:${port}/api/docs`);
+    logger.log(`📁 File upload limit: 30MB`);
+    logger.log(`🔐 API prefix: /api`);
+    logger.log(`🌍 Environment: ${configService.get('NODE_ENV', 'development')}`);
+    logger.log(`🔒 Security: Helmet, CORS, Rate Limiting enabled`);
+    
+  } catch (error) {
+    logger.error('Failed to start application:', error);
+    process.exit(1);
+  }
 }
 
 bootstrap();

@@ -19,462 +19,442 @@ try {
   // ignore env load errors; fall back to existing env
 }
 
-const { schema, databases, client } = require('./appwrite-schema');
+const { Client, Databases, ID } = require('node-appwrite');
 
-// Configuration
+// Appwrite configuration
+const APPWRITE_ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://app.arzansite.com/v1';
+const APPWRITE_PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '6898b35e003067cd7b43';
+const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY || 'standard_89de7518d2a2925036fafc4c4be992fa34e7ba59049d6c3f7aaa3bdaced79dc4325cceaca2a5a479f9020abce3a4d3922fdffbe0f79b2e04a709df436e4f3a73b1915563e873884c3478de964fa3722b31ae2fae7cdc458051c2be4721a2fa12c5fb82af4c6e73a4492b9f88b0c3ab78f7a0c60cf7954fe571c37564aca159f4';
 const APPWRITE_DATABASE_ID = process.env.APPWRITE_DATABASE_ID || '6899993d001b0b35b6b5';
 
-// Helper function to create string attribute
-async function createStringAttribute(collectionId, attribute) {
-    try {
-        const { key, size, required, array } = attribute;
+// Initialize Appwrite client with latest patterns
+const client = new Client()
+    .setEndpoint(APPWRITE_ENDPOINT)
+    .setProject(APPWRITE_PROJECT_ID)
+    .setKey(APPWRITE_API_KEY);
 
-        // Appwrite v13: createStringAttribute(db, col, key, size, required?, default?, array?)
-        const params = [
+const databases = new Databases(client);
+
+// Helper function to check if collection exists
+async function collectionExists(collectionId) {
+    try {
+        await databases.getCollection(APPWRITE_DATABASE_ID, collectionId);
+        return true;
+    } catch (error) {
+        if (error.code === 404) {
+        return false;
+    }
+        throw error;
+    }
+}
+
+// Helper function to get existing attributes
+async function getExistingAttributes(collectionId) {
+    try {
+        const attributes = await databases.listAttributes(APPWRITE_DATABASE_ID, collectionId);
+        return attributes.attributes.map(attr => attr.key);
+    } catch (error) {
+        console.warn(`Warning: Could not get existing attributes for ${collectionId}:`, error.message);
+        return [];
+    }
+}
+
+// Helper function to safely create collection
+async function ensureCollectionExists(collectionId, collectionSchema) {
+    try {
+        const exists = await collectionExists(collectionId);
+        if (!exists) {
+            console.log(`Creating collection: ${collectionId}`);
+            await databases.createCollection(
             APPWRITE_DATABASE_ID,
             collectionId,
-            key,
-            size || 255,
-            required ?? false,
-            null,
-            array ?? false,
-        ];
-
-        await databases.createStringAttribute(...params);
-        
-        console.log(`✅ Created string attribute: ${key}`);
-        return true;
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  String attribute ${attribute.key} already exists in collection ${collectionId}`);
-            return true;
+                collectionSchema.name,
+                collectionSchema.permissions || ["read(\"any\")"],
+                collectionSchema.documentSecurity || false,
+                collectionSchema.enabled || true
+            );
+            console.log(`✅ Collection ${collectionId} created successfully`);
+        } else {
+            console.log(`✅ Collection ${collectionId} already exists`);
         }
-        console.error(`❌ Failed to create string attribute ${attribute.key}:`, error.message);
-        return false;
+    } catch (error) {
+        console.error(`❌ Failed to create collection ${collectionId}:`, error.message);
+        throw error;
     }
 }
 
-// Helper function to create integer attribute
-async function createIntegerAttribute(collectionId, attribute) {
+// Helper function to safely create attribute
+async function ensureAttributeExists(collectionId, attributeKey, attributeConfig) {
     try {
-        const { key, required, array } = attribute;
-
-        // Debug: Log what we're receiving
-        console.log(`🔍 Creating integer attribute: ${key}`, JSON.stringify(attribute, null, 2));
-
-        // Appwrite v13: createIntegerAttribute(db, col, key, required?, min?, max?, default?, array?)
-        const params = [
-            APPWRITE_DATABASE_ID,
-            collectionId,
-            key,
-            required ?? false,
-            null,
-            null,
-            null,
-            array ?? false,
-        ];
-
-        console.log(`🔍 Parameters being passed:`, params);
-
-        await databases.createIntegerAttribute(...params);
-        
-        console.log(`✅ Created integer attribute: ${key}`);
-        return true;
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  Integer attribute ${attribute.key} already exists in collection ${collectionId}`);
-            return true;
-        }
-        console.error(`❌ Failed to create integer attribute ${attribute.key}:`, error.message);
-        return false;
-    }
-}
-
-// Helper function to create float attribute
-async function createFloatAttribute(collectionId, attribute) {
-    try {
-        const { key, required, array } = attribute;
-
-        // Debug: Log what we're receiving
-        console.log(`🔍 Creating float attribute: ${key}`, JSON.stringify(attribute, null, 2));
-
-        // Appwrite v13: createFloatAttribute(db, col, key, required?, min?, max?, default?, array?)
-        const params = [
-            APPWRITE_DATABASE_ID,
-            collectionId,
-            key,
-            required ?? false,
-            null,
-            null,
-            null,
-            array ?? false,
-        ];
-
-        console.log(`🔍 Parameters being passed:`, params);
-
-        await databases.createFloatAttribute(...params);
-        
-        console.log(`✅ Created float attribute: ${key}`);
-        return true;
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  Float attribute ${attribute.key} already exists in collection ${collectionId}`);
-            return true;
-        }
-        console.error(`❌ Failed to create float attribute ${attribute.key}:`, error.message);
-        return false;
-    }
-}
-
-// Helper function to create boolean attribute
-async function createBooleanAttribute(collectionId, attribute) {
-    try {
-        const { key, required, array } = attribute;
-
-        // Appwrite v13: createBooleanAttribute(db, col, key, required?, default?, array?)
-        const params = [
-            APPWRITE_DATABASE_ID,
-            collectionId,
-            key,
-            required ?? false,
-            null,
-            array ?? false,
-        ];
-
-        await databases.createBooleanAttribute(...params);
-        
-        console.log(`✅ Created boolean attribute: ${key}`);
-        return true;
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  Boolean attribute ${attribute.key} already exists in collection ${collectionId}`);
-            return true;
-        }
-        console.error(`❌ Failed to create boolean attribute ${attribute.key}:`, error.message);
-        return false;
-    }
-}
-
-// Helper function to create datetime attribute
-async function createDatetimeAttribute(collectionId, attribute) {
-    try {
-        const { key, required, array } = attribute;
-
-        // Appwrite v13: createDatetimeAttribute(db, col, key, required?, default?, array?)
-        const params = [
-            APPWRITE_DATABASE_ID,
-            collectionId,
-            key,
-            required ?? false,
-            null,
-            array ?? false,
-        ];
-
-        await databases.createDatetimeAttribute(...params);
-        
-        console.log(`✅ Created datetime attribute: ${key}`);
-        return true;
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  Datetime attribute ${attribute.key} already exists in collection ${collectionId}`);
-            return true;
-        }
-        console.error(`❌ Failed to create datetime attribute ${attribute.key}:`, error.message);
-        return false;
-    }
-}
-
-// Helper function to create enum attribute
-async function createEnumAttribute(collectionId, attribute) {
-    try {
-        const { key, required, array, enum: enumValues } = attribute;
-
-        // Appwrite v13: createEnumAttribute(db, col, key, elements, required?, default?, array?)
-        const params = [
-            APPWRITE_DATABASE_ID,
-            collectionId,
-            key,
-            enumValues,
-            required ?? false,
-            null,
-            array ?? false,
-        ];
-
-        await databases.createEnumAttribute(...params);
-        
-        console.log(`✅ Created enum attribute: ${key}`);
-        return true;
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  Enum attribute ${attribute.key} already exists in collection ${collectionId}`);
-            return true;
-        }
-        console.error(`❌ Failed to create enum attribute ${attribute.key}:`, error.message);
-        return false;
-    }
-}
-
-// Helper function to create index
-async function createIndex(collectionId, index) {
-    try {
-        const { key, type, attributes, orders } = index;
-        
-        switch (type) {
-            case 'key':
-                await databases.createIndex(
-                    APPWRITE_DATABASE_ID,
-                    collectionId,
-                    key,
-                    'key',
-                    attributes,
-                    orders
-                );
-                break;
-                
-            case 'unique':
-                await databases.createIndex(
-                    APPWRITE_DATABASE_ID,
-                    collectionId,
-                    key,
-                    'unique',
-                    attributes
-                );
-                break;
-                
-            default:
-                console.warn(`Unknown index type: ${type} for key: ${key}`);
-                return false;
-        }
-        
-        console.log(`✅ Created ${type} index: ${key}`);
-        return true;
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  Index ${index.key} already exists in collection ${collectionId}`);
-            return true;
-        }
-        
-        // Check if it's an "Unknown attribute" error
-        if (error.message && error.message.includes('Unknown attribute')) {
-            console.error(`❌ Failed to create index ${index.key}: One or more attributes don't exist yet. This usually means the attributes are still being processed.`);
-            console.log(`⏳ Waiting for attributes to be ready and retrying...`);
-            
-            // Wait and retry once
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            try {
-                switch (index.type) {
-                    case 'key':
-                        await databases.createIndex(
-                            APPWRITE_DATABASE_ID,
-                            collectionId,
-                            index.key,
-                            'key',
-                            index.attributes,
-                            index.orders
-                        );
-                        break;
-                        
-                    case 'unique':
-                        await databases.createIndex(
-                            APPWRITE_DATABASE_ID,
-                            collectionId,
-                            index.key,
-                            'unique',
-                            index.attributes
-                        );
-                        break;
-                }
-                console.log(`✅ Created ${index.type} index: ${index.key} on retry`);
-                return true;
-            } catch (retryError) {
-                console.error(`❌ Failed to create index ${index.key} on retry:`, retryError.message);
-                return false;
-            }
-        }
-        
-        console.error(`❌ Failed to create index ${index.key}:`, error.message);
-        return false;
-    }
-}
-
-// Helper function to create collection
-async function createCollection(collectionName, collectionConfig) {
-    try {
-        const { name, documentSecurity, attributes, indexes } = collectionConfig;
-        
-        // Create collection
-        const collection = await databases.createCollection(
-            APPWRITE_DATABASE_ID,
-            collectionName, // Use stable, human-readable ID equal to the collection name
-            name,
-            [],
-            documentSecurity
-        );
-        
-        console.log(`✅ Created collection: ${name} (ID: ${collection.$id})`);
-        
-        // Wait a bit for collection to be ready
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Create attributes
-        console.log(`📝 Creating attributes for collection: ${name}`);
-        for (const attribute of attributes) {
-            let success = false;
-            
-            switch (attribute.type) {
-                case 'string':
-                    if (attribute.enum) {
-                        success = await createEnumAttribute(collection.$id, attribute);
-                    } else {
-                        success = await createStringAttribute(collection.$id, attribute);
-                    }
-                    break;
-                    
-                case 'integer':
-                    success = await createIntegerAttribute(collection.$id, attribute);
-                    break;
-                    
-                case 'double':
-                    success = await createFloatAttribute(collection.$id, attribute);
-                    break;
-                    
-                case 'boolean':
-                    success = await createBooleanAttribute(collection.$id, attribute);
-                    break;
-                    
-                case 'datetime':
-                    success = await createDatetimeAttribute(collection.$id, attribute);
-                    break;
-                    
-                default:
-                    console.warn(`Unknown attribute type: ${attribute.type} for key: ${attribute.key}`);
-                    success = false;
-            }
-            
-            if (!success) {
-                console.error(`Failed to create attribute ${attribute.key} in collection ${name}`);
-            }
-            
-            // Wait a bit between attribute creation
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        // Wait for attributes to be ready
-        console.log(`⏳ Waiting for attributes to be ready...`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        
-        // Create indexes
-        console.log(`🔍 Creating indexes for collection: ${name}`);
-        for (const index of indexes) {
-            // Wait a bit longer before creating indexes to ensure attributes are fully ready
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const success = await createIndex(collection.$id, index);
-            if (!success) {
-                console.error(`Failed to create index ${index.key} in collection ${name}`);
-            }
-            
-            // Wait a bit between index creation
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-        console.log(`✅ Collection ${name} setup completed successfully!`);
-        return collection;
-        
-    } catch (error) {
-        if (error.code === 409) {
-            console.log(`ℹ️  Collection ${collectionName} already exists`);
-            return null;
-        }
-        console.error(`❌ Failed to create collection ${collectionName}:`, error.message);
-        return null;
-    }
-}
-
-// Main function to create all collections
-async function createAllCollections() {
-    try {
-        console.log('🚀 Starting Appwrite schema creation...');
-        console.log(`📊 Database ID: ${APPWRITE_DATABASE_ID}`);
-        console.log(`🔑 Project ID: ${process.env.APPWRITE_PROJECT_ID || '6898b35e003067cd7b43'}`);
-        console.log('');
-        
-        // Check if database exists, create if not
+        // Check if attribute exists by trying to get it
         try {
-            await databases.get(APPWRITE_DATABASE_ID);
-            console.log(`✅ Database ${APPWRITE_DATABASE_ID} already exists`);
-            
-            // Check if we should clean existing collections
-            if (process.argv.includes('--clean')) {
-                console.log('🧹 Cleaning existing collections...');
-                await cleanupExistingCollections();
-            }
-        } catch (error) {
-            if (error.code === 404) {
-                console.log(`📝 Creating database: ${APPWRITE_DATABASE_ID}`);
-                await databases.create(APPWRITE_DATABASE_ID, 'Main Database');
-                console.log(`✅ Database ${APPWRITE_DATABASE_ID} created successfully`);
-            } else {
+            await databases.getAttribute(APPWRITE_DATABASE_ID, collectionId, attributeKey);
+            console.log(`✅ Attribute ${attributeKey} already exists in ${collectionId}`);
+            return;
+    } catch (error) {
+            if (error.code !== 404) {
                 throw error;
             }
         }
+
+        // Create attribute based on type
+        console.log(`Creating attribute: ${attributeKey} in ${collectionId}`);
         
-        console.log('');
-        console.log('📋 Creating collections...');
-        console.log('');
-        
-        // Create all collections
-        const collections = Object.values(schema);
-        let successCount = 0;
-        let totalCount = collections.length;
-        
-        for (const collectionConfig of collections) {
-            console.log(`🔄 Processing collection: ${collectionConfig.name}`);
-            const result = await createCollection(collectionConfig.name, collectionConfig);
-            if (result) {
-                successCount++;
-            }
-            console.log('');
+        switch (attributeConfig.type) {
+            case 'string':
+                await databases.createStringAttribute(
+                    APPWRITE_DATABASE_ID,
+                    collectionId,
+                    attributeKey,
+                    attributeConfig.size || 255,
+                    attributeConfig.required || false,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false,
+                    attributeConfig.encrypt || false
+                );
+                break;
+            case 'integer':
+                await databases.createIntegerAttribute(
+                    APPWRITE_DATABASE_ID,
+                    collectionId,
+                    attributeKey,
+                    attributeConfig.required || false,
+                    attributeConfig.min,
+                    attributeConfig.max,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false
+                );
+                break;
+            case 'float':
+                await databases.createFloatAttribute(
+                    APPWRITE_DATABASE_ID,
+                    collectionId,
+                    attributeKey,
+                    attributeConfig.required || false,
+                    attributeConfig.min,
+                    attributeConfig.max,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false
+                );
+                break;
+            case 'boolean':
+                await databases.createBooleanAttribute(
+            APPWRITE_DATABASE_ID,
+            collectionId,
+                    attributeKey,
+                    attributeConfig.required || false,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false
+                );
+                break;
+            case 'email':
+                await databases.createEmailAttribute(
+                    APPWRITE_DATABASE_ID,
+                    collectionId,
+                    attributeKey,
+                    attributeConfig.required || false,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false
+                );
+                break;
+            case 'url':
+                await databases.createUrlAttribute(
+                    APPWRITE_DATABASE_ID,
+                    collectionId,
+                    attributeKey,
+                    attributeConfig.required || false,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false
+                );
+                break;
+            case 'datetime':
+                await databases.createDatetimeAttribute(
+                            APPWRITE_DATABASE_ID,
+                            collectionId,
+                    attributeKey,
+                    attributeConfig.required || false,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false
+                        );
+                        break;
+            case 'ip':
+                await databases.createIpAttribute(
+                            APPWRITE_DATABASE_ID,
+                            collectionId,
+                    attributeKey,
+                    attributeConfig.required || false,
+                    attributeConfig.required ? null : attributeConfig.default,
+                    attributeConfig.array || false
+                        );
+                        break;
+            default:
+                throw new Error(`Unsupported attribute type: ${attributeConfig.type}`);
         }
         
-        console.log('🎉 Schema creation completed!');
-        console.log(`✅ Successfully created: ${successCount}/${totalCount} collections`);
-        
-        if (successCount < totalCount) {
-            console.log('⚠️  Some collections failed to create. Check the logs above for details.');
-        }
-        
+        console.log(`✅ Attribute ${attributeKey} created successfully in ${collectionId}`);
     } catch (error) {
-        console.error('💥 Fatal error during schema creation:', error.message);
+        if (error.message && error.message.includes('maximum number or size of attributes')) {
+            console.warn(`⚠️  Skipping attribute ${attributeKey} in ${collectionId}: Collection has reached maximum attributes limit`);
+            return;
+        }
+        console.error(`❌ Failed to create attribute ${attributeKey} in ${collectionId}:`, error.message);
+        throw error;
+    }
+}
+
+// Helper function to safely create index
+async function ensureIndexExists(collectionId, indexKey, indexConfig) {
+    try {
+        // Check if index exists by trying to get it
+        try {
+            await databases.getIndex(APPWRITE_DATABASE_ID, collectionId, indexKey);
+            console.log(`✅ Index ${indexKey} already exists in ${collectionId}`);
+            return;
+        } catch (error) {
+            if (error.code !== 404) {
+                throw error;
+            }
+        }
+
+        // Create index
+        console.log(`Creating index: ${indexKey} in ${collectionId}`);
+        await databases.createIndex(
+            APPWRITE_DATABASE_ID,
+            collectionId,
+            indexKey,
+            indexConfig.type,
+            indexConfig.attributes,
+            indexConfig.orders || []
+        );
+        
+        console.log(`✅ Index ${indexKey} created successfully in ${collectionId}`);
+    } catch (error) {
+        console.error(`❌ Failed to create index ${indexKey} in ${collectionId}:`, error.message);
+        throw error;
+    }
+}
+
+// Main function to create the complete schema
+async function createAppwriteSchema() {
+    console.log('🚀 Starting Appwrite Schema Creation...\n');
+
+    try {
+        // Test connection
+        console.log('1️⃣ Testing Appwrite connection...');
+        const database = await databases.get(APPWRITE_DATABASE_ID);
+        console.log(`✅ Connected to database: ${database.name}\n`);
+
+        // Define collections and their schemas
+        const collections = {
+            orders: {
+                name: 'Orders',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    orderNumber: { type: 'string', required: true, size: 50 },
+                    status: { type: 'string', required: true, size: 20 },
+                    totalAmount: { type: 'float', required: true },
+                    currency: { type: 'string', required: true, size: 3 },
+                    items: { type: 'string', required: false, size: 1000 }, // JSON string
+                    createdAt: { type: 'datetime', required: true },
+                    updatedAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_orders': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    },
+                    'idx_order_status': {
+                        type: 'key',
+                        attributes: ['status'],
+                        orders: ['ASC']
+                    },
+                    'idx_created_at': {
+                        type: 'key',
+                        attributes: ['createdAt'],
+                        orders: ['DESC']
+                    }
+                }
+            },
+            designs: {
+                name: 'Designs',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    name: { type: 'string', required: true, size: 255 },
+                    description: { type: 'string', required: false, size: 1000 },
+                    category: { type: 'string', required: true, size: 100 },
+                    price: { type: 'float', required: true },
+                    currency: { type: 'string', required: true, size: 3 },
+                    imageUrl: { type: 'url', required: false },
+                    isActive: { type: 'boolean', required: true, default: true },
+                    createdAt: { type: 'datetime', required: true },
+                    updatedAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_designs': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    },
+                    'idx_category': {
+                        type: 'key',
+                        attributes: ['category'],
+                        orders: ['ASC']
+                    },
+                    'idx_active_designs': {
+                        type: 'key',
+                        attributes: ['isActive'],
+                        orders: ['ASC']
+                    }
+                }
+            },
+            wallets: {
+                name: 'Wallets',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    balance: { type: 'float', required: true, default: 0 },
+                    currency: { type: 'string', required: true, size: 3 },
+                    isActive: { type: 'boolean', required: true, default: true },
+                    createdAt: { type: 'datetime', required: true },
+                    updatedAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_wallet': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    },
+                    'idx_active_wallets': {
+                        type: 'key',
+                        attributes: ['isActive'],
+                        orders: ['ASC']
+                    }
+                }
+            },
+            transactions: {
+                name: 'Transactions',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    walletId: { type: 'string', required: true, size: 36 },
+                    type: { type: 'string', required: true, size: 20 }, // credit, debit
+                    amount: { type: 'float', required: true },
+                    currency: { type: 'string', required: true, size: 3 },
+                    description: { type: 'string', required: false, size: 500 },
+                    reference: { type: 'string', required: false, size: 100 },
+                    status: { type: 'string', required: true, size: 20 }, // pending, completed, failed
+                    createdAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_transactions': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    },
+                    'idx_wallet_transactions': {
+                        type: 'key',
+                        attributes: ['walletId'],
+                        orders: ['ASC']
+                    },
+                    'idx_transaction_type': {
+                        type: 'key',
+                        attributes: ['type'],
+                        orders: ['ASC']
+                    },
+                    'idx_transaction_status': {
+                        type: 'key',
+                        attributes: ['status'],
+                        orders: ['ASC']
+                    },
+                    'idx_transaction_date': {
+                        type: 'key',
+                        attributes: ['createdAt'],
+                        orders: ['DESC']
+                    }
+                }
+            },
+            profiles: {
+                name: 'Profiles',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    firstName: { type: 'string', required: false, size: 100 },
+                    lastName: { type: 'string', required: false, size: 100 },
+                    phone: { type: 'string', required: false, size: 20 },
+                    address: { type: 'string', required: false, size: 500 },
+                    city: { type: 'string', required: false, size: 100 },
+                    country: { type: 'string', required: false, size: 100 },
+                    postalCode: { type: 'string', required: false, size: 20 },
+                    avatarUrl: { type: 'url', required: false },
+                    bio: { type: 'string', required: false, size: 1000 },
+                    createdAt: { type: 'datetime', required: true },
+                    updatedAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_profile': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    }
+                }
+            }
+        };
+
+        // Create collections and their schemas
+        for (const [collectionId, schema] of Object.entries(collections)) {
+            console.log(`2️⃣ Processing collection: ${collectionId}`);
+            
+            // Create collection
+            await ensureCollectionExists(collectionId, schema);
+            
+            // Get existing attributes to avoid conflicts
+            const existingAttributes = await getExistingAttributes(collectionId);
+            console.log(`📋 Existing attributes in ${collectionId}: ${existingAttributes.length}`);
+            
+            // Create attributes (skip if they already exist)
+            for (const [attributeKey, attributeConfig] of Object.entries(schema.attributes)) {
+                if (!existingAttributes.includes(attributeKey)) {
+                    await ensureAttributeExists(collectionId, attributeKey, attributeConfig);
+            } else {
+                    console.log(`✅ Attribute ${attributeKey} already exists in ${collectionId}`);
+                }
+            }
+            
+            // Create indexes
+            if (schema.indexes) {
+                for (const [indexKey, indexConfig] of Object.entries(schema.indexes)) {
+                    await ensureIndexExists(collectionId, indexKey, indexConfig);
+                }
+            }
+            
+            console.log(`✅ Collection ${collectionId} setup completed\n`);
+        }
+
+        console.log('🎉 Appwrite Schema Creation Completed Successfully!');
+        console.log('\n📋 Summary:');
+        console.log(`   - Database: ${database.name} (${APPWRITE_DATABASE_ID})`);
+        console.log(`   - Collections processed: ${Object.keys(collections).length}`);
+        console.log(`   - Total attributes defined: ${Object.values(collections).reduce((sum, schema) => sum + Object.keys(schema.attributes).length, 0)}`);
+        console.log(`   - Total indexes defined: ${Object.values(collections).reduce((sum, schema) => sum + (schema.indexes ? Object.keys(schema.indexes).length : 0), 0)}`);
+
+    } catch (error) {
+        console.error('❌ Schema creation failed:', error.message);
         process.exit(1);
     }
 }
 
-// Run the script
+// Run the schema creation
 if (require.main === module) {
-    createAllCollections();
+    createAppwriteSchema();
 }
 
-// Cleanup function to remove existing collections
-async function cleanupExistingCollections() {
-    try {
-        console.log('🔍 Listing existing collections...');
-        const collections = await databases.listCollections(APPWRITE_DATABASE_ID);
-        
-        for (const collection of collections.collections) {
-            console.log(`🗑️  Deleting collection: ${collection.name} (${collection.$id})`);
-            try {
-                await databases.deleteCollection(APPWRITE_DATABASE_ID, collection.$id);
-                console.log(`✅ Deleted collection: ${collection.name}`);
-            } catch (error) {
-                console.error(`❌ Failed to delete collection ${collection.name}:`, error.message);
-            }
-        }
-        
-        console.log('🧹 Cleanup completed!');
-    } catch (error) {
-        console.error('❌ Error during cleanup:', error.message);
-    }
-}
-
-module.exports = { createAllCollections, cleanupExistingCollections };
+module.exports = {
+    createAppwriteSchema,
+    collectionExists,
+    ensureCollectionExists,
+    ensureAttributeExists,
+    ensureIndexExists
+};

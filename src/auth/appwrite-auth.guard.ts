@@ -6,7 +6,7 @@ import { Request } from 'express';
 export class AppwriteAuthGuard implements CanActivate {
   private client = new Client()
     .setEndpoint(process.env.APPWRITE_ENDPOINT || '')
-    .setProject(process.env.APPWRITE_PROJECT || '')
+    .setProject(process.env.APPWRITE_PROJECT_ID || '')
     .setKey(process.env.APPWRITE_API_KEY || '');
   private account = new Account(this.client);
 
@@ -39,6 +39,7 @@ export class AppwriteAuthGuard implements CanActivate {
       return true;
     } catch (err) {
       // Token invalid or expired
+      console.error('JWT validation failed:', err.message);
       throw new UnauthorizedException('Invalid Appwrite JWT');
     } finally {
       // Important: clear JWT from client (so it is not reused cross-request)
