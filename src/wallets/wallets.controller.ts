@@ -22,7 +22,7 @@ import {
   ApiForbiddenResponse
 } from '@nestjs/swagger';
 import { WalletsService } from './wallets.service';
-import { CreateTransactionDto, RefundOrderDto, TransactionType } from './dto/wallet.dto';
+import { CreateTransactionDto, RefundOrderDto, TransactionType, WalletDepositDto } from './dto/wallet.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard, Roles } from '../common/guards/roles.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
@@ -222,14 +222,14 @@ export class WalletsController {
   })
   async depositToWallet(
     @User() user: UserPayload,
-    @Body() body: { amount: number; description?: string; callbackUrl?: string },
+    @Body() body: WalletDepositDto,
   ) {
     try {
       // Create wallet deposit using the new payment service
       const depositResult = await this.paymentsService.createWalletDeposit(
         user.id,
         body.amount,
-        body.description || `شارژ کیف پول - ${body.amount.toLocaleString()} ریال`,
+        body.description,
         body.callbackUrl
       );
 

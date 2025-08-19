@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsObject, IsEnum, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsObject, IsEnum, Min, IsInt, IsUrl } from 'class-validator';
 
 export enum TransactionType {
   DEPOSIT = 'deposit',
@@ -44,4 +44,25 @@ export class CreateTransactionDto {
 export class RefundOrderDto {
   @IsString()
   orderId: string;
+}
+
+export class WalletDepositDto {
+  @IsInt({ message: 'amount must be an integer in Rials' })
+  @Min(1000000, { message: 'Minimum deposit amount is 1,000,000 Rials' })
+  amount: number;
+
+  @IsString({ message: 'description must be a string' })
+  description: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: true, protocols: ['https'] }, { message: 'callbackUrl must be a valid HTTPS URL' })
+  callbackUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  mobile?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
 }
