@@ -40,6 +40,23 @@ import { TransformInterceptor } from '../common/interceptors/transform.intercept
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
+  // Accept common image, document, archive mime types
+  private static readonly ALLOWED_MIME_REGEX = new RegExp(
+    '^(' +
+      // Images
+      'image\\/(jpeg|jpg|png|gif)' +
+    '|' +
+      // Documents
+      'application\\/(pdf|msword|vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document|vnd\\.ms-excel|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|vnd\\.ms-powerpoint|vnd\\.openxmlformats-officedocument\\.presentationml\\.presentation)' +
+    '|' +
+      // Text
+      'text\\/plain' +
+    '|' +
+      // Archives (various common mime types)
+      'application\\/(zip|x-zip-compressed|x-rar-compressed|x-7z-compressed|octet-stream)' +
+    ')$'
+  , 'i');
+
   @Get('test')
   @ApiOperation({ summary: 'Test endpoint to verify routing' })
   @ApiResponse({ status: 200, description: 'Test successful' })
@@ -122,7 +139,7 @@ export class UploadsController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 30 * 1024 * 1024 }), // 30MB
-          new FileTypeValidator({ fileType: '.(jpg|jpeg|png|gif|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)' }),
+          new FileTypeValidator({ fileType: UploadsController.ALLOWED_MIME_REGEX }),
         ],
       }),
     )
@@ -175,7 +192,7 @@ export class UploadsController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 30 * 1024 * 1024 }), // 30MB
-          new FileTypeValidator({ fileType: '.(jpg|jpeg|png|gif|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)' }),
+          new FileTypeValidator({ fileType: UploadsController.ALLOWED_MIME_REGEX }),
         ],
         fileIsRequired: false,
       }),
