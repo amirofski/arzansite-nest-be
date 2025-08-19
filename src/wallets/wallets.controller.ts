@@ -222,14 +222,15 @@ export class WalletsController {
   })
   async depositToWallet(
     @User() user: UserPayload,
-    @Body() body: { amount: number; description?: string },
+    @Body() body: { amount: number; description?: string; callbackUrl?: string },
   ) {
     try {
       // Create wallet deposit using the new payment service
       const depositResult = await this.paymentsService.createWalletDeposit(
         user.id,
         body.amount,
-        body.description || `شارژ کیف پول - ${body.amount.toLocaleString()} ریال`
+        body.description || `شارژ کیف پول - ${body.amount.toLocaleString()} ریال`,
+        body.callbackUrl
       );
 
       return {

@@ -61,6 +61,15 @@ export class ErrorInterceptor implements NestInterceptor {
           }
         }
 
+        // Try to surface nested gateway or validation messages
+        const original: any = (error as any)?.response?.message || (error as any)?.response || (error as any);
+        if (original && typeof original === 'object') {
+          const nestedMsg = original?.message || original?.error || original?.details;
+          if (nestedMsg && typeof nestedMsg === 'string') {
+            message = nestedMsg;
+          }
+        }
+
         const errorResponse: ErrorResponse = {
           success: false,
           error: message,

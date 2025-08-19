@@ -229,6 +229,7 @@ export class PaymentsService {
     userId: string,
     amount: number,
     description: string,
+    callbackUrlOverride?: string,
   ): Promise<{ success: boolean; authority: string; paymentUrl: string; invoiceId: string; orderId: string; message: string }> {
     // Validate minimum amount (1,000,000 Rials = 1,000,000)
     if (amount < 1000000) {
@@ -244,10 +245,12 @@ export class PaymentsService {
 
     try {
       // Create payment request using the updated ZarinPal service
+      const fallbackCallback = `${this.configService.get('FRONTEND_URL')}/wallet/deposit/callback`;
+      const callbackUrl = callbackUrlOverride || fallbackCallback;
       const paymentResponse = await this.zarinPalService.createPayment({
         amount: amount,
         description: description,
-        callbackUrl: `${this.configService.get('FRONTEND_URL')}/wallet/deposit/callback`,
+        callbackUrl,
         mobile: userProfile.phone || '',
         email: userProfile.email,
         orderId: orderId,
