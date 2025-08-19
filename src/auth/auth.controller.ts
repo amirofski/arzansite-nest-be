@@ -878,8 +878,16 @@ export class AuthController {
     // Clear OAuth session cookies
     res.clearCookie('appwrite_session');
     res.clearCookie('user_info');
-    // Clear backend session cookie set by /auth/session
-    res.clearCookie('appwrite_jwt');
+    // Clear backend session cookie set by /auth/session (match cookie attributes)
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieDomain = isProd ? (process.env.COOKIE_DOMAIN || '.arzansite.com') : undefined;
+    res.clearCookie('appwrite_jwt', {
+      httpOnly: true,
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
+      domain: cookieDomain,
+      path: '/',
+    });
     
     return res.json({ 
       message: 'Successfully signed out from OAuth session' 
@@ -953,12 +961,15 @@ export class AuthController {
     try {
       const user = await account.get();
 
-      // Set an HttpOnly cookie if you want backend-managed sessions
-      // Note: name differs from Appwrite's internal cookie; choose your own
+      // Set an HttpOnly cookie for backend-managed sessions
+      const isProd = process.env.NODE_ENV === 'production';
+      const cookieDomain = isProd ? (process.env.COOKIE_DOMAIN || '.arzansite.com') : undefined;
       res.cookie('appwrite_jwt', jwt, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: isProd ? 'none' : 'lax',
+        secure: isProd,
+        domain: cookieDomain,
+        path: '/',
         maxAge: 1000 * 60 * 60, // 1 hour (jwt lifetime may be shorter)
       });
 
