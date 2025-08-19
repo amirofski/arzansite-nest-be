@@ -16,6 +16,7 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { 
@@ -41,21 +42,43 @@ export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   // Accept common image, document, archive mime types
-  private static readonly ALLOWED_MIME_REGEX = new RegExp(
-    '^(' +
-      // Images
-      'image\\/(jpeg|jpg|png|gif)' +
-    '|' +
-      // Documents
-      'application\\/(pdf|msword|vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document|vnd\\.ms-excel|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|vnd\\.ms-powerpoint|vnd\\.openxmlformats-officedocument\\.presentationml\\.presentation)' +
-    '|' +
-      // Text
-      'text\\/plain' +
-    '|' +
-      // Archives (various common mime types)
-      'application\\/(zip|x-zip-compressed|x-rar-compressed|x-7z-compressed|octet-stream)' +
-    ')$'
-  , 'i');
+  private static readonly ALLOWED_MIME_TYPES: readonly string[] = [
+    // Images
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/svg+xml',
+    // Documents
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // Text
+    'text/plain',
+    // Archives
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-rar-compressed',
+    'application/vnd.rar',
+    'application/x-7z-compressed',
+    // Fallback some providers use
+    'application/octet-stream',
+  ] as const;
+
+  private static isAllowedMimeType(mime: string): boolean {
+    if (!mime || typeof mime !== 'string') return false;
+    // exact match first
+    if (UploadsController.ALLOWED_MIME_TYPES.includes(mime as any)) return true;
+    // allow generic image/*
+    if (mime.startsWith('image/')) return true;
+    return false;
+  }
 
   @Get('test')
   @ApiOperation({ summary: 'Test endpoint to verify routing' })
@@ -133,13 +156,21 @@ export class UploadsController {
   @ApiResponse({ status: 201, description: 'File uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - invalid file' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 30 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (UploadsController.isAllowedMimeType(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException(`Unsupported file type: ${file.mimetype}`) as any, false);
+      }
+    },
+  }))
   async uploadFile(
     @UploadedFile(
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 30 * 1024 * 1024 }), // 30MB
-          new FileTypeValidator({ fileType: UploadsController.ALLOWED_MIME_REGEX }),
         ],
       }),
     )
@@ -186,13 +217,21 @@ export class UploadsController {
   @ApiResponse({ status: 201, description: 'Files uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - invalid files' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @UseInterceptors(FilesInterceptor('files'))
+  @UseInterceptors(FilesInterceptor('files', undefined, {
+    limits: { fileSize: 30 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (UploadsController.isAllowedMimeType(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException(`Unsupported file type: ${file.mimetype}`) as any, false);
+      }
+    },
+  }))
   async uploadMultipleFiles(
     @UploadedFiles(
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 30 * 1024 * 1024 }), // 30MB
-          new FileTypeValidator({ fileType: UploadsController.ALLOWED_MIME_REGEX }),
         ],
         fileIsRequired: false,
       }),
