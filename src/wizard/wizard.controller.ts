@@ -44,7 +44,7 @@ import { Roles } from '../common/guards/roles.guard';
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
 
 @ApiTags('Wizard')
-@Controller('api/wizard')
+@Controller('wizard')
 @UseInterceptors(TransformInterceptor)
 export class WizardController {
   constructor(private readonly wizardService: WizardService) {}

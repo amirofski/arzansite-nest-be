@@ -7,7 +7,7 @@ import { TransformInterceptor } from '../common/interceptors/transform.intercept
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 
 @ApiTags('domains')
-@Controller('api/domains')
+@Controller('domains')
 @UseInterceptors(TransformInterceptor)
 export class DomainsController {
   constructor(private readonly domainsService: DomainsService) {}

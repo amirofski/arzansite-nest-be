@@ -69,26 +69,22 @@ async function bootstrap() {
       parameterLimit: 1000,
     }));
 
-    // Enhanced CORS configuration
-    const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || [
-      'https://arzansite.com',
-      'https://www.arzansite.com',
-      'http://localhost:8080',
-      'http://localhost:5173',
-      'http://localhost:3000',
-    ];
+    // Enhanced CORS configuration (env-driven only)
+    const corsEnv = configService.get<string>('CORS_ORIGINS') || '';
+    const corsOrigins = corsEnv
+      .split(',')
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0);
 
     app.enableCors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
+        // Allow requests with no origin (curl, mobile apps)
         if (!origin) return callback(null, true);
-        
-        if (corsOrigins.indexOf(origin) !== -1) {
-          callback(null, true);
-        } else {
-          logger.warn(`CORS blocked request from origin: ${origin}`);
-          callback(new Error('Not allowed by CORS'));
-        }
+        // If "*" present in env, allow any origin (note: not with credentials)
+        if (corsOrigins.includes('*')) return callback(null, true);
+        if (corsOrigins.includes(origin)) return callback(null, true);
+        logger.warn(`CORS blocked request from origin: ${origin}`);
+        return callback(new Error('Not allowed by CORS'));
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -98,6 +94,7 @@ async function bootstrap() {
         'X-Requested-With',
         'Accept',
         'Origin',
+        'Cookie',
         'Upgrade',
         'Connection',
         'X-API-Key',
@@ -105,6 +102,8 @@ async function bootstrap() {
       ],
       exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
       maxAge: 86400, // 24 hours
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
     });
 
     // Enhanced global pipes with better validation
