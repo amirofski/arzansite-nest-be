@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { AppwriteService } from './appwrite.service';
 import { JwtGuard } from '../common/guards/jwt.guard';
+import { ID } from 'node-appwrite';
 
 @ApiTags('messaging')
 @Controller('messaging')
@@ -36,7 +37,7 @@ export class MessagingController {
     schema: {
       type: 'object',
       properties: {
-        topicId: { type: 'string', description: 'Topic ID' },
+        topicId: { type: 'string', description: 'Topic ID (optional, will be derived from name if not provided)' },
         name: { type: 'string', description: 'Topic name' },
         subscribe: { 
           type: 'array', 
@@ -44,7 +45,7 @@ export class MessagingController {
           description: 'Array of user IDs to subscribe' 
         },
       },
-      required: ['topicId', 'name', 'subscribe'],
+      required: ['name'],
     },
   })
   @ApiResponse({
@@ -61,12 +62,16 @@ export class MessagingController {
   })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async createTopic(@Body() body: { topicId: string; name: string; subscribe: string[] }) {
+  async createTopic(@Body() body: { topicId?: string; name: string; subscribe?: string[] }) {
     try {
+      const topicId = (body.topicId && body.topicId.trim().length > 0)
+        ? body.topicId
+        : (body.name || '').toLowerCase().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || ID.unique();
+
       const topic = await this.appwriteService.createTopic(
-        body.topicId,
+        topicId,
         body.name,
-        body.subscribe,
+        body.subscribe || [],
       );
       return topic;
     } catch (error) {

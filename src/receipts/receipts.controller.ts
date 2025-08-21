@@ -4,7 +4,6 @@ import {
   Param, 
   Query, 
   UseGuards, 
-  Request,
   Res,
   ParseIntPipe,
   DefaultValuePipe
@@ -28,6 +27,7 @@ import { ReceiptsService } from './receipts.service';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard, Roles } from '../common/guards/roles.guard';
 import { ReceiptResponseDto, ReceiptFormat } from './dto/receipt.dto';
+import { User, UserPayload } from '../common/decorators/user.decorator';
 
 @ApiTags('Receipts')
 @ApiBearerAuth()
@@ -76,11 +76,11 @@ export class ReceiptsController {
     description: 'User not authenticated'
   })
   async getReceipts(
-    @Request() req,
+    @User() user: UserPayload,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number
   ): Promise<ReceiptResponseDto[]> {
-    return this.receiptsService.getReceipts(req.user.userId, req.user.role === 'admin');
+    return this.receiptsService.getReceipts(user.id, user.role === 'admin');
   }
 
   @Get(':id')
@@ -108,9 +108,9 @@ export class ReceiptsController {
   })
   async getReceipt(
     @Param('id') id: string,
-    @Request() req
+    @User() user: UserPayload
   ): Promise<ReceiptResponseDto> {
-    return this.receiptsService.getReceipt(id, req.user.userId, req.user.role === 'admin');
+    return this.receiptsService.getReceipt(id, user.id, user.role === 'admin');
   }
 
   @Get(':id/download')
@@ -149,11 +149,11 @@ export class ReceiptsController {
   })
   async downloadReceipt(
     @Param('id') id: string,
-    @Request() req,
+    @User() user: UserPayload,
     @Query('format', new DefaultValuePipe(ReceiptFormat.PDF)) format: ReceiptFormat,
     @Res() res: Response
   ): Promise<void> {
-    const receipt = await this.receiptsService.downloadReceipt(id, req.user.userId, format);
+    const receipt = await this.receiptsService.downloadReceipt(id, user.id, format);
     
     res.setHeader('Content-Type', receipt.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${receipt.filename}"`);

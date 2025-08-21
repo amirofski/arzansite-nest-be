@@ -1,8 +1,9 @@
 import { IsString, IsNumber, IsOptional, IsEmail } from 'class-validator';
 
 export class PaymentRequestDto {
+  @IsOptional()
   @IsString()
-  orderId: string;
+  orderId?: string;
 
   @IsNumber()
   amount: number;
@@ -24,14 +25,16 @@ export class PaymentRequestDto {
 }
 
 export class PaymentVerifyDto {
+  @IsOptional()
   @IsString()
-  orderId: string;
+  orderId?: string;
 
   @IsString()
   authority: string;
 
+  @IsOptional()
   @IsNumber()
-  amount: number;
+  amount?: number;
 }
 
 export class PaymentRefundDto {

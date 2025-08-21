@@ -6,7 +6,6 @@ import {
   Param, 
   Body, 
   UseGuards, 
-  Request,
   Query,
   ParseIntPipe,
   DefaultValuePipe
@@ -35,6 +34,7 @@ import {
   PayInvoiceDto,
   InvoiceResponseDto 
 } from './dto/invoice.dto';
+import { User, UserPayload } from '../common/decorators/user.decorator';
 
 @ApiTags('Invoices')
 @ApiBearerAuth()
@@ -87,10 +87,10 @@ export class InvoicesController {
     description: 'User not authenticated'
   })
   async createInvoice(
-    @Request() req,
+    @User() user: UserPayload,
     @Body() createInvoiceDto: CreateInvoiceDto
   ): Promise<InvoiceResponseDto> {
-    return this.invoicesService.createInvoice(req.user.userId, createInvoiceDto);
+    return this.invoicesService.createInvoice(user.id, createInvoiceDto);
   }
 
   @Get()
@@ -135,11 +135,11 @@ export class InvoicesController {
     description: 'User not authenticated'
   })
   async getInvoices(
-    @Request() req,
+    @User() user: UserPayload,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number
   ): Promise<InvoiceResponseDto[]> {
-    return this.invoicesService.getInvoices(req.user.userId, req.user.role === 'admin');
+    return this.invoicesService.getInvoices(user.id, user.role === 'admin');
   }
 
   @Get(':id')
@@ -167,9 +167,9 @@ export class InvoicesController {
   })
   async getInvoice(
     @Param('id') id: string,
-    @Request() req
+    @User() user: UserPayload
   ): Promise<InvoiceResponseDto> {
-    return this.invoicesService.getInvoice(id, req.user.userId, req.user.role === 'admin');
+    return this.invoicesService.getInvoice(id, user.id, user.role === 'admin');
   }
 
   @Post(':id/pay')
@@ -215,10 +215,10 @@ export class InvoicesController {
   })
   async payInvoice(
     @Param('id') id: string,
-    @Request() req,
+    @User() user: UserPayload,
     @Body() payInvoiceDto: PayInvoiceDto
   ): Promise<{ success: boolean; message: string }> {
-    return this.invoicesService.payInvoice(id, req.user.userId, payInvoiceDto);
+    return this.invoicesService.payInvoice(id, user.id, payInvoiceDto);
   }
 
   @Put(':id')
