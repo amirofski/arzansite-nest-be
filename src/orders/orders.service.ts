@@ -71,6 +71,7 @@ export class OrdersService {
       description,
       price,
       user_id: userId,
+      userId: userId, // legacy/camelCase for collections requiring `userId`
       status: 'pending',
       payment_status: createOrderDto.payment_status || 'pending',
       comments: createOrderDto.comments,
