@@ -54,13 +54,16 @@ export class ProfilesService {
       Query.limit(1),
     ]);
     if (existing.documents[0]) return existing.documents[0] as any;
+    const now = new Date().toISOString();
     const doc = await databases.createDocument(databaseId, profilesCollection, ID.unique(), {
       user_id: userId,
-      userId: userId, // legacy/camelCase compatibility for schemas requiring `userId`
+      userId: userId, // legacy/camelCase compatibility
       email,
       full_name: '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
+      createdAt: now,
+      updatedAt: now,
     } as any);
     return doc as any;
   }

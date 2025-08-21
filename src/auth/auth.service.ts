@@ -40,10 +40,15 @@ export class AuthService {
           Query.limit(1),
         ]);
         if ((existing.documents || []).length === 0) {
+          const now = new Date().toISOString();
           await databases.createDocument(databaseId, rolesCollection, ID.unique(), {
             user_id: created.$id,
+            userId: created.$id,
             role: 'user',
-            created_at: new Date().toISOString(),
+            created_at: now,
+            updated_at: now,
+            createdAt: now,
+            updatedAt: now,
           } as any);
         }
       } catch (roleErr) {
