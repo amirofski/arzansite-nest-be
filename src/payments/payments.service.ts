@@ -114,9 +114,36 @@ export class PaymentsService {
             paymentVerifyDto.authority,
             refId,
           );
+          // Notify user for successful order payment
+          try {
+            await this.appwriteService.sendUserPush(
+              userId,
+              'پرداخت سفارش موفق بود',
+              `پرداخت سفارش شما با موفقیت انجام شد. کد رهگیری: ${refId}`,
+              {
+                type: 'order_payment_success',
+                orderId: paymentVerifyDto.orderId,
+                refId,
+                amount: orderAmount,
+              },
+            );
+          } catch (_) {}
         } else {
           // For wallet deposits, top up the wallet
           await this.walletsService.topUpWallet(userId, orderAmount, refId);
+          // Notify user for successful wallet deposit
+          try {
+            await this.appwriteService.sendUserPush(
+              userId,
+              'شارژ کیف پول موفق بود',
+              `کیف پول شما به مبلغ ${orderAmount} ریال شارژ شد. کد رهگیری: ${refId}`,
+              {
+                type: 'wallet_deposit_success',
+                refId,
+                amount: orderAmount,
+              },
+            );
+          } catch (_) {}
         }
 
         // Log payment transaction

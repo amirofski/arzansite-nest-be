@@ -100,8 +100,8 @@ export class OrdersService {
     updateOrderDto: UpdateOrderDto,
     isAdmin: boolean = false,
   ): Promise<Order> {
-    // Check ownership or admin access
-    await this.getOrder(orderId, userId, isAdmin);
+    // Check ownership or admin access and get current order
+    const current = await this.getOrder(orderId, userId, isAdmin);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -111,6 +111,22 @@ export class OrdersService {
       ...updateOrderDto,
       updated_at: new Date().toISOString(),
     } as any);
+
+    // Send notification on status change
+    try {
+      if (updateOrderDto.status && updateOrderDto.status !== current.status) {
+        const title = 'وضعیت سفارش به‌روزرسانی شد';
+        const body = `سفارش شما (${current.title || orderId}) به وضعیت «${updateOrderDto.status}» تغییر کرد.`;
+        await this.appwriteService.sendUserPush(current.user_id, title, body, {
+          type: 'order_status_changed',
+          orderId,
+          oldStatus: current.status,
+          newStatus: updateOrderDto.status,
+        });
+      }
+    } catch (_) {
+      // swallow notification errors
+    }
 
     return updated as any;
   }

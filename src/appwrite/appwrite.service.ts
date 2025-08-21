@@ -419,11 +419,45 @@ export class AppwriteService implements OnModuleInit {
 
   async sendMessage(topicId: string, message: string, data?: any) {
     try {
-      // For now, return a placeholder since messaging needs to be handled differently
-      // This will need to be implemented with proper messaging or use frontend SDK
-      throw new Error('Message sending not implemented in this version. Use frontend Appwrite SDK or implement custom messaging.');
+      // Send a push notification to a topic (minimal arg variant for SDK compatibility)
+      const res = await this.messaging.createPush(
+        ID.unique(),
+        'Notification',
+        message,
+        topicId ? [topicId] : [],
+        [],
+        [],
+        data ?? undefined,
+      );
+      return res;
     } catch (error) {
       throw new Error(`Failed to send message: ${error.message}`);
+    }
+  }
+
+  async sendUserPush(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ) {
+    try {
+      const res = await this.messaging.createPush(
+        ID.unique(),
+        title,
+        body,
+        [],
+        [userId],
+        [],
+        data ?? undefined,
+      );
+      return res;
+    } catch (error) {
+      // Do not break business flow on notification failure
+      // Surface as a soft error for observability
+      // eslint-disable-next-line no-console
+      console.warn('sendUserPush failed:', error?.message || error);
+      return { ok: false } as any;
     }
   }
 

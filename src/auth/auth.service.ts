@@ -29,6 +29,27 @@ export class AuthService {
       // Create profile for the new user
       await this.profilesService.createProfileIfNotExists(created.$id, signUpDto.email);
 
+      // Ensure default role exists (user)
+      try {
+        const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+        const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
+        const { Query, ID } = await import('node-appwrite');
+        const databases = this.appwriteService.getDatabases();
+        const existing = await databases.listDocuments(databaseId, rolesCollection, [
+          Query.equal('user_id', created.$id),
+          Query.limit(1),
+        ]);
+        if ((existing.documents || []).length === 0) {
+          await databases.createDocument(databaseId, rolesCollection, ID.unique(), {
+            user_id: created.$id,
+            role: 'user',
+            created_at: new Date().toISOString(),
+          } as any);
+        }
+      } catch (roleErr) {
+        console.warn('Failed to upsert default role for new user:', (roleErr as any)?.message || roleErr);
+      }
+
       // Try to send verification email immediately after user creation
       try {
         console.log('🔧 Attempting to send verification email during signup...');
@@ -620,7 +641,8 @@ export class AuthService {
         user: { 
           id: session.userId, 
           email: signInDto.email,
-          emailVerified: user.emailVerification
+          emailVerified: user.emailVerification,
+          role: await this.getUserRole(session.userId)
         },
         session: session,
         redirect: {
@@ -655,7 +677,8 @@ export class AuthService {
         refresh_token: refreshToken, 
         user: { 
           id: user.$id, 
-          email: user.email 
+          email: user.email,
+          role: await this.getUserRole(user.$id)
         } 
       };
     } catch (e: any) {
@@ -680,7 +703,8 @@ export class AuthService {
         access_token: accessToken,
         user: { 
           id: decoded.sub, 
-          email: decoded.email 
+          email: decoded.email,
+          role: await this.getUserRole(decoded.sub)
         }
       };
     } catch (error) {
@@ -708,11 +732,37 @@ export class AuthService {
     }
   }
 
+  private async getUserRole(userId: string): Promise<string> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
+      const { Query } = await import('node-appwrite');
+      const databases = this.appwriteService.getDatabases();
+      const docs = await databases.listDocuments(databaseId, rolesCollection, [
+        Query.equal('user_id', userId),
+        Query.limit(1),
+      ]);
+      return docs.documents?.[0]?.role || 'user';
+    } catch (_) {
+      return 'user';
+    }
+  }
+
   async getMe(userId: string) {
-    return {
-      id: userId,
-      message: 'User profile endpoint. Implement additional profile fetching as needed.'
-    };
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
+      const { Query } = await import('node-appwrite');
+      const databases = this.appwriteService.getDatabases();
+      const docs = await databases.listDocuments(databaseId, rolesCollection, [
+        Query.equal('user_id', userId),
+        Query.limit(1),
+      ]);
+      const role = docs.documents?.[0]?.role || 'user';
+      return { id: userId, role };
+    } catch (_) {
+      return { id: userId, role: 'user' };
+    }
   }
 
   async startOAuth(provider: string, successUrl: string, failureUrl: string) {
@@ -1048,6 +1098,7 @@ export class AuthService {
           email: user.email,
           name: user.name,
           emailVerification: user.emailVerification,
+          role: await this.getUserRole(actualUserId)
         },
         message: 'Session authentication successful. Use the access_token for API requests.',
         auth_method: 'session',
