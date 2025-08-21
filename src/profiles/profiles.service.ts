@@ -56,6 +56,7 @@ export class ProfilesService {
     if (existing.documents[0]) return existing.documents[0] as any;
     const doc = await databases.createDocument(databaseId, profilesCollection, ID.unique(), {
       user_id: userId,
+      userId: userId, // legacy/camelCase compatibility for schemas requiring `userId`
       email,
       full_name: '',
       created_at: new Date().toISOString(),

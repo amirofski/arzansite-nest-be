@@ -23,7 +23,7 @@ export interface FileMetadata {
   url?: string;
   userId?: string;
   orderId?: string;
-  fileType: 'document' | 'design' | 'avatar';
+  fileType: string;
 }
 
 // Extended Appwrite File interface with custom properties
@@ -49,40 +49,42 @@ export class UploadsService {
     return this.appwriteService.getStorage();
   }
 
-  private getBucketId(fileType: 'document' | 'design' | 'avatar'): string {
-    // Centralized lookup using AppwriteConfig to avoid duplication
+  private getBucketId(bucketKey?: string): string {
     const config = this.appwriteService.getConfig();
     const buckets = (config as any).buckets as Record<string, string>;
-    const bucketKey = this.getBucketName(fileType); // maps to 'documents' | 'designs' | 'avatars'
-    const bucketId = buckets[bucketKey];
-    if (!bucketId) {
-      throw new BadRequestException(`Bucket not configured for type: ${fileType} (${bucketKey})`);
-    }
-    return bucketId;
+    const keys = Object.keys(buckets);
+    if (!keys.length) throw new BadRequestException('No buckets configured');
+    if (!bucketKey) return buckets[keys[0]];
+    const key = String(bucketKey).toLowerCase();
+    if (buckets[key]) return buckets[key];
+    // simple pluralization attempts without hardcoding names
+    if (buckets[`${key}s`]) return buckets[`${key}s`];
+    if (buckets[`${key}es`]) return buckets[`${key}es`];
+    return buckets[keys[0]];
   }
 
-  private getBucketName(fileType: 'document' | 'design' | 'avatar'): string {
-    switch (fileType) {
-      case 'document':
-        return 'documents';
-      case 'design':
-        return 'designs';
-      case 'avatar':
-        return 'avatars';
-      default:
-        return 'documents';
+  private getBucketName(bucketKey?: string): string {
+    if (!bucketKey) {
+      const config = this.appwriteService.getConfig();
+      const buckets = (config as any).buckets as Record<string, string>;
+      const keys = Object.keys(buckets);
+      return keys[0];
     }
+    return String(bucketKey).toLowerCase();
   }
 
   /**
    * Map external category names to internal bucket types
    */
-  public resolveBucketType(category?: string): 'document' | 'design' | 'avatar' {
-    const normalized = (category || '').toLowerCase();
-    if (normalized === 'design') return 'design';
-    if (normalized === 'logo' || normalized === 'avatar') return 'avatar';
-    // default and for 'general'
-    return 'document';
+  public resolveBucketType(category?: string): string {
+    const key = (category || '').toLowerCase();
+    const config = this.appwriteService.getConfig();
+    const buckets = (config as any).buckets as Record<string, string>;
+    if (!key) return Object.keys(buckets)[0];
+    if (buckets[key]) return key;
+    if (buckets[`${key}s`]) return `${key}s`;
+    if (buckets[`${key}es`]) return `${key}es`;
+    return Object.keys(buckets)[0];
   }
 
   async getAllUploads(userId?: string, orderId?: string): Promise<FileUploadResponse> {
@@ -90,13 +92,14 @@ export class UploadsService {
       const storage = this.getStorage();
       const allFiles: FileMetadata[] = [];
 
-      // Get files from all buckets
-      const bucketTypes: Array<'document' | 'design' | 'avatar'> = ['document', 'design', 'avatar'];
+      // Get files from all configured buckets
+      const buckets = (this.appwriteService.getConfig() as any).buckets as Record<string, string>;
+      const bucketTypes: string[] = Object.keys(buckets);
 
       for (const bucketType of bucketTypes) {
         try {
-          const bucketId = this.getBucketId(bucketType);
           const bucketName = this.getBucketName(bucketType);
+          const bucketId = this.getBucketId(bucketName);
           
           const files = await storage.listFiles(bucketId);
           
@@ -115,7 +118,7 @@ export class UploadsService {
               url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${fileWithMetadata.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
               userId: fileWithMetadata.userId,
               orderId: fileWithMetadata.orderId,
-              fileType: bucketType,
+              fileType: bucketName,
             };
             
             // Filter by userId if provided
@@ -150,7 +153,7 @@ export class UploadsService {
     }
   }
 
-  async getUploadById(id: string, bucketType?: 'document' | 'design' | 'avatar'): Promise<FileUploadResponse> {
+  async getUploadById(id: string, bucketType?: string): Promise<FileUploadResponse> {
     try {
       const storage = this.getStorage();
       let file: AppwriteFileWithMetadata | null = null;
@@ -169,7 +172,8 @@ export class UploadsService {
         }
       } else {
         // Search in all buckets
-        const bucketTypes: Array<'document' | 'design' | 'avatar'> = ['document', 'design', 'avatar'];
+        const buckets = (this.appwriteService.getConfig() as any).buckets as Record<string, string>;
+        const bucketTypes: string[] = Object.keys(buckets);
         
         for (const bucketType of bucketTypes) {
           try {
@@ -190,8 +194,8 @@ export class UploadsService {
         }
       }
 
-      const bucketId = file.bucketId || this.getBucketId(bucketType || 'document');
-      const bucketName = this.getBucketName(bucketType || 'document');
+      const bucketName = this.getBucketName(bucketType);
+      const bucketId = file.bucketId || this.getBucketId(bucketName);
 
       const fileMetadata: FileMetadata = {
         id: file.$id,
@@ -204,7 +208,7 @@ export class UploadsService {
         url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${file.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
         userId: file.userId,
         orderId: file.orderId,
-        fileType: bucketType || 'document',
+        fileType: bucketName,
       };
 
       return {
@@ -237,7 +241,7 @@ export class UploadsService {
     file: Express.Multer.File,
     userId: string,
     orderId?: string,
-    fileType: 'document' | 'design' | 'avatar' = 'document',
+    fileType?: string,
     description?: string,
   ): Promise<FileUploadResponse> {
     try {
@@ -246,8 +250,8 @@ export class UploadsService {
       }
 
       const storage = this.getStorage();
-      const bucketId = this.getBucketId(fileType);
       const bucketName = this.getBucketName(fileType);
+      const bucketId = this.getBucketId(bucketName);
 
       // Create unique file ID
       const fileId = ID.unique();
@@ -328,7 +332,7 @@ export class UploadsService {
           url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${uploadedFile.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
           userId,
           orderId,
-          fileType,
+          fileType: bucketName,
         };
 
         return {
@@ -355,7 +359,7 @@ export class UploadsService {
     }
   }
 
-  async deleteUpload(id: string, bucketType?: 'document' | 'design' | 'avatar'): Promise<FileUploadResponse> {
+  async deleteUpload(id: string, bucketType?: string): Promise<FileUploadResponse> {
     try {
       const storage = this.getStorage();
 
@@ -365,7 +369,8 @@ export class UploadsService {
         await storage.deleteFile(bucketId, id);
       } else {
         // Try to delete from all buckets
-        const bucketTypes: Array<'document' | 'design' | 'avatar'> = ['document', 'design', 'avatar'];
+        const buckets = (this.appwriteService.getConfig() as any).buckets as Record<string, string>;
+        const bucketTypes: string[] = Object.keys(buckets);
         let deleted = false;
 
         for (const bucketType of bucketTypes) {
@@ -418,13 +423,14 @@ export class UploadsService {
       const storage = this.getStorage();
       const allFiles: FileMetadata[] = [];
 
-      // Get files from all buckets for specific order
-      const bucketTypes: Array<'document' | 'design' | 'avatar'> = ['document', 'design', 'avatar'];
+      // Get files from all configured buckets for specific order
+      const buckets = (this.appwriteService.getConfig() as any).buckets as Record<string, string>;
+      const bucketTypes: string[] = Object.keys(buckets);
 
       for (const bucketType of bucketTypes) {
         try {
-          const bucketId = this.getBucketId(bucketType);
           const bucketName = this.getBucketName(bucketType);
+          const bucketId = this.getBucketId(bucketName);
           
           const files = await storage.listFiles(bucketId);
           
@@ -444,7 +450,7 @@ export class UploadsService {
                 url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${fileWithMetadata.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
                 userId: fileWithMetadata.userId,
                 orderId: fileWithMetadata.orderId,
-                fileType: bucketType,
+                fileType: bucketName,
               };
               
               allFiles.push(fileMetadata);
