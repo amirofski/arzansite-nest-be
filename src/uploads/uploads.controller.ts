@@ -32,6 +32,7 @@ import {
 import { UploadsService } from './uploads.service';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
+import { User, UserPayload } from '../common/decorators/user.decorator';
 
 @ApiTags('uploads')
 @Controller('uploads')
@@ -208,9 +209,9 @@ export class UploadsController {
         },
         fileType: {
           type: 'string',
-          enum: ['document', 'design', 'avatar'],
-          description: 'Type of files (defaults to document)',
+          description: 'Category (e.g., general | design | logo)',
         },
+        description: { type: 'string', description: 'Description (optional)' },
       },
     },
   })
@@ -238,20 +239,20 @@ export class UploadsController {
     )
     files: Express.Multer.File[],
     @Body('orderId') orderId?: string,
-    @Body('fileType') fileType: 'document' | 'design' | 'avatar' = 'document',
-    @Request() req?: any,
+    @Body('fileType') fileType?: string,
+    @Body('description') description?: string,
+    @User() user?: UserPayload,
   ) {
-    const userId = req.user?.userId || req.user?.id;
-    if (!userId) {
-      throw new Error('User ID not found in request');
-    }
+    const userId = user?.id;
 
     if (!files || files.length === 0) {
       throw new Error('No files provided');
     }
 
-    const uploadPromises = files.map(file => 
-      this.uploadsService.uploadFile(file, userId, orderId, fileType)
+    // Map external categories to internal bucket types
+    const bucketType = this.uploadsService.resolveBucketType(fileType);
+    const uploadPromises = files.map(file =>
+      this.uploadsService.uploadFile(file, userId!, orderId, bucketType, description)
     );
 
     const results = await Promise.allSettled(uploadPromises);
@@ -266,14 +267,17 @@ export class UploadsController {
 
     return {
       success: true,
-      data: {
-        uploaded: successful.length,
-        failed: failed.length,
-        successful,
-        failedErrors: failed.map(error => error.message),
-      },
-      timestamp: new Date().toISOString(),
-    };
+      files: successful.map(item => ({
+        id: item.data.id,
+        url: item.data.url,
+        name: item.data.name,
+        size: item.data.size,
+        type: item.data.mimeType,
+      })),
+      uploaded: successful.length,
+      failed: failed.length,
+      errors: failed.map(error => error.message),
+    } as any;
   }
 
   @Delete(':id')

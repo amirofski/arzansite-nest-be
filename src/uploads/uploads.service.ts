@@ -75,6 +75,17 @@ export class UploadsService {
     }
   }
 
+  /**
+   * Map external category names to internal bucket types
+   */
+  public resolveBucketType(category?: string): 'document' | 'design' | 'avatar' {
+    const normalized = (category || '').toLowerCase();
+    if (normalized === 'design') return 'design';
+    if (normalized === 'logo' || normalized === 'avatar') return 'avatar';
+    // default and for 'general'
+    return 'document';
+  }
+
   async getAllUploads(userId?: string, orderId?: string): Promise<FileUploadResponse> {
     try {
       const storage = this.getStorage();
@@ -228,6 +239,7 @@ export class UploadsService {
     userId: string,
     orderId?: string,
     fileType: 'document' | 'design' | 'avatar' = 'document',
+    description?: string,
   ): Promise<FileUploadResponse> {
     try {
       if (!file) {
@@ -279,6 +291,32 @@ export class UploadsService {
         );
         
         const uploadedFile = rawUploadedFile as unknown as AppwriteFileWithMetadata;
+
+        // Persist mapping to database for fast queries
+        try {
+          const databases = this.appwriteService.getDatabases();
+          const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+          const mappingCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROJECT_FILES') || 'project_files';
+          await databases.createDocument(
+            databaseId,
+            mappingCollection,
+            ID.unique(),
+            {
+              file_id: uploadedFile.$id,
+              user_id: userId,
+              order_id: orderId || null,
+              bucket_id: bucketId,
+              original_name: uploadedFile.name,
+              mime_type: uploadedFile.mimeType,
+              size: uploadedFile.size,
+              description: description || null,
+              created_at: new Date().toISOString(),
+            } as any,
+          );
+        } catch (e) {
+          // Log but do not fail the upload if mapping write fails
+          console.warn('Failed to persist file mapping:', (e as any)?.message);
+        }
 
         const fileMetadata: FileMetadata = {
           id: uploadedFile.$id,
