@@ -35,31 +35,30 @@ const client = new Client()
 
 const databases = new Databases(client);
 
-// New collections for Wallet & Invoice Management System
+// New collections for Wallet & Invoice Management System (snake_case to match services)
 const newCollections = {
     invoices: {
         name: 'Invoices',
         permissions: ["read(\"any\")", "write(\"any\")"],
         attributes: {
-            userId: { type: 'string', required: true, size: 36 },
-            orderId: { type: 'string', required: true, size: 36 },
+            user_id: { type: 'string', required: true, size: 36 },
+            order_id: { type: 'string', required: true, size: 36 },
             amount: { type: 'float', required: true },
-            currency: { type: 'string', required: true, size: 3 },
-            dueDate: { type: 'datetime', required: true },
+            due_date: { type: 'datetime', required: true },
             status: { type: 'string', required: true, size: 20 }, // pending, paid, overdue, cancelled
             description: { type: 'string', required: false, size: 500 },
-            createdAt: { type: 'datetime', required: true },
-            updatedAt: { type: 'datetime', required: true }
+            created_at: { type: 'datetime', required: true },
+            updated_at: { type: 'datetime', required: true }
         },
         indexes: {
             'idx_user_invoices': {
                 type: 'key',
-                attributes: ['userId'],
+                attributes: ['user_id'],
                 orders: ['ASC']
             },
             'idx_order_invoices': {
                 type: 'key',
-                attributes: ['orderId'],
+                attributes: ['order_id'],
                 orders: ['ASC']
             },
             'idx_invoice_status': {
@@ -69,12 +68,12 @@ const newCollections = {
             },
             'idx_due_date': {
                 type: 'key',
-                attributes: ['dueDate'],
+                attributes: ['due_date'],
                 orders: ['ASC']
             },
             'idx_created_at': {
                 type: 'key',
-                attributes: ['createdAt'],
+                attributes: ['created_at'],
                 orders: ['DESC']
             }
         }
@@ -83,28 +82,27 @@ const newCollections = {
         name: 'Receipts',
         permissions: ["read(\"any\")", "write(\"any\")"],
         attributes: {
-            invoiceId: { type: 'string', required: true, size: 36 },
-            refId: { type: 'string', required: true, size: 100 },
+            invoice_id: { type: 'string', required: true, size: 36 },
+            ref_id: { type: 'string', required: true, size: 100 },
             amount: { type: 'float', required: true },
-            currency: { type: 'string', required: true, size: 3 },
             format: { type: 'string', required: true, size: 10 }, // pdf, html
-            createdAt: { type: 'datetime', required: true },
-            updatedAt: { type: 'datetime', required: true }
+            created_at: { type: 'datetime', required: true },
+            updated_at: { type: 'datetime', required: true }
         },
         indexes: {
             'idx_invoice_receipts': {
                 type: 'key',
-                attributes: ['invoiceId'],
+                attributes: ['invoice_id'],
                 orders: ['ASC']
             },
             'idx_ref_id': {
                 type: 'key',
-                attributes: ['refId'],
+                attributes: ['ref_id'],
                 orders: ['ASC']
             },
             'idx_created_at': {
                 type: 'key',
-                attributes: ['createdAt'],
+                attributes: ['created_at'],
                 orders: ['DESC']
             }
         }
@@ -113,26 +111,26 @@ const newCollections = {
         name: 'Wallet Adjustments',
         permissions: ["read(\"any\")", "write(\"any\")"],
         attributes: {
-            walletId: { type: 'string', required: true, size: 36 },
-            adminId: { type: 'string', required: true, size: 36 },
+            wallet_id: { type: 'string', required: true, size: 36 },
+            admin_id: { type: 'string', required: true, size: 36 },
             amount: { type: 'float', required: true },
             type: { type: 'string', required: true, size: 20 }, // credit, debit, correction
             reason: { type: 'string', required: true, size: 500 },
             notes: { type: 'string', required: false, size: 1000 },
-            balanceBefore: { type: 'float', required: true },
-            balanceAfter: { type: 'float', required: true },
-            createdAt: { type: 'datetime', required: true },
-            updatedAt: { type: 'datetime', required: true }
+            balance_before: { type: 'float', required: true },
+            balance_after: { type: 'float', required: true },
+            created_at: { type: 'datetime', required: true },
+            updated_at: { type: 'datetime', required: true }
         },
         indexes: {
             'idx_wallet_adjustments': {
                 type: 'key',
-                attributes: ['walletId'],
+                attributes: ['wallet_id'],
                 orders: ['ASC']
             },
             'idx_admin_adjustments': {
                 type: 'key',
-                attributes: ['adminId'],
+                attributes: ['admin_id'],
                 orders: ['ASC']
             },
             'idx_adjustment_type': {
@@ -142,8 +140,29 @@ const newCollections = {
             },
             'idx_created_at': {
                 type: 'key',
-                attributes: ['createdAt'],
+                attributes: ['created_at'],
                 orders: ['DESC']
+            }
+        }
+    }
+    ,
+    profiles: {
+        name: 'Profiles',
+        permissions: ["read(\"any\")", "write(\"any\")"],
+        attributes: {
+            user_id: { type: 'string', required: true, size: 36 },
+            email: { type: 'email', required: true },
+            full_name: { type: 'string', required: false, size: 255 },
+            phone: { type: 'string', required: false, size: 50 },
+            address: { type: 'string', required: false, size: 500 },
+            created_at: { type: 'datetime', required: true },
+            updated_at: { type: 'datetime', required: true }
+        },
+        indexes: {
+            'idx_user_profile': {
+                type: 'key',
+                attributes: ['user_id'],
+                orders: ['ASC']
             }
         }
     }
@@ -343,8 +362,16 @@ async function updateAppwriteSchema() {
         const database = await databases.get(APPWRITE_DATABASE_ID);
         console.log(`✅ Connected to database: ${database.name}\n`);
 
+        // Resolve target collection IDs from env when provided
+        const targetCollections = {
+            [process.env.APPWRITE_COLLECTION_INVOICES || 'invoices']: newCollections.invoices,
+            [process.env.APPWRITE_COLLECTION_RECEIPTS || 'receipts']: newCollections.receipts,
+            [process.env.APPWRITE_COLLECTION_WALLET_ADJUSTMENTS || 'walletAdjustments']: newCollections.walletAdjustments,
+            [process.env.APPWRITE_COLLECTION_PROFILES || 'profiles']: newCollections.profiles,
+        };
+
         // Create new collections and their schemas
-        for (const [collectionId, schema] of Object.entries(newCollections)) {
+        for (const [collectionId, schema] of Object.entries(targetCollections)) {
             console.log(`2️⃣ Processing new collection: ${collectionId}`);
             
             // Create collection

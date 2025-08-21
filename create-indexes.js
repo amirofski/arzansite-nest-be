@@ -41,7 +41,7 @@ const indexesToCreate = {
         {
             key: 'idx_user_orders',
             type: 'key',
-            attributes: ['userId'],
+            attributes: ['user_id'],
             orders: ['ASC']
         },
         {
@@ -53,14 +53,8 @@ const indexesToCreate = {
         {
             key: 'idx_created_at',
             type: 'key',
-            attributes: ['createdAt'],
+            attributes: ['created_at'],
             orders: ['DESC']
-        },
-        {
-            key: 'idx_order_number',
-            type: 'unique',
-            attributes: ['orderNumber'],
-            orders: ['ASC']
         }
     ],
     designs: [
@@ -171,13 +165,13 @@ const indexesToCreate = {
         {
             key: 'idx_user_invoices',
             type: 'key',
-            attributes: ['userId'],
+            attributes: ['user_id'],
             orders: ['ASC']
         },
         {
             key: 'idx_order_invoices',
             type: 'key',
-            attributes: ['orderId'],
+            attributes: ['order_id'],
             orders: ['ASC']
         },
         {
@@ -189,13 +183,13 @@ const indexesToCreate = {
         {
             key: 'idx_due_date',
             type: 'key',
-            attributes: ['dueDate'],
+            attributes: ['due_date'],
             orders: ['ASC']
         },
         {
             key: 'idx_created_at',
             type: 'key',
-            attributes: ['createdAt'],
+            attributes: ['created_at'],
             orders: ['DESC']
         }
     ],
@@ -203,19 +197,19 @@ const indexesToCreate = {
         {
             key: 'idx_invoice_receipts',
             type: 'key',
-            attributes: ['invoiceId'],
+            attributes: ['invoice_id'],
             orders: ['ASC']
         },
         {
             key: 'idx_ref_id',
             type: 'key',
-            attributes: ['refId'],
+            attributes: ['ref_id'],
             orders: ['ASC']
         },
         {
             key: 'idx_created_at',
             type: 'key',
-            attributes: ['createdAt'],
+            attributes: ['created_at'],
             orders: ['DESC']
         }
     ],
@@ -316,8 +310,8 @@ async function createIndexes() {
             console.log(`2️⃣ Processing collection: ${collectionId}`);
             
             // Check if collection exists
-            const collectionExists = await collectionExists(collectionId);
-            if (!collectionExists) {
+            const doesCollectionExist = await collectionExists(collectionId);
+            if (!doesCollectionExist) {
                 console.log(`⚠️ Collection ${collectionId} does not exist, skipping...\n`);
                 continue;
             }

@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsDateString, IsEnum, IsOptional, Min } from 'class-validator';
+import { IsString, IsNumber, IsDateString, IsEnum, IsOptional, Min, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum InvoiceStatus {
   PENDING = 'pending',
@@ -12,6 +13,7 @@ export class CreateInvoiceDto {
   orderId: string;
 
   @IsNumber()
+  @Type(() => Number)
   @Min(0)
   amount: number;
 
@@ -34,12 +36,26 @@ export class UpdateInvoiceDto {
 }
 
 export class PayInvoiceDto {
+  @IsOptional()
   @IsString()
-  refId: string;
+  refId?: string;
 
   @IsOptional()
   @IsString()
   paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  method?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  useWallet?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  amount?: number;
 }
 
 export class InvoiceResponseDto {

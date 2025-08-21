@@ -1,4 +1,5 @@
 import { IsString, IsNumber, IsOptional, IsEmail } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class PaymentRequestDto {
   @IsOptional()
@@ -6,6 +7,7 @@ export class PaymentRequestDto {
   orderId?: string;
 
   @IsNumber()
+  @Type(() => Number)
   amount: number;
 
   @IsString()
@@ -34,6 +36,7 @@ export class PaymentVerifyDto {
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   amount?: number;
 }
 
