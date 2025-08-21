@@ -50,6 +50,13 @@ export class AppwriteConfig {
       designs: this.configService.get<string>('APPWRITE_BUCKET_DESIGNS') || 'designs',
       avatars: this.configService.get<string>('APPWRITE_BUCKET_AVATARS') || 'avatars',
       documents: this.configService.get<string>('APPWRITE_BUCKET_DOCUMENTS') || 'documents',
+      uploads: this.configService.get<string>('APPWRITE_BUCKET_UPLOADS') || 'uploads',
+      files: this.configService.get<string>('APPWRITE_BUCKET_FILES') || 'files',
+      images: this.configService.get<string>('APPWRITE_BUCKET_IMAGES') || 'images',
+      videos: this.configService.get<string>('APPWRITE_BUCKET_VIDEOS') || 'videos',
+      audios: this.configService.get<string>('APPWRITE_BUCKET_AUDIOS') || 'audios',
+      general: this.configService.get<string>('APPWRITE_BUCKET_GENERAL') || 'general',
+      other: this.configService.get<string>('APPWRITE_BUCKET_OTHER') || 'other',
     };
   }
 

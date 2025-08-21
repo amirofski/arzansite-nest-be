@@ -50,16 +50,15 @@ export class UploadsService {
   }
 
   private getBucketId(fileType: 'document' | 'design' | 'avatar'): string {
-    switch (fileType) {
-      case 'document':
-        return this.configService.get<string>('APPWRITE_BUCKET_DOCUMENTS') || '689ee991001e4f3cb8e5';
-      case 'design':
-        return this.configService.get<string>('APPWRITE_BUCKET_DESIGNS') || '689ee97c0039e19e0e2f';
-      case 'avatar':
-        return this.configService.get<string>('APPWRITE_BUCKET_AVATARS') || '689ee98a0019563fff62';
-      default:
-        throw new BadRequestException('Invalid file type');
+    // Centralized lookup using AppwriteConfig to avoid duplication
+    const config = this.appwriteService.getConfig();
+    const buckets = (config as any).buckets as Record<string, string>;
+    const bucketKey = this.getBucketName(fileType); // maps to 'documents' | 'designs' | 'avatars'
+    const bucketId = buckets[bucketKey];
+    if (!bucketId) {
+      throw new BadRequestException(`Bucket not configured for type: ${fileType} (${bucketKey})`);
     }
+    return bucketId;
   }
 
   private getBucketName(fileType: 'document' | 'design' | 'avatar'): string {
