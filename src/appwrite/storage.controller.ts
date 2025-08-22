@@ -134,7 +134,7 @@ export class StorageController {
             bucket_id: uploaded.bucketId,
             original_name: uploaded.name,
             mime_type: uploaded.mimeType,
-            size: uploaded.size,
+            size: uploaded.sizeOriginal,
             created_at: now,
             updated_at: now,
             // camelCase mirrors for legacy schemas
