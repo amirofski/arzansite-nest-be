@@ -391,13 +391,17 @@ export class AuthService {
       const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
       
       // Validate that the frontend URL is allowed by Appwrite
-      if (!frontendUrl.includes('localhost') && !frontendUrl.includes('app.arzansite.com')) {
-        throw new Error(`Invalid FRONTEND_URL: ${frontendUrl}. Appwrite only allows localhost or app.arzansite.com for password reset URLs.`);
+      // Appwrite only allows localhost or app.arzansite.com for password reset URLs
+      // If using arzansite.com, we'll construct the reset URL to use app.arzansite.com
+      let resetUrl = frontendUrl;
+      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('app.arzansite.com')) {
+        resetUrl = 'https://app.arzansite.com';
+        console.log(`⚠️ Frontend URL ${frontendUrl} not allowed by Appwrite, using ${resetUrl} for password reset`);
       }
       
       const recovery = await this.appwriteService.getAccount().createRecovery(
         email,
-        `${frontendUrl}/reset-password`
+        `${resetUrl}/reset-password`
       );
       
       // Extract recovery URL from Appwrite response
@@ -435,14 +439,18 @@ export class AuthService {
       const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
       
       // Validate that the frontend URL is allowed by Appwrite
-      if (!frontendUrl.includes('localhost') && !frontendUrl.includes('app.arzansite.com')) {
-        throw new Error(`Invalid FRONTEND_URL: ${frontendUrl}. Appwrite only allows localhost or app.arzansite.com for verification URLs.`);
+      // Appwrite only allows localhost or app.arzansite.com for verification URLs
+      // If using arzansite.com, we'll construct the verification URL to use app.arzansite.com
+      let appwriteVerificationUrl = frontendUrl;
+      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('app.arzansite.com')) {
+        appwriteVerificationUrl = 'https://app.arzansite.com';
+        console.log(`⚠️ Frontend URL ${frontendUrl} not allowed by Appwrite, using ${appwriteVerificationUrl} for email verification`);
       }
       
       const verification = await this.appwriteService.createVerificationWithUserSession(
         email,
         password,
-        `${frontendUrl}/verify-email`
+        `${appwriteVerificationUrl}/verify-email`
       );
       
       // Extract verification URL from Appwrite response
