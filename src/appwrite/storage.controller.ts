@@ -10,6 +10,8 @@ import {
   UseInterceptors,
   UploadedFile,
   Post,
+  Body,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +24,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ID } from 'node-appwrite';
 import { AppwriteService } from './appwrite.service';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import {
@@ -75,12 +78,94 @@ export class StorageController {
   async uploadFile(
     @Param('bucketId') bucketId: string,
     @UploadedFile() file: any,
+    @Body('orderId') orderId?: string,
+    @Request() req?: any,
   ) {
-    // For now, return a placeholder since file upload is not fully implemented
-    return {
-      fileId: 'placeholder-file-id',
-      message: 'File upload endpoint created. Implementation pending due to InputFile limitations.',
-    };
+    if (!file) {
+      return {
+        success: false,
+        error: 'No file provided',
+      } as any;
+    }
+
+    // Use underlying UploadsService implementation which handles Storage + DB mapping
+    // Resolve to uploads service by delegating through AppwriteService storage APIs
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+
+    const userId = req?.user?.id || req?.user?.userId;
+    const adminTeamId = process.env.APPWRITE_ADMIN_TEAM_ID;
+    const id = ID.unique();
+    const tmp = path.join(os.tmpdir(), `${id}_${file.originalname}`);
+
+    try {
+      // Write buffer to temp file then stream (SDK expects a stream/file handle server-side)
+      const buffer = file.buffer ?? fs.readFileSync(file.path);
+      fs.writeFileSync(tmp, buffer);
+      const stream = fs.createReadStream(tmp);
+
+      const storage = this.appwriteService.getStorage();
+      const permissions = [
+        userId ? `read("user:${userId}")` : undefined,
+        userId ? `write("user:${userId}")` : undefined,
+        adminTeamId ? `read("team:${adminTeamId}")` : undefined,
+        adminTeamId ? `write("team:${adminTeamId}")` : undefined,
+      ].filter(Boolean) as string[];
+
+      const uploaded = await storage.createFile(bucketId, id, stream, permissions);
+
+      // Persist metadata to project_files collection
+      try {
+        const databases = this.appwriteService.getDatabases();
+        const config = this.appwriteService.getConfig();
+        const databaseId = config.databaseId;
+        const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
+        const now = new Date().toISOString();
+
+        await databases.createDocument(
+          databaseId,
+          collectionId,
+          ID.unique(),
+          {
+            file_id: uploaded.$id,
+            user_id: userId || null,
+            order_id: orderId || null,
+            bucket_id: uploaded.bucketId,
+            original_name: uploaded.name,
+            mime_type: uploaded.mimeType,
+            size: uploaded.size,
+            created_at: now,
+            updated_at: now,
+            // camelCase mirrors for legacy schemas
+            fileId: uploaded.$id,
+            userId: userId || null,
+            orderId: orderId || null,
+            bucketId: uploaded.bucketId,
+            originalName: uploaded.name,
+            mimeType: uploaded.mimeType,
+            createdAt: now,
+            updatedAt: now,
+          } as any,
+          permissions,
+        );
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to create project_files record:', (e as any)?.message);
+      }
+
+      return {
+        success: true,
+        fileId: uploaded.$id,
+        name: uploaded.name,
+        bucketId: uploaded.bucketId,
+        permissions,
+        orderId: orderId || null,
+        userId: userId || null,
+      } as any;
+    } finally {
+      try { fs.unlinkSync(tmp); } catch (_) {}
+    }
   }
 
   @Get(':bucketId/:fileId')
