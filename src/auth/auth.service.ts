@@ -133,6 +133,7 @@ export class AuthService {
       await this.appwriteService.createDocument(collectionId, {
         userId,
         token,
+        type: 'verification', // Add the required type attribute
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
         used: false,
         createdAt: new Date().toISOString()
