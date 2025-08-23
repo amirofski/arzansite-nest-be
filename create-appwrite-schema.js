@@ -400,6 +400,74 @@ async function createAppwriteSchema() {
                         orders: ['ASC']
                     }
                 }
+            },
+            email_verifications: {
+                name: 'Email Verifications',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    token: { type: 'string', required: true, size: 255 },
+                    type: { type: 'string', required: true, size: 20 }, // verification, password_reset
+                    used: { type: 'boolean', required: true, default: false },
+                    expiresAt: { type: 'datetime', required: true },
+                    createdAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_verifications': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    },
+                    'idx_token_verifications': {
+                        type: 'key',
+                        attributes: ['token'],
+                        orders: ['ASC']
+                    },
+                    'idx_type_verifications': {
+                        type: 'key',
+                        attributes: ['type'],
+                        orders: ['ASC']
+                    },
+                    'idx_expires_verifications': {
+                        type: 'key',
+                        attributes: ['expiresAt'],
+                        orders: ['ASC']
+                    }
+                }
+            },
+            password_resets: {
+                name: 'Password Resets',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    email: { type: 'email', required: true },
+                    token: { type: 'string', required: true, size: 255 },
+                    used: { type: 'boolean', required: true, default: false },
+                    expiresAt: { type: 'datetime', required: true },
+                    createdAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_password_resets': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    },
+                    'idx_email_password_resets': {
+                        type: 'key',
+                        attributes: ['email'],
+                        orders: ['ASC']
+                    },
+                    'idx_token_password_resets': {
+                        type: 'key',
+                        attributes: ['token'],
+                        orders: ['ASC']
+                    },
+                    'idx_expires_password_resets': {
+                        type: 'key',
+                        attributes: ['expiresAt'],
+                        orders: ['ASC']
+                    }
+                }
             }
         };
 

@@ -37,6 +37,8 @@ export class AppwriteConfig {
       userRoles: this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES'),
       emailLogs: this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS'),
       siteConfig: this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG'),
+      emailVerifications: this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS'),
+      passwordResets: this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS'),
       // New collections for Wallet & Invoice Management System
       invoices: this.configService.get<string>('APPWRITE_COLLECTION_INVOICES'),
       receipts: this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS'),

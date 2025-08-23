@@ -132,12 +132,25 @@ export class EmailController {
   @Get('status')
   async getEmailServiceStatus() {
     // Check SMTP connection status
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    
+    const isConfigured = !!(host && port && user && pass);
+    
     return {
       service: 'custom_smtp',
-      status: 'active',
-      host: process.env.SMTP_HOST || '37-58-50-28.cprapid.com',
-      port: process.env.SMTP_PORT || 465,
+      status: isConfigured ? 'active' : 'disabled',
+      configured: isConfigured,
+      host: host || 'Not configured',
+      port: port || 'Not configured',
+      user: user ? 'Configured' : 'Not configured',
+      pass: pass ? 'Configured' : 'Not configured',
       secure: process.env.SMTP_SECURITY === 'ssl',
+      message: isConfigured 
+        ? 'SMTP is properly configured and ready to send emails'
+        : 'SMTP is disabled. Please configure SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables.'
     };
   }
 }

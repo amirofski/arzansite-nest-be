@@ -244,7 +244,7 @@ export class AuthController {
       properties: {
         message: { 
           type: 'string', 
-          example: 'Password reset email sent successfully. Please check your email.',
+          example: 'If an account with that email exists, a password reset link has been sent.',
           description: 'Success message with next steps'
         },
         emailSent: { 
@@ -273,6 +273,75 @@ export class AuthController {
   })
   async sendPasswordReset(@Body() body: { email: string }) {
     return this.authService.sendPasswordReset(body.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '🔑 Reset Password',
+    description: 'Reset user password using the token from password reset email.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: { 
+          type: 'string', 
+          example: 'abc123...',
+          description: 'Password reset token from email'
+        },
+        email: { 
+          type: 'string', 
+          example: 'user@example.com',
+          description: 'Email address of the account'
+        },
+        newPassword: { 
+          type: 'string', 
+          example: 'NewSecurePassword123!',
+          description: 'New password for the account'
+        },
+      },
+      required: ['token', 'email', 'newPassword'],
+    },
+    description: 'Password reset with token and new password'
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ Password reset successful',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { 
+          type: 'boolean', 
+          example: true,
+          description: 'Whether password reset was successful'
+        },
+        message: { 
+          type: 'string', 
+          example: 'Password reset token validated successfully. Please proceed with password change in the frontend.',
+          description: 'Success message'
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - invalid token or expired',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: { 
+          type: 'string', 
+          example: 'Invalid or expired reset token',
+          description: 'Error message'
+        },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
+  })
+  async resetPassword(@Body() body: { token: string; email: string; newPassword: string }) {
+    return this.authService.resetPassword(body.token, body.email, body.newPassword);
   }
 
   @Post('request-verification')

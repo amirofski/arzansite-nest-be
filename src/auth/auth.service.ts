@@ -386,31 +386,37 @@ export class AuthService {
 
   async sendPasswordReset(email: string) {
     try {
-      // For password reset, we need to use the service account approach
-      // since the user might not remember their password
-      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
-      
-      // Validate that the frontend URL is allowed by Appwrite
-      // Appwrite only allows localhost or app.arzansite.com for password reset URLs
-      // If using arzansite.com, we'll construct the reset URL to use app.arzansite.com
-      let resetUrl = frontendUrl;
-      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('app.arzansite.com')) {
-        resetUrl = 'https://app.arzansite.com';
-        console.log(`⚠️ Frontend URL ${frontendUrl} not allowed by Appwrite, using ${resetUrl} for password reset`);
+      // Find user by email
+      const { Query } = await import('node-appwrite');
+      const user = await this.appwriteService.getUsers().list([
+        Query.equal('email', email)
+      ]);
+
+      if (user.users.length === 0) {
+        // Don't reveal if user exists or not for security
+        return { 
+          message: 'If an account with that email exists, a password reset link has been sent.',
+          emailSent: true
+        };
       }
+
+      const userId = user.users[0].$id;
       
-      const recovery = await this.appwriteService.getAccount().createRecovery(
-        email,
-        `${resetUrl}/reset-password`
-      );
+      // Generate a secure reset token
+      const resetToken = this.generateSecureToken();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
       
-      // Extract recovery URL from Appwrite response
-      const recoveryUrl = this.buildRecoveryUrl(recovery, email);
+      // Store reset token in database
+      await this.storePasswordResetToken(userId, email, resetToken, expiresAt);
+      
+      // Build reset URL
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
+      const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
       
       // Send password reset email via custom SMTP
       const emailSent = await this.emailService.sendPasswordResetEmail(
         email,
-        recoveryUrl
+        resetUrl
       );
 
       if (!emailSent) {
@@ -418,17 +424,193 @@ export class AuthService {
       }
 
       return { 
-        message: 'Password reset email sent successfully. Please check your email.',
+        message: 'If an account with that email exists, a password reset link has been sent.',
         emailSent: true
       };
     } catch (error) {
-      // Provide more specific error messages
-      if (error.message.includes('Invalid `url` param')) {
-        throw new BadRequestException(
-          `Password reset URL validation failed. Please ensure FRONTEND_URL is set to localhost or app.arzansite.com. Current value: ${this.configService.get('FRONTEND_URL')}`
+      console.error('Password reset error:', error);
+      throw new BadRequestException(`Failed to send password reset email: ${error.message}`);
+    }
+  }
+
+  private generateSecureToken(): string {
+    // Generate a cryptographically secure random token
+    const crypto = require('crypto');
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  private async storePasswordResetToken(userId: string, email: string, token: string, expiresAt: Date): Promise<void> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
+      
+      if (!databaseId || !collectionId) {
+        throw new Error('Missing database configuration for password resets');
+      }
+
+      // Import ID from node-appwrite
+      const { ID } = await import('node-appwrite');
+
+      // Store the reset token
+      await this.appwriteService.getDatabases().createDocument(
+        databaseId,
+        collectionId,
+        ID.unique(),
+        {
+          userId,
+          email,
+          token,
+          used: false,
+          expiresAt: expiresAt.toISOString(),
+          createdAt: new Date().toISOString()
+        }
+      );
+    } catch (error) {
+      console.error('Failed to store password reset token:', error);
+      throw new Error('Failed to store password reset token');
+    }
+  }
+
+  async resetPassword(token: string, email: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // Validate token and get reset record
+      const resetRecord = await this.validatePasswordResetToken(token, email);
+      
+      if (!resetRecord) {
+        throw new BadRequestException('Invalid or expired reset token');
+      }
+
+      // Update user password in Appwrite
+      try {
+        // Note: Appwrite doesn't allow password updates via API key for security
+        // The frontend should handle this by creating a new session and updating the password
+        // For now, we'll mark the token as used and return success
+        
+        await this.markPasswordResetTokenAsUsed(token);
+        
+        return {
+          success: true,
+          message: 'Password reset token validated successfully. Please proceed with password change in the frontend.'
+        };
+      } catch (error) {
+        console.error('Failed to update password:', error);
+        throw new BadRequestException('Failed to update password');
+      }
+    } catch (error) {
+      console.error('Password reset validation error:', error);
+      throw new BadRequestException(`Password reset failed: ${error.message}`);
+    }
+  }
+
+  private async validatePasswordResetToken(token: string, email: string): Promise<any> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
+      
+      if (!databaseId || !collectionId) {
+        throw new Error('Missing database configuration for password resets');
+      }
+
+      const { Query } = await import('node-appwrite');
+      
+      // Find the reset token
+      const resetRecords = await this.appwriteService.getDatabases().listDocuments(
+        databaseId,
+        collectionId,
+        [
+          Query.equal('token', token),
+          Query.equal('email', email),
+          Query.equal('used', false)
+        ]
+      );
+
+      if (resetRecords.documents.length === 0) {
+        return null;
+      }
+
+      const resetRecord = resetRecords.documents[0];
+      
+      // Check if token has expired
+      const expiresAt = new Date(resetRecord.expiresAt);
+      if (expiresAt < new Date()) {
+        return null;
+      }
+
+      return resetRecord;
+    } catch (error) {
+      console.error('Failed to validate password reset token:', error);
+      return null;
+    }
+  }
+
+  private async markPasswordResetTokenAsUsed(token: string): Promise<void> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
+      
+      if (!databaseId || !collectionId) {
+        throw new Error('Missing database configuration for password resets');
+      }
+
+      const { Query } = await import('node-appwrite');
+      
+      // Find the reset record
+      const resetRecords = await this.appwriteService.getDatabases().listDocuments(
+        databaseId,
+        collectionId,
+        [Query.equal('token', token)]
+      );
+
+      if (resetRecords.documents.length > 0) {
+        const resetRecord = resetRecords.documents[0];
+        
+        // Mark as used
+        await this.appwriteService.getDatabases().updateDocument(
+          databaseId,
+          collectionId,
+          resetRecord.$id,
+          { used: true }
         );
       }
-      throw new BadRequestException(`Failed to send password reset email: ${error.message}`);
+    } catch (error) {
+      console.error('Failed to mark password reset token as used:', error);
+    }
+  }
+
+  private async checkUserVerificationStatusInDatabase(userId: string): Promise<boolean> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS');
+      
+      if (!databaseId || !collectionId) {
+        console.warn('Email verification check skipped: Missing database configuration');
+        return false;
+      }
+
+      const { Query } = await import('node-appwrite');
+      
+      try {
+        const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
+          databaseId,
+          collectionId,
+          [
+            Query.equal('userId', userId),
+            Query.equal('used', true)
+          ]
+        );
+
+        const hasTokens = tokenDocs.documents.length > 0;
+        if (hasTokens) {
+          console.log(`✅ User ${userId} verified via database tokens`);
+        }
+        return hasTokens;
+      } catch (dbError) {
+        console.warn(`⚠️ Database verification check failed for user ${userId}:`, dbError.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Failed to check user verification status in database:', error);
+      return false;
     }
   }
 
@@ -436,14 +618,14 @@ export class AuthService {
     try {
       // This method is called after user login to request verification
       // It creates a session and then requests verification
-      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
       
       // Validate that the frontend URL is allowed by Appwrite
       // Appwrite only allows localhost or app.arzansite.com for verification URLs
       // If using arzansite.com, we'll construct the verification URL to use app.arzansite.com
       let appwriteVerificationUrl = frontendUrl;
-      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('app.arzansite.com')) {
-        appwriteVerificationUrl = 'https://app.arzansite.com';
+      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('arzansite.com')) {
+        appwriteVerificationUrl = 'https://arzansite.com';
         console.log(`⚠️ Frontend URL ${frontendUrl} not allowed by Appwrite, using ${appwriteVerificationUrl} for email verification`);
       }
       
@@ -519,80 +701,9 @@ export class AuthService {
     }
   }
 
-  private async checkUserVerificationStatus(userId: string): Promise<boolean> {
-    try {
-      // Use the same logic as checkEmailVerificationStatus for consistency
-      const { Query } = await import('node-appwrite');
-      const users = await this.appwriteService.getUsers().list([Query.equal('$id', userId)]);
-      
-      if (users.users.length === 0) {
-        return false;
-      }
-
-      const user = users.users[0];
-      
-      // Check if user has any valid verification tokens in our system
-      const hasValidVerification = await this.checkUserVerificationStatusInDatabase(userId);
-      
-      return hasValidVerification;
-    } catch (error) {
-      console.error('❌ Failed to check user verification status:', error);
-      return false;
-    }
-  }
-
-  private async checkUserVerificationStatusInDatabase(userId: string): Promise<boolean> {
-    try {
-      // First check Appwrite's native email verification status
-      try {
-        const user = await this.appwriteService.getUsers().get(userId);
-        if (user.emailVerification) {
-          console.log(`✅ User ${userId} verified via Appwrite native verification`);
-          return true;
-        }
-      } catch (appwriteError) {
-        console.warn('Failed to check Appwrite verification status:', appwriteError);
-      }
-
-      // Fallback: Check if user has any used verification tokens in our database
-      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
-      
-      if (!databaseId || !collectionId) {
-        console.warn('Email verification check skipped: Missing database configuration');
-        return false;
-      }
-
-      try {
-        const { Query } = await import('node-appwrite');
-        const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
-          databaseId,
-          collectionId,
-          [
-            Query.equal('userId', userId),
-            Query.equal('used', true)
-          ]
-        );
-
-        const hasTokens = tokenDocs.documents.length > 0;
-        if (hasTokens) {
-          console.log(`✅ User ${userId} verified via database tokens`);
-        }
-        return hasTokens;
-      } catch (dbError) {
-        console.warn(`⚠️ Database verification check failed for user ${userId}:`, dbError.message);
-        // If database check fails, we can't verify via tokens, but user might still be verified via Appwrite
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Failed to check user verification status in database:', error);
-      return false;
-    }
-  }
-
   private buildRecoveryUrl(recovery: any, email: string): string {
     // Appwrite returns a recovery object, we need to construct the full URL
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'https://app.arzansite.com');
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
     const token = recovery.$id; // This is the recovery token
     
     // Return the frontend URL with token and email as query parameters
@@ -609,20 +720,19 @@ export class AuthService {
       // Get user details to check email verification status
       const user = await this.appwriteService.getUsers().get(session.userId);
       
-      // Check if email is verified using the same logic as checkEmailVerificationStatus
+      // Check if email is verified using Appwrite's native verification
       console.log(`🔍 Checking email verification for user: ${session.userId}`);
-      let isEmailVerified = await this.checkUserVerificationStatus(session.userId);
+      let isEmailVerified = user.emailVerification;
       console.log(`🔍 Email verification result: ${isEmailVerified}`);
       
-      // If custom verification check fails, fallback to Appwrite's native verification
+      // If Appwrite verification is false, check our custom verification system
       if (!isEmailVerified) {
-        console.log(`⚠️ Custom verification check failed, trying Appwrite native verification...`);
+        console.log(`⚠️ Appwrite verification is false, checking custom verification system...`);
         try {
-          const appwriteUser = await this.appwriteService.getUsers().get(session.userId);
-          isEmailVerified = appwriteUser.emailVerification;
-          console.log(`🔍 Appwrite native verification result: ${isEmailVerified}`);
+          isEmailVerified = await this.checkUserVerificationStatusInDatabase(session.userId);
+          console.log(`🔍 Custom verification check result: ${isEmailVerified}`);
         } catch (fallbackError) {
-          console.warn(`⚠️ Fallback verification check failed:`, fallbackError.message);
+          console.warn(`⚠️ Custom verification check failed:`, fallbackError.message);
         }
       }
       

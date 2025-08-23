@@ -51,10 +51,20 @@ export class EmailService {
       security = 'starttls';
     }
 
-    // Validate required configuration
+    // Check if SMTP is enabled
     if (!host || !port || !user || !pass) {
-      this.logger.error('Missing required SMTP configuration. Please check your environment variables.');
-      throw new Error('SMTP configuration is incomplete. Please check SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS.');
+      this.logger.warn('⚠️ SMTP configuration is incomplete. Email service will be disabled.');
+      this.logger.warn('   To enable email service, configure the following environment variables:');
+      this.logger.warn('   - SMTP_HOST (e.g., 37-58-50-28.cprapid.com)');
+      this.logger.warn('   - SMTP_PORT (e.g., 587)');
+      this.logger.warn('   - SMTP_USER (e.g., info@arzansite.com)');
+      this.logger.warn('   - SMTP_PASS (your SMTP password)');
+      this.logger.warn('   - SMTP_FROM (e.g., info@arzansite.com)');
+      this.logger.warn('   - SMTP_SECURITY (e.g., starttls)');
+      
+      // Set transporter to null to indicate SMTP is disabled
+      this.transporter = null;
+      return;
     }
 
     this.logger.log(`Initializing SMTP transporter with host: ${host}:${port}`);
@@ -104,6 +114,12 @@ export class EmailService {
   }
 
   private async verifyConnection() {
+    // Skip verification if SMTP is disabled
+    if (!this.transporter) {
+      this.logger.warn('⚠️ Skipping SMTP connection verification - SMTP is disabled');
+      return;
+    }
+
     try {
       await this.transporter.verify();
       this.logger.log('✅ SMTP connection verified successfully');
@@ -136,6 +152,13 @@ export class EmailService {
   }
 
   async sendEmail(options: EmailOptions, retryCount = 0): Promise<boolean> {
+    // Check if SMTP is enabled
+    if (!this.transporter) {
+      this.logger.error('❌ SMTP is disabled. Cannot send email.');
+      this.logger.error('   Please configure SMTP settings in your environment variables.');
+      return false;
+    }
+
     const {
       to,
       subject,
@@ -968,5 +991,44 @@ Download Receipt: https://arzansite.com/receipts/${receiptId}/download
       console.error('Error getting user by ID:', error);
       return null;
     }
+  }
+
+  /**
+   * Check if SMTP is enabled and configured
+   */
+  isSMTPEnabled(): boolean {
+    return this.transporter !== null;
+  }
+
+  /**
+   * Get SMTP configuration status
+   */
+  getSMTPStatus(): {
+    enabled: boolean;
+    configured: boolean;
+    host?: string;
+    port?: number;
+    user?: string;
+    from?: string;
+    security?: string;
+    message?: string;
+  } {
+    if (!this.transporter) {
+      return {
+        enabled: false,
+        configured: false,
+        message: 'SMTP is disabled due to missing configuration'
+      };
+    }
+
+    return {
+      enabled: true,
+      configured: true,
+      host: this.configService.get<string>('SMTP_HOST'),
+      port: this.configService.get<number>('SMTP_PORT'),
+      user: this.configService.get<string>('SMTP_USER'),
+      from: this.configService.get<string>('SMTP_FROM'),
+      security: this.configService.get<string>('SMTP_SECURITY')
+    };
   }
 }
