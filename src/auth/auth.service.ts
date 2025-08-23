@@ -472,10 +472,23 @@ export class AuthService {
     }
   }
 
-  async resetPassword(token: string, email: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  async resetPassword(token: string, newPassword: string, email?: string): Promise<{ success: boolean; message: string }> {
     try {
+      // If email is not provided, try to derive it from the token
+      let userEmail = email;
+      if (!userEmail) {
+        const resetRecord = await this.findPasswordResetRecordByToken(token);
+        if (resetRecord) {
+          userEmail = resetRecord.email;
+        }
+      }
+      
+      if (!userEmail) {
+        throw new BadRequestException('Email is required for password reset');
+      }
+
       // Validate token and get reset record
-      const resetRecord = await this.validatePasswordResetToken(token, email);
+      const resetRecord = await this.validatePasswordResetToken(token, userEmail);
       
       if (!resetRecord) {
         throw new BadRequestException('Invalid or expired reset token');
@@ -500,6 +513,35 @@ export class AuthService {
     } catch (error) {
       console.error('Password reset validation error:', error);
       throw new BadRequestException(`Password reset failed: ${error.message}`);
+    }
+  }
+
+  private async findPasswordResetRecordByToken(token: string): Promise<any> {
+    try {
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
+      
+      if (!databaseId || !collectionId) {
+        return null;
+      }
+
+      const { Query } = await import('node-appwrite');
+      
+      // Find the reset record by token only
+      const resetRecords = await this.appwriteService.getDatabases().listDocuments(
+        databaseId,
+        collectionId,
+        [Query.equal('token', token)]
+      );
+
+      if (resetRecords.documents.length === 0) {
+        return null;
+      }
+
+      return resetRecords.documents[0];
+    } catch (error) {
+      console.error('Failed to find password reset record by token:', error);
+      return null;
     }
   }
 

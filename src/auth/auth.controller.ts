@@ -293,55 +293,36 @@ export class AuthController {
         email: { 
           type: 'string', 
           example: 'user@example.com',
-          description: 'Email address of the account'
+          description: 'Email address of the account (optional, can be derived from token)'
         },
         newPassword: { 
           type: 'string', 
           example: 'NewSecurePassword123!',
           description: 'New password for the account'
         },
+        new_password: { 
+          type: 'string', 
+          example: 'NewSecurePassword123!',
+          description: 'New password for the account (alternative field name)'
+        },
       },
-      required: ['token', 'email', 'newPassword'],
+      required: ['token'],
     },
     description: 'Password reset with token and new password'
   })
-  @ApiResponse({
-    status: 200,
-    description: '✅ Password reset successful',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { 
-          type: 'boolean', 
-          example: true,
-          description: 'Whether password reset was successful'
-        },
-        message: { 
-          type: 'string', 
-          example: 'Password reset token validated successfully. Please proceed with password change in the frontend.',
-          description: 'Success message'
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: '❌ Bad request - invalid token or expired',
-    schema: {
-      type: 'object',
-      properties: {
-        statusCode: { type: 'number', example: 400 },
-        message: { 
-          type: 'string', 
-          example: 'Invalid or expired reset token',
-          description: 'Error message'
-        },
-        error: { type: 'string', example: 'Bad Request' },
-      },
-    },
-  })
-  async resetPassword(@Body() body: { token: string; email: string; newPassword: string }) {
-    return this.authService.resetPassword(body.token, body.email, body.newPassword);
+  async resetPassword(@Body() body: { 
+    token: string; 
+    email?: string; 
+    newPassword?: string; 
+    new_password?: string; 
+  }) {
+    // Handle both field name variations
+    const newPassword = body.newPassword || body.new_password;
+    if (!newPassword) {
+      throw new BadRequestException('New password is required');
+    }
+    
+    return this.authService.resetPassword(body.token, newPassword, body.email);
   }
 
   @Post('request-verification')
