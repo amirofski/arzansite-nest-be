@@ -624,8 +624,8 @@ export class AuthService {
       // Appwrite only allows localhost or app.arzansite.com for verification URLs
       // If using arzansite.com, we'll construct the verification URL to use app.arzansite.com
       let appwriteVerificationUrl = frontendUrl;
-      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('arzansite.com')) {
-        appwriteVerificationUrl = 'https://arzansite.com';
+      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('app.arzansite.com')) {
+        appwriteVerificationUrl = 'https://app.arzansite.com';
         console.log(`⚠️ Frontend URL ${frontendUrl} not allowed by Appwrite, using ${appwriteVerificationUrl} for email verification`);
       }
       
