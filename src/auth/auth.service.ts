@@ -474,45 +474,117 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string, email?: string): Promise<{ success: boolean; message: string }> {
     try {
+      console.log('🔧 resetPassword called with:', { token: token ? '***' : 'undefined', email, newPassword: newPassword ? '***' : 'undefined' });
+      
       // If email is not provided, try to derive it from the token
       let userEmail = email;
       if (!userEmail) {
+        console.log('📧 Email not provided, deriving from token...');
         const resetRecord = await this.findPasswordResetRecordByToken(token);
         if (resetRecord) {
           userEmail = resetRecord.email;
+          console.log('📧 Email derived from token:', userEmail);
         }
       }
       
       if (!userEmail) {
+        console.log('❌ No email available for password reset');
         throw new BadRequestException('Email is required for password reset');
       }
 
+      console.log('🔍 Validating password reset token...');
+      
       // Validate token and get reset record
       const resetRecord = await this.validatePasswordResetToken(token, userEmail);
       
       if (!resetRecord) {
+        console.log('❌ Invalid or expired reset token');
         throw new BadRequestException('Invalid or expired reset token');
       }
 
-      // Update user password in Appwrite
+      console.log('✅ Token validated successfully');
+
+      // Get user ID from the reset record
+      const userId = resetRecord.userId;
+      if (!userId) {
+        console.log('❌ Missing user ID in reset record');
+        throw new BadRequestException('Invalid reset token: missing user ID');
+      }
+
+      console.log('👤 User ID found:', userId);
+
+      // Update user password in Appwrite using a temporary session
       try {
-        // Note: Appwrite doesn't allow password updates via API key for security
-        // The frontend should handle this by creating a new session and updating the password
-        // For now, we'll mark the token as used and return success
+        console.log('🔑 Attempting to update password...');
         
+        // Create a temporary session for the user
+        const tempSession = await this.createTemporarySession(userEmail, newPassword);
+        
+        console.log('🔧 createTemporarySession result:', tempSession);
+        
+        if (!tempSession) {
+          console.log('❌ Failed to create temporary session for password update');
+          throw new BadRequestException('Failed to create temporary session for password update');
+        }
+
+        console.log('✅ Password updated successfully, marking token as used...');
+
+        // Mark the reset token as used
         await this.markPasswordResetTokenAsUsed(token);
+        
+        console.log('✅ Token marked as used, returning success');
         
         return {
           success: true,
-          message: 'Password reset token validated successfully. Please proceed with password change in the frontend.'
+          message: 'Password has been successfully reset. You can now log in with your new password.'
         };
       } catch (error) {
-        console.error('Failed to update password:', error);
+        console.error('❌ Failed to update password:', error);
         throw new BadRequestException('Failed to update password');
       }
     } catch (error) {
-      console.error('Password reset validation error:', error);
+      console.error('❌ Password reset validation error:', error);
       throw new BadRequestException(`Password reset failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create a temporary session to update the user's password
+   */
+  private async createTemporarySession(email: string, newPassword: string): Promise<boolean> {
+    try {
+      console.log('🔧 createTemporarySession called with:', { email, newPassword: newPassword ? '***' : 'undefined' });
+      
+      // Use the Users API to find and update the user
+      const { Query } = await import('node-appwrite');
+      
+      console.log('🔍 Searching for user by email...');
+      
+      // Find user by email using the Users API
+      const users = await this.appwriteService.getUsers().list([
+        Query.equal('email', email)
+      ]);
+      
+      console.log('📊 Users found:', users.users.length);
+      
+      if (users.users.length === 0) {
+        console.log('❌ User not found by email');
+        throw new Error('User not found');
+      }
+      
+      const user = users.users[0];
+      console.log('✅ User found:', { userId: user.$id, email: user.email });
+      
+      console.log('🔑 Attempting to update password...');
+      
+      // Update the user's password using the Users API
+      await this.appwriteService.getUsers().updatePassword(user.$id, newPassword);
+      
+      console.log('✅ Password updated successfully!');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to create temporary session:', error);
+      return false;
     }
   }
 
