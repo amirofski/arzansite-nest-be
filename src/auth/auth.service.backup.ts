@@ -57,15 +57,15 @@ export class AuthService {
 
       // Try to send verification email immediately after user creation
       try {
-        console.log('Attempting to send verification email during signup...');
+        console.log('🔧 Attempting to send verification email during signup...');
         
         // Use custom verification system (Appwrite native verification requires user session)
-        console.log('Creating custom verification email...');
+        console.log('🔧 Creating custom verification email...');
         
         const verificationToken = this.generateVerificationToken();
         const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
         
-        console.log('Verification URL built:', verificationUrl);
+        console.log('🔗 Verification URL built:', verificationUrl);
         
         const emailSent = await this.emailService.sendConfirmationEmail(
           signUpDto.email,
@@ -74,7 +74,7 @@ export class AuthService {
         );
 
         if (emailSent) {
-          console.log('Custom verification email sent successfully');
+          console.log('✅ Custom verification email sent successfully');
           await this.storeVerificationToken(created.$id, verificationToken);
           
           return { 
@@ -89,10 +89,10 @@ export class AuthService {
             requiresFrontendVerification: false
           };
         } else {
-          console.log('EmailService returned false - email not sent');
+          console.log('❌ EmailService returned false - email not sent');
         }
       } catch (e: any) {
-        console.error('Failed to send verification email:', e);
+        console.error('❌ Failed to send verification email:', e);
         // Continue without verification email
       }
       
@@ -474,74 +474,74 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string, email?: string): Promise<{ success: boolean; message: string }> {
     try {
-      console.log('resetPassword called with:', { token: token ? '***' : 'undefined', email, newPassword: newPassword ? '***' : 'undefined' });
+      console.log('🔧 resetPassword called with:', { token: token ? '***' : 'undefined', email, newPassword: newPassword ? '***' : 'undefined' });
       
       // If email is not provided, try to derive it from the token
       let userEmail = email;
       if (!userEmail) {
-        console.log('Email not provided, deriving from token...');
+        console.log('📧 Email not provided, deriving from token...');
         const resetRecord = await this.findPasswordResetRecordByToken(token);
         if (resetRecord) {
           userEmail = resetRecord.email;
-          console.log('Email derived from token:', userEmail);
+          console.log('📧 Email derived from token:', userEmail);
         }
       }
       
       if (!userEmail) {
-        console.log('No email available for password reset');
+        console.log('❌ No email available for password reset');
         throw new BadRequestException('Email is required for password reset');
       }
 
-      console.log('Validating password reset token...');
+      console.log('🔍 Validating password reset token...');
       
       // Validate token and get reset record
       const resetRecord = await this.validatePasswordResetToken(token, userEmail);
       
       if (!resetRecord) {
-        console.log('Invalid or expired reset token');
+        console.log('❌ Invalid or expired reset token');
         throw new BadRequestException('Invalid or expired reset token');
       }
 
-      console.log('Token validated successfully');
+      console.log('✅ Token validated successfully');
 
       // Get user ID from the reset record
       const userId = resetRecord.userId;
       if (!userId) {
-        console.log('Missing user ID in reset record');
+        console.log('❌ Missing user ID in reset record');
         throw new BadRequestException('Invalid reset token: missing user ID');
       }
 
-      console.log('User ID found:', userId);
+      console.log('👤 User ID found:', userId);
 
       // Update user password in Appwrite using the Users API
       try {
-        console.log('Attempting to update password...');
+        console.log('🔑 Attempting to update password...');
         
         // Use the Users API to update the password
         const success = await this.updateUserPasswordInAppwrite(userEmail, newPassword);
         
         if (!success) {
-          console.log('Failed to update password in Appwrite');
+          console.log('❌ Failed to update password in Appwrite');
           throw new BadRequestException('Failed to update password in Appwrite');
         }
 
-        console.log('Password updated successfully, marking token as used...');
+        console.log('✅ Password updated successfully, marking token as used...');
 
         // Mark the reset token as used
         await this.markPasswordResetTokenAsUsed(token);
         
-        console.log('Token marked as used, returning success');
+        console.log('✅ Token marked as used, returning success');
         
         return {
           success: true,
           message: 'Password has been successfully reset. You can now log in with your new password.'
         };
       } catch (error) {
-        console.error('Failed to update password:', error);
+        console.error('❌ Failed to update password:', error);
         throw new BadRequestException('Failed to update password');
       }
     } catch (error) {
-      console.error('Password reset validation error:', error);
+      console.error('❌ Password reset validation error:', error);
       throw new BadRequestException(`Password reset failed: ${error.message}`);
     }
   }
@@ -551,37 +551,37 @@ export class AuthService {
    */
   private async updateUserPasswordInAppwrite(email: string, newPassword: string): Promise<boolean> {
     try {
-      console.log('updateUserPasswordInAppwrite called with:', { email, newPassword: newPassword ? '***' : 'undefined' });
+      console.log('🔧 updateUserPasswordInAppwrite called with:', { email, newPassword: newPassword ? '***' : 'undefined' });
       
       // Use the Users API to find and update the user
       const { Query } = await import('node-appwrite');
       
-      console.log('Searching for user by email...');
+      console.log('🔍 Searching for user by email...');
       
       // Find user by email using the Users API
       const users = await this.appwriteService.getUsers().list([
         Query.equal('email', email)
       ]);
       
-      console.log('Users found:', users.users.length);
+      console.log('📊 Users found:', users.users.length);
       
       if (users.users.length === 0) {
-        console.log('User not found by email');
+        console.log('❌ User not found by email');
         throw new Error('User not found');
       }
       
       const user = users.users[0];
-              console.log('User found:', { userId: user.$id, email: user.email });
+      console.log('✅ User found:', { userId: user.$id, email: user.email });
       
-              console.log('Attempting to update password...');
+      console.log('🔑 Attempting to update password...');
       
       // Update the user's password using the Users API
       await this.appwriteService.getUsers().updatePassword(user.$id, newPassword);
       
-              console.log('Password updated successfully!');
+      console.log('✅ Password updated successfully!');
       return true;
     } catch (error) {
-      console.error('Failed to update password in Appwrite:', error);
+      console.error('❌ Failed to update password in Appwrite:', error);
       return false;
     }
   }
