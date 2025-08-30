@@ -144,7 +144,8 @@ export class WizardService {
         price: priceRials,
         status: 'pending',
         payment_status: 'pending',
-        user_id: completeOrderDto.sessionId, // We'll need to get the actual user ID from session
+        userId: completeOrderDto.sessionId, // Use sessionId as userId for now
+        sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
         design_snapshot: completeOrderDto.designSnapshot, // Store the entire design as JSON
@@ -164,7 +165,7 @@ export class WizardService {
       // 3. Create invoice for the order
       const invoiceData = {
         orderId: orderDoc.$id,
-        userId: completeOrderDto.sessionId, // We'll need to get the actual user ID
+        userId: completeOrderDto.sessionId, // Use sessionId as userId for now
         amount: priceRials,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         status: 'pending',
@@ -644,7 +645,7 @@ export class WizardService {
     try {
       // Send order confirmation to user
       await this.emailService.sendOrderNotification(
-        completeOrderDto.sessionId, // We'll need to get the actual user ID
+        completeOrderDto.sessionId, // Use sessionId for now
         {
           orderId: orderDoc.$id,
           title: orderDoc.title,
@@ -655,7 +656,7 @@ export class WizardService {
 
       // Send invoice notification
       await this.emailService.sendInvoiceCreatedEmail(
-        completeOrderDto.sessionId, // We'll need to get the actual user ID
+        completeOrderDto.sessionId, // Use sessionId for now
         invoiceDoc.$id,
         invoiceDoc.amount
       );
