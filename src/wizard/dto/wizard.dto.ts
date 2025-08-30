@@ -316,6 +316,10 @@ export class OrderDto {
   @IsOptional()
   @IsEnum(SiteType)
   siteType?: SiteType;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }
 
 export class CompleteOrderDto {
