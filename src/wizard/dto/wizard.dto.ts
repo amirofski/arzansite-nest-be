@@ -301,7 +301,7 @@ export class SaveProgressDto {
 
 export class CompleteOrderDto extends WizardOrderDto {
   @IsString()
-  userId: string; // Required when completing order
+  declare userId: string; // Required when completing order
 }
 
 export class UpdateOrderDto {
