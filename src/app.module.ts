@@ -21,6 +21,9 @@ import { AdminModule } from './admin/admin.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { WizardModule } from './wizard/wizard.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SupportModule } from './support/support.module';
 
 @Module({
   imports: [
@@ -69,6 +72,9 @@ import { UploadsModule } from './uploads/uploads.module';
     ScheduledTasksModule,
     WizardModule,
     UploadsModule,
+    AnalyticsModule,
+    NotificationsModule,
+    SupportModule,
   ],
   controllers: [HealthController],
 })

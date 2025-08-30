@@ -2,6 +2,8 @@ import {
   Controller, 
   Get, 
   Post, 
+  Put,
+  Delete,
   Param, 
   Body, 
   Query, 
@@ -30,7 +32,17 @@ import { RolesGuard, Roles } from '../common/guards/roles.guard';
 import { 
   WalletAdjustmentDto, 
   WalletAdjustmentResponseDto,
-  AdminDashboardStatsDto 
+  AdminDashboardStatsDto,
+  DeleteUserResponseDto,
+  DomainExtensionDto,
+  CreateDomainExtensionDto,
+  UpdateDomainExtensionDto,
+  CheckDomainAvailabilityDto,
+  DomainAvailabilityResponseDto,
+  SystemMetricsDto,
+  WalletAdjustmentHistoryResponseDto,
+  EmailServiceTestDto,
+  EmailServiceTestResponseDto
 } from './dto/admin.dto';
 
 @ApiTags('Admin')
@@ -347,5 +359,166 @@ export class AdminController {
   })
   async getDashboardStats(): Promise<AdminDashboardStatsDto> {
     return this.adminService.getDashboardStats();
+  }
+
+  // User Management Endpoint
+  @Delete('users/:userId')
+  @ApiOperation({
+    summary: 'Delete user account',
+    description: 'Deletes a user account from the system. Requires admin role.'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'ID of the user to delete',
+    example: 'user_123'
+  })
+  @ApiOkResponse({
+    description: 'User deleted successfully',
+    type: DeleteUserResponseDto
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found'
+  })
+  @ApiBadRequestResponse({
+    description: 'Cannot delete user with active orders'
+  })
+  async deleteUser(@Param('userId') userId: string): Promise<DeleteUserResponseDto> {
+    return this.adminService.deleteUser(userId);
+  }
+
+  // Domain Management Endpoints
+  @Get('domains/prices')
+  @ApiOperation({
+    summary: 'Get all domain extension prices',
+    description: 'Retrieves all domain extension prices and availability. Requires admin role.'
+  })
+  @ApiOkResponse({
+    description: 'Domain extensions retrieved successfully',
+    type: [DomainExtensionDto]
+  })
+  async getDomainPrices(): Promise<DomainExtensionDto[]> {
+    return this.adminService.getDomainPrices();
+  }
+
+  @Put('domains/prices/:extensionId')
+  @ApiOperation({
+    summary: 'Update domain extension price',
+    description: 'Updates the price and availability of a domain extension. Requires admin role.'
+  })
+  @ApiParam({
+    name: 'extensionId',
+    description: 'ID of the domain extension to update',
+    example: 'ext_1'
+  })
+  @ApiBody({ type: UpdateDomainExtensionDto })
+  @ApiOkResponse({
+    description: 'Domain extension updated successfully',
+    type: DomainExtensionDto
+  })
+  async updateDomainPrice(
+    @Param('extensionId') extensionId: string,
+    @Body() updateData: UpdateDomainExtensionDto
+  ): Promise<DomainExtensionDto> {
+    return this.adminService.updateDomainPrice(extensionId, updateData);
+  }
+
+  @Post('domains/extensions')
+  @ApiOperation({
+    summary: 'Add new domain extension',
+    description: 'Adds a new domain extension to the system. Requires admin role.'
+  })
+  @ApiBody({ type: CreateDomainExtensionDto })
+  @ApiCreatedResponse({
+    description: 'Domain extension created successfully',
+    type: DomainExtensionDto
+  })
+  async createDomainExtension(
+    @Body() createData: CreateDomainExtensionDto
+  ): Promise<DomainExtensionDto> {
+    return this.adminService.createDomainExtension(createData);
+  }
+
+  @Post('domains/check-availability')
+  @ApiOperation({
+    summary: 'Check domain availability',
+    description: 'Checks the availability of a domain for admin purposes. Requires admin role.'
+  })
+  @ApiBody({ type: CheckDomainAvailabilityDto })
+  @ApiOkResponse({
+    description: 'Domain availability checked successfully',
+    type: DomainAvailabilityResponseDto
+  })
+  async checkDomainAvailability(
+    @Body() checkData: CheckDomainAvailabilityDto
+  ): Promise<DomainAvailabilityResponseDto> {
+    return this.adminService.checkDomainAvailability(checkData);
+  }
+
+  // System Health Metrics Endpoint
+  @Get('system/metrics')
+  @ApiOperation({
+    summary: 'Get system health metrics',
+    description: 'Retrieves detailed system health metrics including system, database, and service status. Requires admin role.'
+  })
+  @ApiOkResponse({
+    description: 'System metrics retrieved successfully',
+    type: SystemMetricsDto
+  })
+  async getSystemMetrics(): Promise<SystemMetricsDto> {
+    return this.adminService.getSystemMetrics();
+  }
+
+  // Wallet Adjustment History Endpoint
+  @Get('wallets/:walletId/adjustments')
+  @ApiOperation({
+    summary: 'Get wallet adjustment history',
+    description: 'Retrieves the history of wallet adjustments for a specific wallet. Requires admin role.'
+  })
+  @ApiParam({
+    name: 'walletId',
+    description: 'ID of the wallet',
+    example: 'wallet_123'
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of items per page (default: 20)',
+    example: 20
+  })
+  @ApiOkResponse({
+    description: 'Wallet adjustment history retrieved successfully',
+    type: WalletAdjustmentHistoryResponseDto
+  })
+  async getWalletAdjustmentHistory(
+    @Param('walletId') walletId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number
+  ): Promise<WalletAdjustmentHistoryResponseDto> {
+    return this.adminService.getWalletAdjustmentHistory(walletId, page, limit);
+  }
+
+  // Enhanced Email Service Test Endpoint
+  @Post('emails/test-service')
+  @ApiOperation({
+    summary: 'Test email service functionality',
+    description: 'Tests the functionality of the email service. Requires admin role.'
+  })
+  @ApiBody({ type: EmailServiceTestDto })
+  @ApiOkResponse({
+    description: 'Email service test completed successfully',
+    type: EmailServiceTestResponseDto
+  })
+  async testEmailService(
+    @Body() testData: EmailServiceTestDto
+  ): Promise<EmailServiceTestResponseDto> {
+    return this.adminService.testEmailService(testData);
   }
 }
