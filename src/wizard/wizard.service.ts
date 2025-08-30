@@ -16,6 +16,7 @@ import {
   SiteType,
   PaymentCycle,
   SaveDesignDto,
+  OrderDto,
 } from './dto/wizard.dto';
 
 @Injectable()
