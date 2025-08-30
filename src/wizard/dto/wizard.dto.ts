@@ -299,18 +299,6 @@ export class SaveProgressDto {
   paymentOptions?: PaymentOptionsDto;
 }
 
-export class CompleteOrderDto {
-  @IsString()
-  sessionId: string;
-
-  @ValidateNested()
-  @Type(() => OrderDto)
-  order: OrderDto;
-
-  @IsObject()
-  designSnapshot: Record<string, unknown>;
-}
-
 export class OrderDto {
   @IsString()
   title: string;
@@ -328,6 +316,18 @@ export class OrderDto {
   @IsOptional()
   @IsEnum(SiteType)
   siteType?: SiteType;
+}
+
+export class CompleteOrderDto {
+  @IsString()
+  sessionId: string;
+
+  @ValidateNested()
+  @Type(() => OrderDto)
+  order: OrderDto;
+
+  @IsObject()
+  designSnapshot: Record<string, unknown>;
 }
 
 export class UpdateOrderDto {
