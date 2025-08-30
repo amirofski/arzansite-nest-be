@@ -144,7 +144,7 @@ export class WizardService {
         price: priceRials,
         status: 'pending',
         payment_status: 'pending',
-        userId: completeOrderDto.sessionId, // Use sessionId as userId for now
+        user_id: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
         sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
@@ -165,7 +165,7 @@ export class WizardService {
       // 3. Create invoice for the order
       const invoiceData = {
         orderId: orderDoc.$id,
-        userId: completeOrderDto.sessionId, // Use sessionId as userId for now
+        userId: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
         amount: priceRials,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         status: 'pending',
@@ -645,7 +645,7 @@ export class WizardService {
     try {
       // Send order confirmation to user
       await this.emailService.sendOrderNotification(
-        completeOrderDto.sessionId, // Use sessionId for now
+        completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
         {
           orderId: orderDoc.$id,
           title: orderDoc.title,
@@ -656,7 +656,7 @@ export class WizardService {
 
       // Send invoice notification
       await this.emailService.sendInvoiceCreatedEmail(
-        completeOrderDto.sessionId, // Use sessionId for now
+        completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
         invoiceDoc.$id,
         invoiceDoc.amount
       );

@@ -322,6 +322,10 @@ export class CompleteOrderDto {
   @IsString()
   sessionId: string;
 
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
   @ValidateNested()
   @Type(() => OrderDto)
   order: OrderDto;
