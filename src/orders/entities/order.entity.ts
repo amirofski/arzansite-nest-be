@@ -98,6 +98,9 @@ export class Order {
   @Column({ type: 'json', nullable: true })
   design_options?: any;
 
+  @Column({ type: 'json', nullable: true })
+  design_snapshot?: any;
+
   @Column({ nullable: true })
   design_preview_url?: string;
 

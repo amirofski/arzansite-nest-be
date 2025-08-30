@@ -126,67 +126,100 @@ export class WizardService {
     return (result.documents as any) || [];
   }
 
-  async completeOrder(completeOrderDto: CompleteOrderDto): Promise<WizardOrderDto> {
-    // Calculate final pricing
-    const pricing = await this.calculatePricing(completeOrderDto);
-    completeOrderDto.pricing = pricing;
-
+  async completeOrder(completeOrderDto: CompleteOrderDto): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    // Check if order already exists
-    const existingOrder = await databases.listDocuments(databaseId, wizardOrdersCollection, [
-      Query.equal('sessionId', completeOrderDto.sessionId),
-      Query.limit(1),
-    ]);
-
-    let orderDoc: any;
-
-    if (existingOrder.documents && existingOrder.documents.length > 0) {
-      // Update existing order
-      const existingDoc = existingOrder.documents[0];
-      orderDoc = await databases.updateDocument(
-        databaseId,
-        wizardOrdersCollection,
-        existingDoc.$id,
-        {
-          ...completeOrderDto,
-          status: OrderStatus.PENDING,
-          completedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      );
-    } else {
-      // Create new order
-      orderDoc = await databases.createDocument(
-        databaseId,
-        wizardOrdersCollection,
-        ID.unique(),
-        {
-          ...completeOrderDto,
-          status: OrderStatus.PENDING,
-          completedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      );
-    }
-
-    // Send order confirmation email
     try {
-                await this.emailService.sendOrderNotification(
-            completeOrderDto.userId,
-            {
-              orderId: orderDoc.$id,
-              ...completeOrderDto
-            }
-          );
-    } catch (error) {
-      console.error('Failed to send order confirmation email:', error);
-    }
+      // 1. Convert price from Tomans to Rials (1 Toman = 10 Rials)
+      const priceRials = Math.round(completeOrderDto.order.priceTomans * 10);
 
-    return orderDoc as any;
+      // 2. Create the order with pending status
+      const orderData = {
+        title: completeOrderDto.order.title,
+        description: completeOrderDto.order.description,
+        price: priceRials,
+        status: 'pending',
+        payment_status: 'pending',
+        user_id: completeOrderDto.sessionId, // We'll need to get the actual user ID from session
+        siteType: completeOrderDto.order.siteType || 'personal',
+        comments: completeOrderDto.order.comments,
+        design_snapshot: completeOrderDto.designSnapshot, // Store the entire design as JSON
+        total_pages: this.extractPageCount(completeOrderDto.designSnapshot),
+        total_sections: this.extractSectionCount(completeOrderDto.designSnapshot),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const orderDoc = await databases.createDocument(
+        databaseId,
+        ordersCollection,
+        ID.unique(),
+        orderData
+      );
+
+      // 3. Create invoice for the order
+      const invoiceData = {
+        orderId: orderDoc.$id,
+        userId: completeOrderDto.sessionId, // We'll need to get the actual user ID
+        amount: priceRials,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        status: 'pending',
+        description: `Invoice for ${completeOrderDto.order.title}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const invoiceDoc = await databases.createDocument(
+        databaseId,
+        invoicesCollection,
+        ID.unique(),
+        invoiceData
+      );
+
+      // 4. Generate preview URL (async - we'll set a placeholder for now)
+      const previewUrl = await this.generatePreviewUrl(orderDoc.$id, completeOrderDto.designSnapshot);
+      
+      // Update order with preview URL
+      await databases.updateDocument(
+        databaseId,
+        ordersCollection,
+        orderDoc.$id,
+        {
+          design_preview_url: previewUrl,
+          updated_at: new Date().toISOString(),
+        }
+      );
+
+      // 5. Send confirmation emails (async)
+      this.sendOrderConfirmationEmails(orderDoc, invoiceDoc, completeOrderDto).catch(error => {
+        console.error('Failed to send confirmation emails:', error);
+      });
+
+      // 6. Return the created order with all necessary data
+      return {
+        success: true,
+        data: {
+          id: orderDoc.$id,
+          status: orderDoc.status,
+          payment_status: orderDoc.payment_status,
+          preview_url: previewUrl,
+          invoice_id: invoiceDoc.$id,
+          amount: priceRials,
+          title: orderDoc.title,
+          description: orderDoc.description,
+          created_at: orderDoc.created_at,
+        },
+        message: 'Order completed successfully',
+        timestamp: new Date().toISOString(),
+      };
+
+    } catch (error) {
+      console.error('Error completing order:', error);
+      throw new BadRequestException(`Failed to complete order: ${error.message}`);
+    }
   }
 
   async updateOrder(
@@ -571,5 +604,65 @@ export class WizardService {
       }
       return file.mimetype === type;
     });
+  }
+
+  private extractPageCount(designSnapshot: Record<string, unknown>): number {
+    try {
+      const websiteFramework = designSnapshot.websiteFramework as any;
+      if (websiteFramework?.dynamicDesign?.pages) {
+        return (websiteFramework.dynamicDesign.pages as any[]).length;
+      }
+      return 1; // Default to 1 page
+    } catch {
+      return 1;
+    }
+  }
+
+  private extractSectionCount(designSnapshot: Record<string, unknown>): number {
+    try {
+      const websiteFramework = designSnapshot.websiteFramework as any;
+      if (websiteFramework?.dynamicDesign?.pages) {
+        const pages = websiteFramework.dynamicDesign.pages as any[];
+        return pages.reduce((total, page) => {
+          return total + (page.sections?.length || 0);
+        }, 0);
+      }
+      return 1; // Default to 1 section
+    } catch {
+      return 1;
+    }
+  }
+
+  private async generatePreviewUrl(orderId: string, designSnapshot: Record<string, unknown>): Promise<string> {
+    // For now, return a placeholder URL
+    // In production, this would trigger an async job to generate the actual preview
+    return `https://preview.arzansite.com/orders/${orderId}/preview`;
+  }
+
+  private async sendOrderConfirmationEmails(orderDoc: any, invoiceDoc: any, completeOrderDto: CompleteOrderDto): Promise<void> {
+    try {
+      // Send order confirmation to user
+      await this.emailService.sendOrderNotification(
+        completeOrderDto.sessionId, // We'll need to get the actual user ID
+        {
+          orderId: orderDoc.$id,
+          title: orderDoc.title,
+          amount: orderDoc.price,
+          status: orderDoc.status,
+        }
+      );
+
+      // Send invoice notification
+      await this.emailService.sendInvoiceCreatedEmail(
+        completeOrderDto.sessionId, // We'll need to get the actual user ID
+        invoiceDoc.$id,
+        invoiceDoc.amount
+      );
+
+      // TODO: Send admin notification
+      console.log('Order confirmation emails sent successfully');
+    } catch (error) {
+      console.error('Failed to send confirmation emails:', error);
+    }
   }
 }

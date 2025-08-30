@@ -299,9 +299,35 @@ export class SaveProgressDto {
   paymentOptions?: PaymentOptionsDto;
 }
 
-export class CompleteOrderDto extends WizardOrderDto {
+export class CompleteOrderDto {
   @IsString()
-  declare userId: string; // Required when completing order
+  sessionId: string;
+
+  @ValidateNested()
+  @Type(() => OrderDto)
+  order: OrderDto;
+
+  @IsObject()
+  designSnapshot: Record<string, unknown>;
+}
+
+export class OrderDto {
+  @IsString()
+  title: string;
+
+  @IsString()
+  description: string;
+
+  @IsNumber()
+  priceTomans: number;
+
+  @IsOptional()
+  @IsString()
+  comments?: string;
+
+  @IsOptional()
+  @IsEnum(SiteType)
+  siteType?: SiteType;
 }
 
 export class UpdateOrderDto {
