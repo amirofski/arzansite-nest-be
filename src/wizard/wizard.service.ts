@@ -144,7 +144,7 @@ export class WizardService {
         price: priceRials,
         status: 'pending',
         payment_status: 'pending',
-        user_id: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
+        userId: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
         sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
