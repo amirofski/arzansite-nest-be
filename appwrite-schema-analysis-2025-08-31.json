@@ -1,0 +1,2768 @@
+{
+  "timestamp": "2025-08-31T16:37:03.830Z",
+  "summary": {
+    "totalCollections": 22,
+    "usedCollections": 8,
+    "duplicatePatterns": 0,
+    "namingConflicts": 3
+  },
+  "collections": {
+    "profiles": {
+      "name": "profiles",
+      "id": "profiles",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:07.181+00:00",
+          "$updatedAt": "2025-08-11T12:19:07.200+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "full_name",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:08.464+00:00",
+          "$updatedAt": "2025-08-11T12:19:08.486+00:00",
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "email",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:09.884+00:00",
+          "$updatedAt": "2025-08-11T12:19:09.907+00:00",
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "phone",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:14.187+00:00",
+          "$updatedAt": "2025-08-11T12:19:14.211+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "address",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:19.319+00:00",
+          "$updatedAt": "2025-08-11T12:19:19.337+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:22.443+00:00",
+          "$updatedAt": "2025-08-11T12:19:22.466+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:23.745+00:00",
+          "$updatedAt": "2025-08-11T12:19:23.764+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "userId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:42.152+00:00",
+          "$updatedAt": "2025-08-18T07:02:42.170+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "firstName",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:43.149+00:00",
+          "$updatedAt": "2025-08-18T07:02:43.170+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "lastName",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:44.182+00:00",
+          "$updatedAt": "2025-08-18T07:02:44.204+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "city",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:45.544+00:00",
+          "$updatedAt": "2025-08-18T07:02:45.571+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "country",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:46.477+00:00",
+          "$updatedAt": "2025-08-18T07:02:46.498+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "postalCode",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:47.414+00:00",
+          "$updatedAt": "2025-08-18T07:02:47.436+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "avatarUrl",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:48.393+00:00",
+          "$updatedAt": "2025-08-18T07:02:48.417+00:00",
+          "format": "url",
+          "default": null
+        },
+        {
+          "key": "bio",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:49.361+00:00",
+          "$updatedAt": "2025-08-18T07:02:49.384+00:00",
+          "size": 1000,
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:50.252+00:00",
+          "$updatedAt": "2025-08-18T07:02:50.272+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updatedAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:51.174+00:00",
+          "$updatedAt": "2025-08-18T07:02:51.196+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 17
+    },
+    "user_roles": {
+      "name": "user_roles",
+      "id": "user_roles",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:45.418+00:00",
+          "$updatedAt": "2025-08-11T12:19:45.439+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "role",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:46.965+00:00",
+          "$updatedAt": "2025-08-15T15:44:32.543+00:00",
+          "elements": [
+            "user",
+            "admin"
+          ],
+          "format": "enum",
+          "default": "user"
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:19:48.476+00:00",
+          "$updatedAt": "2025-08-11T12:19:48.496+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 3
+    },
+    "wallets": {
+      "name": "wallets",
+      "id": "wallets",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:20:57.445+00:00",
+          "$updatedAt": "2025-08-11T12:20:57.463+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "balance",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:20:58.705+00:00",
+          "$updatedAt": "2025-08-11T12:20:58.727+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:00.005+00:00",
+          "$updatedAt": "2025-08-11T12:21:00.052+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:01.287+00:00",
+          "$updatedAt": "2025-08-11T12:21:01.309+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "userId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:20.649+00:00",
+          "$updatedAt": "2025-08-18T07:02:20.671+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "currency",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:21.892+00:00",
+          "$updatedAt": "2025-08-18T07:02:21.915+00:00",
+          "size": 3,
+          "default": null
+        },
+        {
+          "key": "isActive",
+          "type": "boolean",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:23.885+00:00",
+          "$updatedAt": "2025-08-18T07:02:23.906+00:00",
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:24.965+00:00",
+          "$updatedAt": "2025-08-18T07:02:24.988+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updatedAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:26.022+00:00",
+          "$updatedAt": "2025-08-18T07:02:26.044+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 9
+    },
+    "transactions": {
+      "name": "transactions",
+      "id": "transactions",
+      "attributes": [
+        {
+          "key": "wallet_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:22.931+00:00",
+          "$updatedAt": "2025-08-11T12:21:22.951+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:24.247+00:00",
+          "$updatedAt": "2025-08-11T12:21:24.265+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:25.512+00:00",
+          "$updatedAt": "2025-08-11T12:21:25.534+00:00",
+          "elements": [
+            "deposit",
+            "withdrawal",
+            "payment",
+            "refund",
+            "credit",
+            "debit"
+          ],
+          "format": "enum",
+          "default": null
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:26.815+00:00",
+          "$updatedAt": "2025-08-11T12:21:26.837+00:00",
+          "elements": [
+            "pending",
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "format": "enum",
+          "default": null
+        },
+        {
+          "key": "amount",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:28.151+00:00",
+          "$updatedAt": "2025-08-11T12:21:28.174+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "balance_before",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:29.448+00:00",
+          "$updatedAt": "2025-08-11T12:21:29.469+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "balance_after",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:30.715+00:00",
+          "$updatedAt": "2025-08-11T12:21:30.733+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "description",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:32.003+00:00",
+          "$updatedAt": "2025-08-11T12:21:32.025+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "reference_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:33.299+00:00",
+          "$updatedAt": "2025-08-11T12:21:33.317+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "reference_type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:34.566+00:00",
+          "$updatedAt": "2025-08-11T12:21:34.591+00:00",
+          "size": 50,
+          "default": null
+        },
+        {
+          "key": "metadata",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:35.871+00:00",
+          "$updatedAt": "2025-08-11T12:21:35.891+00:00",
+          "size": 8192,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:37.166+00:00",
+          "$updatedAt": "2025-08-11T12:21:37.186+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:21:38.446+00:00",
+          "$updatedAt": "2025-08-11T12:21:38.469+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "userId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:30.628+00:00",
+          "$updatedAt": "2025-08-18T07:02:30.650+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "walletId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:31.625+00:00",
+          "$updatedAt": "2025-08-18T07:02:31.644+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "currency",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:32.692+00:00",
+          "$updatedAt": "2025-08-18T07:02:32.718+00:00",
+          "size": 3,
+          "default": null
+        },
+        {
+          "key": "reference",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:33.667+00:00",
+          "$updatedAt": "2025-08-18T07:02:33.691+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-18T07:02:34.653+00:00",
+          "$updatedAt": "2025-08-18T07:02:34.678+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 18
+    },
+    "payment_transactions": {
+      "name": "payment_transactions",
+      "id": "payment_transactions",
+      "attributes": [
+        {
+          "key": "order_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:07.278+00:00",
+          "$updatedAt": "2025-08-11T12:23:07.298+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:08.768+00:00",
+          "$updatedAt": "2025-08-11T12:23:08.789+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "transaction_type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:10.230+00:00",
+          "$updatedAt": "2025-08-11T12:23:10.251+00:00",
+          "elements": [
+            "payment_request",
+            "payment_verification",
+            "refund",
+            "cancellation"
+          ],
+          "format": "enum",
+          "default": null
+        },
+        {
+          "key": "zarinpal_authority",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:11.968+00:00",
+          "$updatedAt": "2025-08-11T12:23:11.991+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "zarinpal_ref_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:13.222+00:00",
+          "$updatedAt": "2025-08-11T12:23:13.242+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "amount",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:14.732+00:00",
+          "$updatedAt": "2025-08-11T12:23:14.756+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:16.285+00:00",
+          "$updatedAt": "2025-08-11T12:23:16.313+00:00",
+          "elements": [
+            "pending",
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "format": "enum",
+          "default": null
+        },
+        {
+          "key": "gateway_response",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:17.650+00:00",
+          "$updatedAt": "2025-08-11T12:23:17.672+00:00",
+          "size": 4096,
+          "default": null
+        },
+        {
+          "key": "metadata",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:19.108+00:00",
+          "$updatedAt": "2025-08-11T12:23:19.127+00:00",
+          "size": 2048,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:20.675+00:00",
+          "$updatedAt": "2025-08-11T12:23:20.697+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:23:24.227+00:00",
+          "$updatedAt": "2025-08-11T12:23:24.247+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 11
+    },
+    "email_logs": {
+      "name": "email_logs",
+      "id": "email_logs",
+      "attributes": [
+        {
+          "key": "to_email",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:01.323+00:00",
+          "$updatedAt": "2025-08-11T12:24:01.348+00:00",
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "subject",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:03.746+00:00",
+          "$updatedAt": "2025-08-11T12:24:03.767+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "success",
+          "type": "boolean",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:05.240+00:00",
+          "$updatedAt": "2025-08-11T12:24:05.262+00:00",
+          "default": null
+        },
+        {
+          "key": "error_message",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:06.747+00:00",
+          "$updatedAt": "2025-08-11T12:24:06.769+00:00",
+          "size": 1000,
+          "default": null
+        },
+        {
+          "key": "sent_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:08.236+00:00",
+          "$updatedAt": "2025-08-11T12:24:08.264+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "service_used",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:09.669+00:00",
+          "$updatedAt": "2025-08-11T12:24:09.694+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "template_type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:11.014+00:00",
+          "$updatedAt": "2025-08-11T12:24:11.042+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:12.424+00:00",
+          "$updatedAt": "2025-08-11T12:24:12.447+00:00",
+          "size": 36,
+          "default": null
+        }
+      ],
+      "attributeCount": 8
+    },
+    "email_verification_logs": {
+      "name": "email_verification_logs",
+      "id": "email_verification_logs",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:43.259+00:00",
+          "$updatedAt": "2025-08-11T12:24:43.279+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "email",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:44.846+00:00",
+          "$updatedAt": "2025-08-11T12:24:44.870+00:00",
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "verification_sent_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:46.580+00:00",
+          "$updatedAt": "2025-08-11T12:24:46.600+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "verification_clicked_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:47.983+00:00",
+          "$updatedAt": "2025-08-11T12:24:48.011+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "verification_expires_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:49.362+00:00",
+          "$updatedAt": "2025-08-11T12:24:49.384+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "ip_address",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:50.675+00:00",
+          "$updatedAt": "2025-08-11T12:24:50.698+00:00",
+          "size": 45,
+          "default": null
+        },
+        {
+          "key": "user_agent",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:52.087+00:00",
+          "$updatedAt": "2025-08-11T12:24:52.109+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "success",
+          "type": "boolean",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:53.558+00:00",
+          "$updatedAt": "2025-08-11T12:24:53.577+00:00",
+          "default": null
+        },
+        {
+          "key": "failure_reason",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:54.995+00:00",
+          "$updatedAt": "2025-08-11T12:24:55.014+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:24:56.288+00:00",
+          "$updatedAt": "2025-08-11T12:24:56.311+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 10
+    },
+    "site_config": {
+      "name": "site_config",
+      "id": "site_config",
+      "attributes": [
+        {
+          "key": "mode",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:25:24.793+00:00",
+          "$updatedAt": "2025-08-11T12:25:24.819+00:00",
+          "elements": [
+            "normal",
+            "temporarily_unavailable",
+            "update_mode",
+            "development_mode"
+          ],
+          "format": "enum",
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:25:26.095+00:00",
+          "$updatedAt": "2025-08-11T12:25:26.115+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-11T12:25:27.369+00:00",
+          "$updatedAt": "2025-08-11T12:25:27.393+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 3
+    },
+    "email_verifications": {
+      "name": "email_verifications",
+      "id": "email_verifications",
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-13T18:54:39.081+00:00",
+          "$updatedAt": "2025-08-13T18:54:39.110+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "token",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-13T18:54:41.042+00:00",
+          "$updatedAt": "2025-08-13T18:54:41.060+00:00",
+          "size": 64,
+          "default": null
+        },
+        {
+          "key": "expiresAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-13T18:54:42.937+00:00",
+          "$updatedAt": "2025-08-13T18:54:42.960+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "used",
+          "type": "boolean",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-13T18:54:44.792+00:00",
+          "$updatedAt": "2025-08-13T18:54:44.811+00:00",
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-13T18:54:46.755+00:00",
+          "$updatedAt": "2025-08-13T18:54:46.773+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-23T13:04:50.938+00:00",
+          "$updatedAt": "2025-08-23T13:04:50.980+00:00",
+          "size": 20,
+          "default": null
+        }
+      ],
+      "attributeCount": 6
+    },
+    "689ef51d7e33bc965362": {
+      "name": "receipts",
+      "id": "689ef51d7e33bc965362",
+      "attributes": [
+        {
+          "key": "invoice_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-15T08:51:43.235+00:00",
+          "$updatedAt": "2025-08-15T08:51:43.257+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "ref_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-15T08:51:45.165+00:00",
+          "$updatedAt": "2025-08-15T08:51:45.188+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "amount",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-15T08:51:46.799+00:00",
+          "$updatedAt": "2025-08-15T08:51:46.818+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "format",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-15T08:51:48.473+00:00",
+          "$updatedAt": "2025-08-15T08:51:48.492+00:00",
+          "size": 10,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-15T08:51:50.173+00:00",
+          "$updatedAt": "2025-08-15T08:51:50.196+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-15T08:51:51.967+00:00",
+          "$updatedAt": "2025-08-15T08:51:51.986+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 6
+    },
+    "invoices": {
+      "name": "invoices",
+      "id": "invoices",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:46.025+00:00",
+          "$updatedAt": "2025-08-16T19:34:46.051+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "order_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:46.674+00:00",
+          "$updatedAt": "2025-08-16T19:34:46.691+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "due_date",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:47.654+00:00",
+          "$updatedAt": "2025-08-16T19:34:47.672+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:48.564+00:00",
+          "$updatedAt": "2025-08-16T19:34:48.583+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "description",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:49.460+00:00",
+          "$updatedAt": "2025-08-16T19:34:49.477+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:49.955+00:00",
+          "$updatedAt": "2025-08-16T19:34:49.976+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:50.433+00:00",
+          "$updatedAt": "2025-08-16T19:34:50.452+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "amount",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-31T16:33:28.667+00:00",
+          "$updatedAt": "2025-08-31T16:33:28.686+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        }
+      ],
+      "attributeCount": 8
+    },
+    "receipts": {
+      "name": "receipts",
+      "id": "receipts",
+      "attributes": [
+        {
+          "key": "invoice_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:55.968+00:00",
+          "$updatedAt": "2025-08-16T19:34:55.989+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "ref_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:56.424+00:00",
+          "$updatedAt": "2025-08-16T19:34:56.446+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "format",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:57.420+00:00",
+          "$updatedAt": "2025-08-16T19:34:57.442+00:00",
+          "size": 10,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:57.874+00:00",
+          "$updatedAt": "2025-08-16T19:34:57.892+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:34:58.484+00:00",
+          "$updatedAt": "2025-08-16T19:34:58.503+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "amount",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-31T16:33:34.177+00:00",
+          "$updatedAt": "2025-08-31T16:33:34.195+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        }
+      ],
+      "attributeCount": 6
+    },
+    "wallet_adjustments": {
+      "name": "wallet_adjustments",
+      "id": "wallet_adjustments",
+      "attributes": [
+        {
+          "key": "wallet_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:01.432+00:00",
+          "$updatedAt": "2025-08-16T19:35:01.451+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "admin_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:01.951+00:00",
+          "$updatedAt": "2025-08-16T19:35:01.969+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:03.111+00:00",
+          "$updatedAt": "2025-08-16T19:35:03.130+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "reason",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:03.581+00:00",
+          "$updatedAt": "2025-08-16T19:35:03.601+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "notes",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:04.061+00:00",
+          "$updatedAt": "2025-08-16T19:35:04.080+00:00",
+          "size": 1000,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:05.505+00:00",
+          "$updatedAt": "2025-08-16T19:35:05.526+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:06.003+00:00",
+          "$updatedAt": "2025-08-16T19:35:06.024+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 7
+    },
+    "wizard_orders": {
+      "name": "wizard_orders",
+      "id": "wizard_orders",
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:09.343+00:00",
+          "$updatedAt": "2025-08-16T19:35:09.362+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "sessionId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:09.817+00:00",
+          "$updatedAt": "2025-08-16T19:35:09.837+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "siteType",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:10.318+00:00",
+          "$updatedAt": "2025-08-16T19:35:10.341+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "websiteFramework",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:10.791+00:00",
+          "$updatedAt": "2025-08-16T19:35:10.811+00:00",
+          "size": 16384,
+          "default": null
+        },
+        {
+          "key": "branding",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:11.234+00:00",
+          "$updatedAt": "2025-08-16T19:35:11.254+00:00",
+          "size": 2048,
+          "default": null
+        },
+        {
+          "key": "additionalServices",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:11.704+00:00",
+          "$updatedAt": "2025-08-16T19:35:11.725+00:00",
+          "size": 1024,
+          "default": null
+        },
+        {
+          "key": "domains",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:12.183+00:00",
+          "$updatedAt": "2025-08-16T19:35:12.206+00:00",
+          "size": 4096,
+          "default": null
+        },
+        {
+          "key": "pricing",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:12.634+00:00",
+          "$updatedAt": "2025-08-16T19:35:12.656+00:00",
+          "size": 2048,
+          "default": null
+        },
+        {
+          "key": "paymentOptions",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:13.094+00:00",
+          "$updatedAt": "2025-08-16T19:35:13.111+00:00",
+          "size": 512,
+          "default": null
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:14.085+00:00",
+          "$updatedAt": "2025-08-16T19:35:14.114+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:14.584+00:00",
+          "$updatedAt": "2025-08-16T19:35:14.604+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updatedAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:15.089+00:00",
+          "$updatedAt": "2025-08-16T19:35:15.110+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "completedAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:15.602+00:00",
+          "$updatedAt": "2025-08-16T19:35:15.623+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 13
+    },
+    "domain_extensions": {
+      "name": "domain_extensions",
+      "id": "domain_extensions",
+      "attributes": [
+        {
+          "key": "extension",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:20.916+00:00",
+          "$updatedAt": "2025-08-16T19:35:20.940+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:21.410+00:00",
+          "$updatedAt": "2025-08-16T19:35:21.426+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "description",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:21.890+00:00",
+          "$updatedAt": "2025-08-16T19:35:21.912+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "available",
+          "type": "boolean",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:23.860+00:00",
+          "$updatedAt": "2025-08-16T19:35:23.878+00:00",
+          "default": null
+        },
+        {
+          "key": "category",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:25.690+00:00",
+          "$updatedAt": "2025-08-16T19:35:25.707+00:00",
+          "size": 50,
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:27.335+00:00",
+          "$updatedAt": "2025-08-16T19:35:27.354+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updatedAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:27.841+00:00",
+          "$updatedAt": "2025-08-16T19:35:27.861+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 7
+    },
+    "project_files": {
+      "name": "project_files",
+      "id": "project_files",
+      "attributes": [
+        {
+          "key": "orderId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:32.964+00:00",
+          "$updatedAt": "2025-08-16T19:35:32.983+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "filename",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:33.460+00:00",
+          "$updatedAt": "2025-08-16T19:35:33.480+00:00",
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "originalName",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:33.952+00:00",
+          "$updatedAt": "2025-08-16T19:35:33.972+00:00",
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "mimeType",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:34.556+00:00",
+          "$updatedAt": "2025-08-16T19:35:34.575+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "bucketId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:35.456+00:00",
+          "$updatedAt": "2025-08-16T19:35:35.478+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "fileId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:35.916+00:00",
+          "$updatedAt": "2025-08-16T19:35:35.937+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "uploadedAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-16T19:35:36.382+00:00",
+          "$updatedAt": "2025-08-16T19:35:36.407+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 7
+    },
+    "password_resets": {
+      "name": "Password Resets",
+      "id": "password_resets",
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-23T13:05:10.194+00:00",
+          "$updatedAt": "2025-08-23T13:05:10.215+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "email",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-23T13:05:12.975+00:00",
+          "$updatedAt": "2025-08-23T13:05:12.993+00:00",
+          "format": "email",
+          "default": null
+        },
+        {
+          "key": "token",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-23T13:05:14.896+00:00",
+          "$updatedAt": "2025-08-23T13:05:14.915+00:00",
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "expiresAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-23T13:05:20.331+00:00",
+          "$updatedAt": "2025-08-23T13:05:20.350+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-23T13:05:23.865+00:00",
+          "$updatedAt": "2025-08-23T13:05:23.884+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 5
+    },
+    "enhanced_orders": {
+      "name": "Enhanced Orders",
+      "id": "enhanced_orders",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:24:39.318+00:00",
+          "$updatedAt": "2025-08-25T07:24:39.346+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "site_type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:24:47.042+00:00",
+          "$updatedAt": "2025-08-25T07:24:47.061+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "payment_status",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:31:57.027+00:00",
+          "$updatedAt": "2025-08-25T07:31:57.046+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "payment_method",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:31:58.754+00:00",
+          "$updatedAt": "2025-08-25T07:31:58.776+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "transaction_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:32:00.535+00:00",
+          "$updatedAt": "2025-08-25T07:32:00.558+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "zarinpal_authority",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:32:02.138+00:00",
+          "$updatedAt": "2025-08-25T07:32:02.160+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "zarinpal_ref_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:32:03.830+00:00",
+          "$updatedAt": "2025-08-25T07:32:03.852+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "wizard_data",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:32:05.388+00:00",
+          "$updatedAt": "2025-08-25T07:32:05.409+00:00",
+          "size": 10000,
+          "default": null
+        },
+        {
+          "key": "payment_metadata",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:17.256+00:00",
+          "$updatedAt": "2025-08-25T07:34:17.275+00:00",
+          "size": 1000,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:19.592+00:00",
+          "$updatedAt": "2025-08-25T07:34:19.613+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:21.117+00:00",
+          "$updatedAt": "2025-08-25T07:34:21.136+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 11
+    },
+    "enhanced_wallet_transactions": {
+      "name": "Enhanced Wallet Transactions",
+      "id": "enhanced_wallet_transactions",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:30.585+00:00",
+          "$updatedAt": "2025-08-25T07:34:30.605+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "balance_before",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:39.221+00:00",
+          "$updatedAt": "2025-08-25T07:34:39.239+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "balance_after",
+          "type": "double",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:41.273+00:00",
+          "$updatedAt": "2025-08-25T07:34:41.297+00:00",
+          "min": -1.7976931348623157e+308,
+          "max": 1.7976931348623157e+308,
+          "default": null
+        },
+        {
+          "key": "reference_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:42.861+00:00",
+          "$updatedAt": "2025-08-25T07:34:42.880+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "reference_type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:44.493+00:00",
+          "$updatedAt": "2025-08-25T07:34:44.517+00:00",
+          "size": 50,
+          "default": null
+        },
+        {
+          "key": "metadata",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:46.127+00:00",
+          "$updatedAt": "2025-08-25T07:34:46.149+00:00",
+          "size": 2000,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:34:47.892+00:00",
+          "$updatedAt": "2025-08-25T07:34:47.911+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 7
+    },
+    "order_progress": {
+      "name": "Order Progress",
+      "id": "order_progress",
+      "attributes": [
+        {
+          "key": "order_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:00.306+00:00",
+          "$updatedAt": "2025-08-25T07:35:00.329+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:01.847+00:00",
+          "$updatedAt": "2025-08-25T07:35:01.871+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "current_step",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:03.503+00:00",
+          "$updatedAt": "2025-08-25T07:35:03.523+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "completed_steps",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": true,
+          "$createdAt": "2025-08-25T07:35:05.066+00:00",
+          "$updatedAt": "2025-08-25T07:35:05.087+00:00",
+          "size": 1000,
+          "default": null
+        },
+        {
+          "key": "remaining_steps",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": true,
+          "$createdAt": "2025-08-25T07:35:06.619+00:00",
+          "$updatedAt": "2025-08-25T07:35:06.638+00:00",
+          "size": 1000,
+          "default": null
+        },
+        {
+          "key": "progress_percentage",
+          "type": "integer",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:08.134+00:00",
+          "$updatedAt": "2025-08-25T07:35:08.154+00:00",
+          "min": 0,
+          "max": 100,
+          "default": null
+        },
+        {
+          "key": "estimated_delivery",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:09.664+00:00",
+          "$updatedAt": "2025-08-25T07:35:09.683+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "last_update",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:11.202+00:00",
+          "$updatedAt": "2025-08-25T07:35:11.221+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "next_milestone",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:12.741+00:00",
+          "$updatedAt": "2025-08-25T07:35:12.762+00:00",
+          "size": 200,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:19.623+00:00",
+          "$updatedAt": "2025-08-25T07:35:19.645+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:21.178+00:00",
+          "$updatedAt": "2025-08-25T07:35:21.201+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 11
+    },
+    "support_tickets": {
+      "name": "Support Tickets",
+      "id": "support_tickets",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:30.374+00:00",
+          "$updatedAt": "2025-08-25T07:35:30.395+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:32.122+00:00",
+          "$updatedAt": "2025-08-25T07:35:32.151+00:00",
+          "size": 30,
+          "default": null
+        },
+        {
+          "key": "order_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:33.924+00:00",
+          "$updatedAt": "2025-08-25T07:35:33.943+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "transaction_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:35.500+00:00",
+          "$updatedAt": "2025-08-25T07:35:35.519+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "description",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:37.992+00:00",
+          "$updatedAt": "2025-08-25T07:35:38.011+00:00",
+          "size": 2000,
+          "default": null
+        },
+        {
+          "key": "priority",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:39.567+00:00",
+          "$updatedAt": "2025-08-25T07:35:39.586+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:41.114+00:00",
+          "$updatedAt": "2025-08-25T07:35:41.132+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "attachments",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:42.599+00:00",
+          "$updatedAt": "2025-08-25T07:35:42.618+00:00",
+          "size": 2000,
+          "default": null
+        },
+        {
+          "key": "contact_preference",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:44.184+00:00",
+          "$updatedAt": "2025-08-25T07:35:44.204+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "user_agent",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:45.723+00:00",
+          "$updatedAt": "2025-08-25T07:35:45.740+00:00",
+          "size": 500,
+          "default": null
+        },
+        {
+          "key": "ip_address",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:47.249+00:00",
+          "$updatedAt": "2025-08-25T07:35:47.270+00:00",
+          "size": 45,
+          "default": null
+        },
+        {
+          "key": "estimated_resolution",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:48.754+00:00",
+          "$updatedAt": "2025-08-25T07:35:48.774+00:00",
+          "size": 100,
+          "default": null
+        },
+        {
+          "key": "assigned_to",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:50.237+00:00",
+          "$updatedAt": "2025-08-25T07:35:50.257+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "messages",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:51.798+00:00",
+          "$updatedAt": "2025-08-25T07:35:51.815+00:00",
+          "size": 10000,
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:53.300+00:00",
+          "$updatedAt": "2025-08-25T07:35:53.320+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "updated_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:35:54.853+00:00",
+          "$updatedAt": "2025-08-25T07:35:54.876+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 16
+    },
+    "notifications": {
+      "name": "Notifications",
+      "id": "notifications",
+      "attributes": [
+        {
+          "key": "user_id",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:08.777+00:00",
+          "$updatedAt": "2025-08-25T07:36:08.801+00:00",
+          "size": 36,
+          "default": null
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:10.345+00:00",
+          "$updatedAt": "2025-08-25T07:36:10.362+00:00",
+          "size": 50,
+          "default": null
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:12.000+00:00",
+          "$updatedAt": "2025-08-25T07:36:12.017+00:00",
+          "size": 200,
+          "default": null
+        },
+        {
+          "key": "message",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:13.561+00:00",
+          "$updatedAt": "2025-08-25T07:36:13.583+00:00",
+          "size": 1000,
+          "default": null
+        },
+        {
+          "key": "priority",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:15.106+00:00",
+          "$updatedAt": "2025-08-25T07:36:15.128+00:00",
+          "size": 20,
+          "default": null
+        },
+        {
+          "key": "channels",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": true,
+          "$createdAt": "2025-08-25T07:36:16.654+00:00",
+          "$updatedAt": "2025-08-25T07:36:16.679+00:00",
+          "size": 200,
+          "default": null
+        },
+        {
+          "key": "sent_channels",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": true,
+          "$createdAt": "2025-08-25T07:36:18.151+00:00",
+          "$updatedAt": "2025-08-25T07:36:18.169+00:00",
+          "size": 200,
+          "default": null
+        },
+        {
+          "key": "failed_channels",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": true,
+          "$createdAt": "2025-08-25T07:36:19.722+00:00",
+          "$updatedAt": "2025-08-25T07:36:19.741+00:00",
+          "size": 200,
+          "default": null
+        },
+        {
+          "key": "metadata",
+          "type": "string",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:21.324+00:00",
+          "$updatedAt": "2025-08-25T07:36:21.346+00:00",
+          "size": 2000,
+          "default": null
+        },
+        {
+          "key": "is_read",
+          "type": "boolean",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:22.839+00:00",
+          "$updatedAt": "2025-08-25T07:36:22.857+00:00",
+          "default": null
+        },
+        {
+          "key": "read_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": false,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:24.706+00:00",
+          "$updatedAt": "2025-08-25T07:36:24.731+00:00",
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "created_at",
+          "type": "datetime",
+          "status": "available",
+          "error": "",
+          "required": true,
+          "array": false,
+          "$createdAt": "2025-08-25T07:36:26.278+00:00",
+          "$updatedAt": "2025-08-25T07:36:26.301+00:00",
+          "format": "",
+          "default": null
+        }
+      ],
+      "attributeCount": 12
+    }
+  },
+  "duplicates": [],
+  "conflicts": [
+    {
+      "collection": "profiles",
+      "collectionName": "profiles",
+      "conflicts": [
+        {
+          "snake_case": "user_id",
+          "camelCase": "userId",
+          "recommendation": "Keep camelCase version for consistency"
+        },
+        {
+          "snake_case": "created_at",
+          "camelCase": "createdAt",
+          "recommendation": "Keep camelCase version for consistency"
+        },
+        {
+          "snake_case": "updated_at",
+          "camelCase": "updatedAt",
+          "recommendation": "Keep camelCase version for consistency"
+        }
+      ]
+    },
+    {
+      "collection": "wallets",
+      "collectionName": "wallets",
+      "conflicts": [
+        {
+          "snake_case": "user_id",
+          "camelCase": "userId",
+          "recommendation": "Keep camelCase version for consistency"
+        },
+        {
+          "snake_case": "created_at",
+          "camelCase": "createdAt",
+          "recommendation": "Keep camelCase version for consistency"
+        },
+        {
+          "snake_case": "updated_at",
+          "camelCase": "updatedAt",
+          "recommendation": "Keep camelCase version for consistency"
+        }
+      ]
+    },
+    {
+      "collection": "transactions",
+      "collectionName": "transactions",
+      "conflicts": [
+        {
+          "snake_case": "user_id",
+          "camelCase": "userId",
+          "recommendation": "Keep camelCase version for consistency"
+        },
+        {
+          "snake_case": "wallet_id",
+          "camelCase": "walletId",
+          "recommendation": "Keep camelCase version for consistency"
+        },
+        {
+          "snake_case": "created_at",
+          "camelCase": "createdAt",
+          "recommendation": "Keep camelCase version for consistency"
+        }
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "REMOVE_COLLECTIONS",
+      "message": "Consider removing 15 unused collections from Appwrite",
+      "details": [
+        "user_roles (user_roles)",
+        "payment_transactions (payment_transactions)",
+        "email_logs (email_logs)",
+        "email_verification_logs (email_verification_logs)",
+        "site_config (site_config)",
+        "email_verifications (email_verifications)",
+        "689ef51d7e33bc965362 (receipts)",
+        "wallet_adjustments (wallet_adjustments)",
+        "wizard_orders (wizard_orders)",
+        "domain_extensions (domain_extensions)",
+        "project_files (project_files)",
+        "password_resets (Password Resets)",
+        "enhanced_orders (Enhanced Orders)",
+        "enhanced_wallet_transactions (Enhanced Wallet Transactions)",
+        "order_progress (Order Progress)"
+      ]
+    },
+    {
+      "priority": "HIGH",
+      "action": "CREATE_COLLECTIONS",
+      "message": "Create 1 missing collections in Appwrite",
+      "details": [
+        "orders (Orders)"
+      ]
+    },
+    {
+      "priority": "MEDIUM",
+      "action": "RESOLVE_CONFLICTS",
+      "message": "Resolve 3 naming convention conflicts",
+      "details": [
+        "profiles: 3 conflicts",
+        "wallets: 3 conflicts",
+        "transactions: 3 conflicts"
+      ]
+    }
+  ],
+  "codebaseCollections": {
+    "orders": {
+      "name": "Orders",
+      "description": "Main orders collection used by wizard service",
+      "required": true
+    },
+    "invoices": {
+      "name": "Invoices",
+      "description": "Invoice management system",
+      "required": true
+    },
+    "receipts": {
+      "name": "Receipts",
+      "description": "Digital receipt generation",
+      "required": true
+    },
+    "wallets": {
+      "name": "Wallets",
+      "description": "User wallet balances",
+      "required": true
+    },
+    "transactions": {
+      "name": "Transactions",
+      "description": "Wallet transaction history",
+      "required": true
+    },
+    "profiles": {
+      "name": "Profiles",
+      "description": "User profile information",
+      "required": true
+    },
+    "support_tickets": {
+      "name": "Support Tickets",
+      "description": "Customer support system",
+      "required": true
+    },
+    "notifications": {
+      "name": "Notifications",
+      "description": "User notification system",
+      "required": true
+    }
+  }
+}

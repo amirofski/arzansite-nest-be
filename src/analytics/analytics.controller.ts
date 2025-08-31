@@ -17,42 +17,63 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('orders')
+  @UseGuards(JwtGuard)
   async getUserOrderAnalytics(
-    @User() user: UserPayload,
-    @Query('period') period: '7d' | '30d' | '90d' | '1y' | 'all' = '30d',
-    @Query('group_by') groupBy: 'day' | 'week' | 'month' = 'month'
+    @User() user: any,
+    @Query('period') period: string = '30d',
+    @Query('groupBy') groupBy: string = 'day'
   ) {
-    return this.analyticsService.getUserOrderAnalytics(user.id, period, groupBy);
+    return this.analyticsService.getUserOrderAnalytics(
+      user.id,
+      period,
+      groupBy
+    );
   }
 
-  @Get('wallet/transactions')
+  @Get('wallet-transactions')
+  @UseGuards(JwtGuard)
   async getWalletTransactionAnalytics(
-    @User() user: UserPayload,
-    @Query('period') period: '7d' | '30d' | '90d' | '1y' | 'all' = '30d',
+    @User() user: any,
+    @Query('period') period: string = '30d',
     @Query('type') type?: string
   ) {
-    return this.analyticsService.getWalletTransactionAnalytics(user.id, period, type);
+    return this.analyticsService.getWalletTransactionAnalytics(
+      user.id,
+      period,
+      type
+    );
   }
 
-  @Get('user/behavior')
+  @Get('user-behavior')
+  @UseGuards(JwtGuard)
   async getUserBehaviorAnalytics(
-    @User() user: UserPayload,
-    @Query('period') period: '7d' | '30d' | '90d' | '1y' | 'all' = '30d'
+    @User() user: any,
+    @Query('period') period: string = '30d'
   ) {
-    return this.analyticsService.getUserBehaviorAnalytics(user.id, period);
+    return this.analyticsService.getUserBehaviorAnalytics(
+      user.id,
+      period
+    );
   }
 
   @Get('revenue')
+  @UseGuards(JwtGuard)
   async getRevenueAnalytics(
-    @User() user: UserPayload,
-    @Query('period') period: '7d' | '30d' | '90d' | '1y' | 'all' = '30d'
+    @User() user: any,
+    @Query('period') period: string = '30d'
   ) {
-    return this.analyticsService.getRevenueAnalytics(user.id, period);
+    return this.analyticsService.getRevenueAnalytics(
+      user.id,
+      period
+    );
   }
 
   @Get('dashboard')
-  async getDashboardAnalytics(@User() user: UserPayload) {
-    return this.analyticsService.getDashboardAnalytics(user.id);
+  @UseGuards(JwtGuard)
+  async getDashboardAnalytics(@User() user: any) {
+    return this.analyticsService.getDashboardAnalytics(
+      user.id
+    );
   }
 
   @Get('export')

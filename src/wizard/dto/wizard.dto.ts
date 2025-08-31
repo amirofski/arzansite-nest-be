@@ -470,3 +470,31 @@ export class GetDesignDto {
   @IsString()
   orderId: string;
 }
+
+export class OrderResponseDto {
+  success: boolean;
+  orderId: string;
+  invoiceId: string;
+  message: string;
+  order: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    status: string;
+    user_id: string;
+    created_at: string;
+    updated_at: string;
+  };
+  invoice: {
+    id: string;
+    orderId: string;
+    userId: string;
+    amount: number;
+    dueDate: string;
+    status: string;
+    description: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}

@@ -137,15 +137,7 @@ export class StorageController {
             size: uploaded.sizeOriginal,
             created_at: now,
             updated_at: now,
-            // camelCase mirrors for legacy schemas
-            fileId: uploaded.$id,
-            userId: userId || null,
-            orderId: orderId || null,
-            bucketId: uploaded.bucketId,
-            originalName: uploaded.name,
-            mimeType: uploaded.mimeType,
-            createdAt: now,
-            updatedAt: now,
+
           } as any,
           permissions,
         );
@@ -156,12 +148,12 @@ export class StorageController {
 
       return {
         success: true,
-        fileId: uploaded.$id,
+        file_id: uploaded.$id,
         name: uploaded.name,
-        bucketId: uploaded.bucketId,
+        bucket_id: uploaded.bucketId,
         permissions,
-        orderId: orderId || null,
-        userId: userId || null,
+        order_id: orderId || null,
+        user_id: userId || null,
       } as any;
     } finally {
       try { fs.unlinkSync(tmp); } catch (_) {}
@@ -190,9 +182,9 @@ export class StorageController {
     const file = await this.appwriteService.getFile(bucketId, fileId);
     return {
       $id: file.$id,
-      bucketId: file.bucketId,
+      bucket_id: file.bucketId,
       name: file.name,
-      mimeType: file.mimeType,
+      mime_type: file.mimeType,
       $createdAt: file.$createdAt,
       $updatedAt: file.$updatedAt,
       $permissions: file.$permissions,
@@ -252,9 +244,9 @@ export class StorageController {
       total: response.total,
       files: response.files.map(file => ({
         $id: file.$id,
-        bucketId: file.bucketId,
+        bucket_id: file.bucketId,
         name: file.name,
-        mimeType: file.mimeType,
+        mime_type: file.mimeType,
         $createdAt: file.$createdAt,
         $updatedAt: file.$updatedAt,
         $permissions: file.$permissions,
@@ -286,7 +278,7 @@ export class StorageController {
     
     return {
       url,
-      fileId,
+      file_id: fileId,
     };
   }
 }

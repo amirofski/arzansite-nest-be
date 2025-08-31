@@ -252,7 +252,7 @@ export class SupportService {
     };
   }> {
     try {
-      const queries = [Query.equal('userId', userId)];
+      const queries = [Query.equal('user_id', userId)];
       
       if (status) {
         queries.push(Query.equal('status', status));
@@ -387,7 +387,7 @@ export class SupportService {
 
   private async getTotalTicketCount(userId: string, status?: string): Promise<number> {
     try {
-      const queries = [Query.equal('userId', userId)];
+      const queries = [Query.equal('user_id', userId)];
       
       if (status) {
         queries.push(Query.equal('status', status));
@@ -411,7 +411,7 @@ export class SupportService {
   private mapAppwriteDocumentToTicket(doc: any): SupportTicket {
     return {
       id: doc.$id,
-      userId: doc.userId,
+      userId: doc.user_id,
       type: doc.type,
       orderId: doc.orderId,
       transactionId: doc.transactionId,

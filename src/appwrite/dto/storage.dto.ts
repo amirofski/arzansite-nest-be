@@ -13,13 +13,13 @@ export class FileResponseDto {
   $id: string;
 
   @ApiProperty({ description: 'Bucket ID' })
-  bucketId: string;
+  bucket_id: string;
 
   @ApiProperty({ description: 'File name' })
   name: string;
 
   @ApiProperty({ description: 'File MIME type' })
-  mimeType: string;
+  mime_type: string;
 
   @ApiProperty({ description: 'File creation date' })
   $createdAt: string;
@@ -44,5 +44,5 @@ export class FileUrlResponseDto {
   url: string;
 
   @ApiProperty({ description: 'File ID' })
-  fileId: string;
+  file_id: string;
 }

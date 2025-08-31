@@ -39,6 +39,7 @@ import {
   DomainAvailabilityDto,
   DomainPriceDto,
   SaveDesignDto,
+  OrderResponseDto,
 } from './dto/wizard.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -104,12 +105,16 @@ export class WizardController {
   @Post('complete-order')
   @UsePipes(new WizardValidationPipe()) // Use custom validation pipe that doesn't strip user_id
   @ApiOperation({ summary: 'Complete Wizard Order' })
-  @ApiResponse({ status: 201, description: 'Order completed successfully', type: WizardOrderDto })
+  @ApiResponse({ status: 201, description: 'Order completed successfully', type: OrderResponseDto })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  async completeOrder(@Body() completeOrderDto: CompleteOrderDto): Promise<WizardOrderDto> {
-    return this.wizardService.completeOrder(completeOrderDto);
+  async completeOrder(
+    @Body() completeOrderDto: CompleteOrderDto,
+    @Request() req: any,
+  ): Promise<OrderResponseDto> {
+    const user_id = req.user?.user_id || req.user?.userId || req.user?.id;
+    return this.wizardService.completeOrder(completeOrderDto, user_id);
   }
 
   @Put('orders/:orderId')

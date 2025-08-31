@@ -17,6 +17,7 @@ import {
   PaymentCycle,
   SaveDesignDto,
   OrderDto,
+  OrderResponseDto,
 } from './dto/wizard.dto';
 
 @Injectable()
@@ -140,22 +141,25 @@ export class WizardService {
     return (result.documents as any) || [];
   }
 
-  async completeOrder(completeOrderDto: CompleteOrderDto): Promise<any> {
+  async completeOrder(completeOrderDto: CompleteOrderDto, user_id: string): Promise<OrderResponseDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    const { ID } = await import('node-appwrite');
 
     try {
-      // 1. Convert price from Tomans to Rials (1 Toman = 10 Rials)
-      const priceRials = Math.round(completeOrderDto.order.priceTomans * 10);
+      // 1. Calculate total price from design snapshot
+      const designSnapshot = completeOrderDto.designSnapshot;
+      const pricing = designSnapshot.pricing as any;
+      const priceRials = pricing.totalPrice || 0;
 
       // 2. Create the order with pending status
-      // Map user_id from multiple possible sources: order.user_id, order.userId, top-level userId, or sessionId
-      const user_id = completeOrderDto.order?.user_id || 
-                     completeOrderDto.order?.userId || 
-                     completeOrderDto.userId || 
-                     completeOrderDto.sessionId;
+      // Map user_id from order.user_id, order.userId, or top-level userId
+      const mapped_user_id = completeOrderDto.order?.user_id || 
+                            completeOrderDto.order?.userId || 
+                            completeOrderDto.userId || 
+                            user_id;
       
       // Debug logging to see what we're getting
       console.log('Debug - completeOrderDto:', {
@@ -163,37 +167,36 @@ export class WizardService {
         order_userId: completeOrderDto.order?.userId,
         top_level_userId: completeOrderDto.userId,
         sessionId: completeOrderDto.sessionId,
-        mapped_user_id: user_id
+        mapped_user_id: mapped_user_id
       });
-      
-      if (!user_id) {
-        throw new BadRequestException('user_id is required but could not be determined from the request');
-      }
-      
-                     // Create orderData with ONLY allowed attributes for the Appwrite orders collection
-        // Based on the schema, the collection expects camelCase fields
-        const orderData = {
-          user_id: user_id, // Required field - database expects userId (camelCase)
-          orderNumber: this.generateOrderNumber(), // Required field - database expects orderNumber
-          title: completeOrderDto.order.title, // Required field
-          description: completeOrderDto.order.description, // Optional field
-          totalAmount: priceRials, // Required field - database expects totalAmount (camelCase)
-          currency: 'IRR', // Required field - database expects currency (camelCase)
-          status: 'pending', // Required field
-          payment_status: 'pending', // Required field
-          createdAt: new Date().toISOString(), // Required field - database expects createdAt (camelCase)
-          updatedAt: new Date().toISOString(), // Required field - database expects updatedAt (camelCase)
-          // Only include additional fields if they exist in the order object
-          ...(completeOrderDto.order.comments && { comments: completeOrderDto.order.comments }),
-          ...(completeOrderDto.order.siteType && { siteType: completeOrderDto.order.siteType }),
-        };
-      
-             // Debug logging to see what we're sending to Appwrite
-       console.log('Debug - orderData being sent to Appwrite:', orderData);
-       
-       // Note: designSnapshot is NOT sent to the orders collection
-       // It should be saved separately in a designs collection or uploaded to storage
 
+      // Create orderData with ONLY allowed attributes for the Appwrite orders collection
+      // Based on the schema, the collection expects snake_case fields
+      const orderData = {
+        user_id: mapped_user_id, // Required field - database expects user_id (snake_case)
+        orderNumber: this.generateOrderNumber(), // Required field - database expects orderNumber
+        title: completeOrderDto.order.title, // Required field
+        description: completeOrderDto.order.description, // Required field
+        totalAmount: priceRials, // Required field - database expects totalAmount (camelCase)
+        currency: 'IRR', // Required field - database expects currency
+        status: 'pending', // Required field - database expects status
+        payment_status: 'pending', // Required field - database expects payment_status
+        comments: completeOrderDto.order.comments, // Optional field
+        sessionId: completeOrderDto.sessionId, // Optional field
+        siteType: completeOrderDto.order.siteType, // Optional field
+        branding: JSON.stringify(designSnapshot.branding || {}), // Optional field
+        payment_gateway: 'zarinpal', // Optional field
+        zarinpal_authority: '', // Optional field
+        zarinpal_ref_id: '', // Optional field
+        wizardData: JSON.stringify(designSnapshot), // Optional field
+        createdAt: new Date().toISOString(), // Required field - database expects createdAt (camelCase)
+        updatedAt: new Date().toISOString(), // Required field - database expects updatedAt (camelCase)
+      };
+
+      console.log('Debug - orderData being sent to Appwrite:', orderData);
+
+      // Note: designSnapshot is NOT sent to the orders collection
+      // It should be saved separately in a designs collection or uploaded to storage
       const orderDoc = await databases.createDocument(
         databaseId,
         ordersCollection,
@@ -203,14 +206,14 @@ export class WizardService {
 
       // 3. Create invoice for the order
       const invoiceData = {
-        orderId: orderDoc.$id,
-        userId: user_id, // Use the same mapped user_id
+        order_id: orderDoc.$id,
+        user_id: mapped_user_id, // Use the same mapped user_id
         amount: priceRials,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         status: 'pending',
         description: `Invoice for ${completeOrderDto.order.title}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       const invoiceDoc = await databases.createDocument(
@@ -220,36 +223,63 @@ export class WizardService {
         invoiceData
       );
 
-      // 4. Generate preview URL (async - we'll set a placeholder for now)
-      const previewUrl = await this.generatePreviewUrl(orderDoc.$id, completeOrderDto.designSnapshot);
+      // 4. Update wizard order with completed status
+      const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+      const { Query } = await import('node-appwrite');
+      
+      const existingWizardOrder = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+        Query.equal('sessionId', completeOrderDto.sessionId),
+        Query.limit(1),
+      ]);
 
-      // 5. Send confirmation emails (async)
-      this.sendOrderConfirmationEmails(orderDoc, invoiceDoc, completeOrderDto).catch(error => {
-        console.error('Failed to send confirmation emails:', error);
-      });
+      if (existingWizardOrder.documents.length > 0) {
+        const updated = await databases.updateDocument(
+          databaseId,
+          wizardOrdersCollection,
+          existingWizardOrder.documents[0].$id,
+          {
+            status: 'completed',
+            completedAt: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+        );
+      }
 
-              // 6. Return the created order with all necessary data
-        return {
-          success: true,
-          data: {
-            id: orderDoc.$id,
-            status: orderDoc.status,
-            payment_status: orderDoc.payment_status,
-            preview_url: previewUrl,
-            invoice_id: invoiceDoc.$id,
-            amount: orderDoc.price,
-            title: orderDoc.title,
-            description: orderDoc.description,
-            created_at: orderDoc.created_at,
-            updated_at: orderDoc.updated_at,
-          },
-          message: 'Order completed successfully',
-          timestamp: new Date().toISOString(),
-        };
+      // 5. Send confirmation emails
+      await this.sendOrderConfirmationEmails(orderDoc, invoiceDoc, completeOrderDto);
+
+      // 6. Return success response
+      return {
+        success: true,
+        orderId: orderDoc.$id,
+        invoiceId: invoiceDoc.$id,
+        message: 'Order completed successfully',
+        order: {
+          id: orderDoc.$id,
+          title: orderDoc.title,
+          description: orderDoc.description,
+          price: orderDoc.totalAmount,
+          status: orderDoc.status,
+          user_id: orderDoc.user_id,
+          created_at: orderDoc.createdAt,
+          updated_at: orderDoc.updatedAt,
+        },
+        invoice: {
+          id: invoiceDoc.$id,
+          orderId: invoiceDoc.order_id,
+          userId: invoiceDoc.user_id,
+          amount: invoiceDoc.amount,
+          dueDate: invoiceDoc.due_date,
+          status: invoiceDoc.status,
+          description: invoiceDoc.description,
+          createdAt: invoiceDoc.created_at,
+          updatedAt: invoiceDoc.updated_at,
+        },
+      };
 
     } catch (error) {
       console.error('Error completing order:', error);
-      throw new BadRequestException(`Failed to complete order: ${error.message}`);
+      throw new Error(`Failed to complete order: ${error.message}`);
     }
   }
 
@@ -673,30 +703,29 @@ export class WizardService {
   private async sendOrderConfirmationEmails(orderDoc: any, invoiceDoc: any, completeOrderDto: CompleteOrderDto): Promise<void> {
     try {
       // Map user_id from multiple possible sources (same logic as in completeOrder)
-      const user_id = completeOrderDto.order?.user_id || 
-                     completeOrderDto.order?.userId || 
-                     completeOrderDto.userId || 
-                     completeOrderDto.sessionId;
+      const mapped_user_id = completeOrderDto.order?.user_id || 
+                            completeOrderDto.order?.userId || 
+                            completeOrderDto.userId || 
+                            completeOrderDto.sessionId;
 
       // Send order confirmation to user
       await this.emailService.sendOrderNotification(
-        user_id, // Use mapped user_id
+        mapped_user_id, // Use mapped user_id
         {
           orderId: orderDoc.$id,
           title: orderDoc.title,
-          amount: orderDoc.price,
+          amount: orderDoc.totalAmount,
           status: orderDoc.status,
         }
       );
 
       // Send invoice notification
       await this.emailService.sendInvoiceCreatedEmail(
-        user_id, // Use mapped user_id
+        mapped_user_id, // Use mapped user_id
         invoiceDoc.$id,
         invoiceDoc.amount
       );
 
-      // TODO: Send admin notification
       console.log('Order confirmation emails sent successfully');
     } catch (error) {
       console.error('Failed to send confirmation emails:', error);

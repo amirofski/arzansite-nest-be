@@ -205,7 +205,7 @@ export class AuthService {
         databaseId,
         collectionId,
         [
-          Query.equal('userId', userId),
+          Query.equal('user_id', userId),
           Query.equal('token', token)
         ]
       );
@@ -251,7 +251,7 @@ export class AuthService {
         databaseId,
         collectionId,
         [
-          Query.equal('userId', userId),
+          Query.equal('user_id', userId),
           Query.equal('token', token)
         ]
       );
@@ -706,10 +706,10 @@ export class AuthService {
         const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
           databaseId,
           collectionId,
-          [
-            Query.equal('userId', userId),
-            Query.equal('used', true)
-          ]
+                  [
+          Query.equal('user_id', userId),
+          Query.equal('used', true)
+        ]
         );
 
         const hasTokens = tokenDocs.documents.length > 0;
