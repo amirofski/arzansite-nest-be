@@ -157,21 +157,28 @@ export class WizardService {
         throw new BadRequestException('user_id is required but could not be determined from the request');
       }
       
-                     // Create orderData with fields that match the actual Appwrite orders collection schema
+                     // Create orderData with ONLY allowed attributes for the Appwrite orders collection
+        // Based on the error message, the database expects camelCase fields
         const orderData = {
-          user_id: user_id, // Required field - database expects user_id (snake_case)
+          userId: user_id, // Required field - database expects userId (camelCase)
           title: completeOrderDto.order.title, // Required field
           description: completeOrderDto.order.description, // Optional field
           price: priceRials, // Required field
           status: 'pending', // Required field
           payment_status: 'pending', // Required field
           sessionId: completeOrderDto.sessionId, // Additional field for wizard tracking
-          created_at: new Date().toISOString(), // Required field - database expects created_at (snake_case)
-          updated_at: new Date().toISOString(), // Required field - database expects updated_at (snake_case)
+          createdAt: new Date().toISOString(), // Required field - database expects createdAt (camelCase)
+          updatedAt: new Date().toISOString(), // Required field - database expects updatedAt (camelCase)
+          // Only include additional fields if they exist in the order object
+          ...(completeOrderDto.order.comments && { comments: completeOrderDto.order.comments }),
+          ...(completeOrderDto.order.siteType && { site_type: completeOrderDto.order.siteType }),
         };
       
-      // Debug logging to see what we're sending to Appwrite
-      console.log('Debug - orderData being sent to Appwrite:', orderData);
+             // Debug logging to see what we're sending to Appwrite
+       console.log('Debug - orderData being sent to Appwrite:', orderData);
+       
+       // Note: designSnapshot is NOT sent to the orders collection
+       // It should be saved separately in a designs collection or uploaded to storage
 
       const orderDoc = await databases.createDocument(
         databaseId,
@@ -219,8 +226,8 @@ export class WizardService {
             amount: orderDoc.price,
             title: orderDoc.title,
             description: orderDoc.description,
-            created_at: orderDoc.created_at,
-            updated_at: orderDoc.updated_at,
+            created_at: orderDoc.createdAt,
+            updated_at: orderDoc.updatedAt,
             sessionId: orderDoc.sessionId,
           },
           message: 'Order completed successfully',
