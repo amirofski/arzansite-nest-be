@@ -168,7 +168,7 @@ export class WizardService {
         sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
-        wizardData: JSON.stringify(completeOrderDto.designSnapshot), // Store the entire design as JSON string
+        design_snapshot: JSON.stringify(completeOrderDto.designSnapshot), // Store the entire design as JSON string
         total_pages: this.extractPageCount(completeOrderDto.designSnapshot),
         total_sections: this.extractSectionCount(completeOrderDto.designSnapshot),
         orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique order number
