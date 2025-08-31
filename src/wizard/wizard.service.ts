@@ -157,28 +157,21 @@ export class WizardService {
         throw new BadRequestException('user_id is required but could not be determined from the request');
       }
       
-      const orderData = {
-        title: completeOrderDto.order.title,
-        description: completeOrderDto.order.description,
-        price: priceRials,
-        status: 'pending',
-        payment_status: 'pending',
-        userId: user_id, // Use mapped user_id
-        user_id: user_id, // Also set user_id for compatibility
-        sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
-        siteType: completeOrderDto.order.siteType || 'personal',
-        comments: completeOrderDto.order.comments,
-        design_snapshot: JSON.stringify(completeOrderDto.designSnapshot), // Store the entire design as JSON string
-        total_pages: this.extractPageCount(completeOrderDto.designSnapshot),
-        total_sections: this.extractSectionCount(completeOrderDto.designSnapshot),
-        orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique order number
-        totalAmount: priceRials,
-        currency: 'IRR',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        createdAt: new Date().toISOString(), // Also set createdAt for compatibility
-        updatedAt: new Date().toISOString(), // Also set updatedAt for compatibility
-      };
+                     // Create minimal orderData with only fields that exist in Appwrite collection
+        const orderData = {
+          user_id: user_id, // Required field
+          title: completeOrderDto.order.title, // Required field
+          description: completeOrderDto.order.description, // Optional field
+          price: priceRials, // Required field
+          status: 'pending', // Required field
+          payment_status: 'pending', // Required field
+          // Only include optional fields if they exist in the collection
+          // sessionId: completeOrderDto.sessionId, // Commented out - may not exist
+          // siteType: completeOrderDto.order.siteType || 'personal', // Commented out - may not exist
+          // comments: completeOrderDto.order.comments, // Commented out - may not exist
+          created_at: new Date().toISOString(), // Required field
+          updated_at: new Date().toISOString(), // Required field
+        };
       
       // Debug logging to see what we're sending to Appwrite
       console.log('Debug - orderData being sent to Appwrite:', orderData);
