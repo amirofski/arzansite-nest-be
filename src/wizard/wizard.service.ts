@@ -157,17 +157,17 @@ export class WizardService {
         throw new BadRequestException('user_id is required but could not be determined from the request');
       }
       
-                     // Create orderData with fields that match the actual Appwrite orders collection schema
+                     // Create orderData with fields that match the updated Appwrite orders collection schema
         const orderData = {
-          user_id: user_id, // Required field - database expects user_id, not userId
+          userId: user_id, // Required field - database now expects userId (camelCase)
           title: completeOrderDto.order.title, // Required field
           description: completeOrderDto.order.description, // Optional field
-          price: priceRials, // Required field - database expects price, not totalAmount
+          price: priceRials, // Required field
           status: 'pending', // Required field
           payment_status: 'pending', // Required field
           sessionId: completeOrderDto.sessionId, // Additional field for wizard tracking
-          created_at: new Date().toISOString(), // Required field - database expects created_at, not createdAt
-          updated_at: new Date().toISOString(), // Required field - database expects updated_at, not updatedAt
+          createdAt: new Date().toISOString(), // Required field - database now expects createdAt (camelCase)
+          updatedAt: new Date().toISOString(), // Required field - database now expects updatedAt (camelCase)
         };
       
       // Debug logging to see what we're sending to Appwrite
@@ -219,8 +219,8 @@ export class WizardService {
             amount: orderDoc.price,
             title: orderDoc.title,
             description: orderDoc.description,
-            created_at: orderDoc.created_at,
-            updated_at: orderDoc.updated_at,
+            created_at: orderDoc.createdAt,
+            updated_at: orderDoc.updatedAt,
             sessionId: orderDoc.sessionId,
           },
           message: 'Order completed successfully',
