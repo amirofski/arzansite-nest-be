@@ -39,6 +39,19 @@ export class WizardService {
     annualDiscount: 0.15, // 15% discount for annual payments
   };
 
+  /**
+   * Generates a unique order number
+   * Format: ORD-YYYYMMDD-XXXXX (e.g., ORD-20250831-12345)
+   */
+  private generateOrderNumber(): string {
+    const now = new Date();
+    const dateStr = now.getFullYear().toString() + 
+                   (now.getMonth() + 1).toString().padStart(2, '0') + 
+                   now.getDate().toString().padStart(2, '0');
+    const randomNum = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    return `ORD-${dateStr}-${randomNum}`;
+  }
+
   constructor(
     private appwriteService: AppwriteService,
     private configService: ConfigService,
@@ -158,19 +171,21 @@ export class WizardService {
       }
       
                      // Create orderData with ONLY allowed attributes for the Appwrite orders collection
-        // Based on the error message, the database expects snake_case fields
+        // Based on the schema, the collection expects camelCase fields
         const orderData = {
-          user_id: user_id, // Required field - database expects user_id (snake_case)
+          user_Id: user_id, // Required field - database expects userId (camelCase)
+          orderNumber: this.generateOrderNumber(), // Required field - database expects orderNumber
           title: completeOrderDto.order.title, // Required field
           description: completeOrderDto.order.description, // Optional field
-          price: priceRials, // Required field
+          totalAmount: priceRials, // Required field - database expects totalAmount (camelCase)
+          currency: 'IRR', // Required field - database expects currency (camelCase)
           status: 'pending', // Required field
           payment_status: 'pending', // Required field
-          created_at: new Date().toISOString(), // Required field - database expects created_at (snake_case)
-          updated_at: new Date().toISOString(), // Required field - database expects updated_at (snake_case)
+          createdAt: new Date().toISOString(), // Required field - database expects createdAt (camelCase)
+          updatedAt: new Date().toISOString(), // Required field - database expects updatedAt (camelCase)
           // Only include additional fields if they exist in the order object
           ...(completeOrderDto.order.comments && { comments: completeOrderDto.order.comments }),
-          ...(completeOrderDto.order.siteType && { site_type: completeOrderDto.order.siteType }),
+          ...(completeOrderDto.order.siteType && { siteType: completeOrderDto.order.siteType }),
         };
       
              // Debug logging to see what we're sending to Appwrite
