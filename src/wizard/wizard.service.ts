@@ -158,17 +158,16 @@ export class WizardService {
       }
       
                      // Create orderData with ONLY allowed attributes for the Appwrite orders collection
-        // Based on the error message, the database expects camelCase fields
+        // Based on the error message, the database expects snake_case fields
         const orderData = {
-          userId: user_id, // Required field - database expects userId (camelCase)
+          user_id: user_id, // Required field - database expects user_id (snake_case)
           title: completeOrderDto.order.title, // Required field
           description: completeOrderDto.order.description, // Optional field
           price: priceRials, // Required field
           status: 'pending', // Required field
           payment_status: 'pending', // Required field
-          sessionId: completeOrderDto.sessionId, // Additional field for wizard tracking
-          createdAt: new Date().toISOString(), // Required field - database expects createdAt (camelCase)
-          updatedAt: new Date().toISOString(), // Required field - database expects updatedAt (camelCase)
+          created_at: new Date().toISOString(), // Required field - database expects created_at (snake_case)
+          updated_at: new Date().toISOString(), // Required field - database expects updated_at (snake_case)
           // Only include additional fields if they exist in the order object
           ...(completeOrderDto.order.comments && { comments: completeOrderDto.order.comments }),
           ...(completeOrderDto.order.siteType && { site_type: completeOrderDto.order.siteType }),
@@ -226,9 +225,8 @@ export class WizardService {
             amount: orderDoc.price,
             title: orderDoc.title,
             description: orderDoc.description,
-            created_at: orderDoc.createdAt,
-            updated_at: orderDoc.updatedAt,
-            sessionId: orderDoc.sessionId,
+            created_at: orderDoc.created_at,
+            updated_at: orderDoc.updated_at,
           },
           message: 'Order completed successfully',
           timestamp: new Date().toISOString(),
