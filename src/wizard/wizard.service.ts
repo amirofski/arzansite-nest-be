@@ -144,9 +144,13 @@ export class WizardService {
         price: priceRials,
         status: 'pending',
         payment_status: 'pending',
-        user_id: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
+        userId: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
+        sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
+        design_snapshot: completeOrderDto.designSnapshot, // Store the entire design as JSON
+        total_pages: this.extractPageCount(completeOrderDto.designSnapshot),
+        total_sections: this.extractSectionCount(completeOrderDto.designSnapshot),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
