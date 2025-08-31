@@ -319,7 +319,11 @@ export class OrderDto {
 
   @IsOptional()
   @IsString()
-  userId?: string;
+  userId?: string; // Added to allow userId inside the order object
+
+  @IsOptional()
+  @IsString()
+  user_id?: string; // Added to accept user_id from frontend
 }
 
 export class CompleteOrderDto {

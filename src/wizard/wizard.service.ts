@@ -138,14 +138,20 @@ export class WizardService {
       const priceRials = Math.round(completeOrderDto.order.priceTomans * 10);
 
       // 2. Create the order with pending status
+      // Map user_id from multiple possible sources: order.user_id, order.userId, top-level userId, or sessionId
+      const user_id = completeOrderDto.order?.user_id || 
+                     completeOrderDto.order?.userId || 
+                     completeOrderDto.userId || 
+                     completeOrderDto.sessionId;
+      
       const orderData = {
         title: completeOrderDto.order.title,
         description: completeOrderDto.order.description,
         price: priceRials,
         status: 'pending',
         payment_status: 'pending',
-        userId: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
-        user_id: completeOrderDto.userId || completeOrderDto.sessionId, // Also set user_id for compatibility
+        userId: user_id, // Use mapped user_id
+        user_id: user_id, // Also set user_id for compatibility
         sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
@@ -171,7 +177,7 @@ export class WizardService {
       // 3. Create invoice for the order
       const invoiceData = {
         orderId: orderDoc.$id,
-        userId: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
+        userId: user_id, // Use the same mapped user_id
         amount: priceRials,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         status: 'pending',
@@ -638,9 +644,15 @@ export class WizardService {
 
   private async sendOrderConfirmationEmails(orderDoc: any, invoiceDoc: any, completeOrderDto: CompleteOrderDto): Promise<void> {
     try {
+      // Map user_id from multiple possible sources (same logic as in completeOrder)
+      const user_id = completeOrderDto.order?.user_id || 
+                     completeOrderDto.order?.userId || 
+                     completeOrderDto.userId || 
+                     completeOrderDto.sessionId;
+
       // Send order confirmation to user
       await this.emailService.sendOrderNotification(
-        completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
+        user_id, // Use mapped user_id
         {
           orderId: orderDoc.$id,
           title: orderDoc.title,
@@ -651,7 +663,7 @@ export class WizardService {
 
       // Send invoice notification
       await this.emailService.sendInvoiceCreatedEmail(
-        completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
+        user_id, // Use mapped user_id
         invoiceDoc.$id,
         invoiceDoc.amount
       );
