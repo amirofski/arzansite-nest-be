@@ -157,20 +157,26 @@ export class WizardService {
         throw new BadRequestException('user_id is required but could not be determined from the request');
       }
       
-                     // Create minimal orderData with only fields that exist in Appwrite collection
+                     // Create orderData with fields that match the Appwrite orders collection schema
         const orderData = {
-          user_id: user_id, // Required field
-          title: completeOrderDto.order.title, // Required field
-          description: completeOrderDto.order.description, // Optional field
-          price: priceRials, // Required field
+          userId: user_id, // Required field - matches schema
+          orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Required field - generate unique order number
           status: 'pending', // Required field
-          payment_status: 'pending', // Required field
-          // Only include optional fields if they exist in the collection
-          // sessionId: completeOrderDto.sessionId, // Commented out - may not exist
-          // siteType: completeOrderDto.order.siteType || 'personal', // Commented out - may not exist
-          // comments: completeOrderDto.order.comments, // Commented out - may not exist
-          created_at: new Date().toISOString(), // Required field
-          updated_at: new Date().toISOString(), // Required field
+          totalAmount: priceRials, // Required field - matches schema
+          currency: 'IRR', // Required field - Iranian Rial
+          items: JSON.stringify([{ // Required field - store order details as JSON
+            title: completeOrderDto.order.title,
+            description: completeOrderDto.order.description,
+            type: 'website',
+            price: priceRials
+          }]),
+          createdAt: new Date().toISOString(), // Required field - matches schema
+          updatedAt: new Date().toISOString(), // Required field - matches schema
+          // Additional fields for wizard orders
+          title: completeOrderDto.order.title,
+          description: completeOrderDto.order.description,
+          payment_status: 'pending',
+          sessionId: completeOrderDto.sessionId
         };
       
       // Debug logging to see what we're sending to Appwrite
@@ -210,23 +216,26 @@ export class WizardService {
         console.error('Failed to send confirmation emails:', error);
       });
 
-      // 6. Return the created order with all necessary data
-      return {
-        success: true,
-        data: {
-          id: orderDoc.$id,
-          status: orderDoc.status,
-          payment_status: orderDoc.payment_status,
-          preview_url: previewUrl,
-          invoice_id: invoiceDoc.$id,
-          amount: priceRials,
-          title: orderDoc.title,
-          description: orderDoc.description,
-          created_at: orderDoc.created_at,
-        },
-        message: 'Order completed successfully',
-        timestamp: new Date().toISOString(),
-      };
+              // 6. Return the created order with all necessary data
+        return {
+          success: true,
+          data: {
+            id: orderDoc.$id,
+            orderNumber: orderDoc.orderNumber,
+            status: orderDoc.status,
+            payment_status: orderDoc.payment_status,
+            preview_url: previewUrl,
+            invoice_id: invoiceDoc.$id,
+            amount: orderDoc.totalAmount,
+            currency: orderDoc.currency,
+            title: orderDoc.title,
+            description: orderDoc.description,
+            created_at: orderDoc.createdAt,
+            updated_at: orderDoc.updatedAt,
+          },
+          message: 'Order completed successfully',
+          timestamp: new Date().toISOString(),
+        };
 
     } catch (error) {
       console.error('Error completing order:', error);
