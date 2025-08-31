@@ -145,14 +145,20 @@ export class WizardService {
         status: 'pending',
         payment_status: 'pending',
         userId: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
+        user_id: completeOrderDto.userId || completeOrderDto.sessionId, // Also set user_id for compatibility
         sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
         design_snapshot: completeOrderDto.designSnapshot, // Store the entire design as JSON
         total_pages: this.extractPageCount(completeOrderDto.designSnapshot),
         total_sections: this.extractSectionCount(completeOrderDto.designSnapshot),
+        orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique order number
+        totalAmount: priceRials,
+        currency: 'IRR',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(), // Also set createdAt for compatibility
+        updatedAt: new Date().toISOString(), // Also set updatedAt for compatibility
       };
 
       const orderDoc = await databases.createDocument(
