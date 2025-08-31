@@ -216,19 +216,26 @@ async function createAppwriteSchema() {
                 name: 'Orders',
                 permissions: ["read(\"any\")", "write(\"any\")"],
                 attributes: {
-                    userId: { type: 'string', required: true, size: 36 },
-                    orderNumber: { type: 'string', required: true, size: 50 },
+                    user_id: { type: 'string', required: true, size: 36 },
+                    title: { type: 'string', required: true, size: 255 },
+                    description: { type: 'string', required: false, size: 1000 },
+                    price: { type: 'integer', required: true },
                     status: { type: 'string', required: true, size: 20 },
-                    totalAmount: { type: 'float', required: true },
-                    currency: { type: 'string', required: true, size: 3 },
-                    items: { type: 'string', required: false, size: 1000 }, // JSON string
-                    createdAt: { type: 'datetime', required: true },
-                    updatedAt: { type: 'datetime', required: true }
+                    payment_status: { type: 'string', required: true, size: 20 },
+                    siteType: { type: 'string', required: false, size: 20 },
+                    comments: { type: 'string', required: false, size: 1000 },
+                    design_snapshot: { type: 'string', required: false, size: 10000 }, // JSON string
+                    design_preview_url: { type: 'string', required: false, size: 500 },
+                    total_pages: { type: 'integer', required: false },
+                    total_sections: { type: 'integer', required: false },
+                    sessionId: { type: 'string', required: false, size: 100 },
+                    created_at: { type: 'datetime', required: true },
+                    updated_at: { type: 'datetime', required: true }
                 },
                 indexes: {
                     'idx_user_orders': {
                         type: 'key',
-                        attributes: ['userId'],
+                        attributes: ['user_id'],
                         orders: ['ASC']
                     },
                     'idx_order_status': {
@@ -238,8 +245,39 @@ async function createAppwriteSchema() {
                     },
                     'idx_created_at': {
                         type: 'key',
-                        attributes: ['createdAt'],
+                        attributes: ['created_at'],
                         orders: ['DESC']
+                    }
+                }
+            },
+            invoices: {
+                name: 'Invoices',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    userId: { type: 'string', required: true, size: 36 },
+                    orderId: { type: 'string', required: true, size: 36 },
+                    amount: { type: 'integer', required: true },
+                    dueDate: { type: 'datetime', required: true },
+                    status: { type: 'string', required: true, size: 20 },
+                    description: { type: 'string', required: false, size: 500 },
+                    createdAt: { type: 'datetime', required: true },
+                    updatedAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_user_invoices': {
+                        type: 'key',
+                        attributes: ['userId'],
+                        orders: ['ASC']
+                    },
+                    'idx_order_invoices': {
+                        type: 'key',
+                        attributes: ['orderId'],
+                        orders: ['ASC']
+                    },
+                    'idx_invoice_status': {
+                        type: 'key',
+                        attributes: ['status'],
+                        orders: ['ASC']
                     }
                 }
             },
@@ -363,6 +401,37 @@ async function createAppwriteSchema() {
                     'idx_user_profile': {
                         type: 'key',
                         attributes: ['userId'],
+                        orders: ['ASC']
+                    }
+                }
+            },
+            domainExtensions: {
+                name: 'Domain Extensions',
+                permissions: ["read(\"any\")", "write(\"any\")"],
+                attributes: {
+                    extension: { type: 'string', required: true, size: 20 },
+                    name: { type: 'string', required: true, size: 100 },
+                    price: { type: 'integer', required: true },
+                    available: { type: 'boolean', required: true, default: true },
+                    category: { type: 'string', required: false, size: 50 },
+                    description: { type: 'string', required: false, size: 500 },
+                    createdAt: { type: 'datetime', required: true },
+                    updatedAt: { type: 'datetime', required: true }
+                },
+                indexes: {
+                    'idx_extension': {
+                        type: 'key',
+                        attributes: ['extension'],
+                        orders: ['ASC']
+                    },
+                    'idx_available': {
+                        type: 'key',
+                        attributes: ['available'],
+                        orders: ['ASC']
+                    },
+                    'idx_category': {
+                        type: 'key',
+                        attributes: ['category'],
                         orders: ['ASC']
                     }
                 }

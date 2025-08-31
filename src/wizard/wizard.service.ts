@@ -144,13 +144,9 @@ export class WizardService {
         price: priceRials,
         status: 'pending',
         payment_status: 'pending',
-        userId: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
-        sessionId: completeOrderDto.sessionId, // Also store sessionId for reference
+        user_id: completeOrderDto.userId || completeOrderDto.sessionId, // Use real userId if available, fallback to sessionId
         siteType: completeOrderDto.order.siteType || 'personal',
         comments: completeOrderDto.order.comments,
-        design_snapshot: completeOrderDto.designSnapshot, // Store the entire design as JSON
-        total_pages: this.extractPageCount(completeOrderDto.designSnapshot),
-        total_sections: this.extractSectionCount(completeOrderDto.designSnapshot),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -183,17 +179,6 @@ export class WizardService {
 
       // 4. Generate preview URL (async - we'll set a placeholder for now)
       const previewUrl = await this.generatePreviewUrl(orderDoc.$id, completeOrderDto.designSnapshot);
-      
-      // Update order with preview URL
-      await databases.updateDocument(
-        databaseId,
-        ordersCollection,
-        orderDoc.$id,
-        {
-          design_preview_url: previewUrl,
-          updated_at: new Date().toISOString(),
-        }
-      );
 
       // 5. Send confirmation emails (async)
       this.sendOrderConfirmationEmails(orderDoc, invoiceDoc, completeOrderDto).catch(error => {
