@@ -157,26 +157,17 @@ export class WizardService {
         throw new BadRequestException('user_id is required but could not be determined from the request');
       }
       
-                     // Create orderData with fields that match the Appwrite orders collection schema
+                     // Create orderData with fields that match the actual Appwrite orders collection schema
         const orderData = {
-          userId: user_id, // Required field - matches schema
-          orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Required field - generate unique order number
+          user_id: user_id, // Required field - database expects user_id, not userId
+          title: completeOrderDto.order.title, // Required field
+          description: completeOrderDto.order.description, // Optional field
+          price: priceRials, // Required field - database expects price, not totalAmount
           status: 'pending', // Required field
-          totalAmount: priceRials, // Required field - matches schema
-          currency: 'IRR', // Required field - Iranian Rial
-          items: JSON.stringify([{ // Required field - store order details as JSON
-            title: completeOrderDto.order.title,
-            description: completeOrderDto.order.description,
-            type: 'website',
-            price: priceRials
-          }]),
-          createdAt: new Date().toISOString(), // Required field - matches schema
-          updatedAt: new Date().toISOString(), // Required field - matches schema
-          // Additional fields for wizard orders
-          title: completeOrderDto.order.title,
-          description: completeOrderDto.order.description,
-          payment_status: 'pending',
-          sessionId: completeOrderDto.sessionId
+          payment_status: 'pending', // Required field
+          sessionId: completeOrderDto.sessionId, // Additional field for wizard tracking
+          created_at: new Date().toISOString(), // Required field - database expects created_at, not createdAt
+          updated_at: new Date().toISOString(), // Required field - database expects updated_at, not updatedAt
         };
       
       // Debug logging to see what we're sending to Appwrite
@@ -221,17 +212,16 @@ export class WizardService {
           success: true,
           data: {
             id: orderDoc.$id,
-            orderNumber: orderDoc.orderNumber,
             status: orderDoc.status,
             payment_status: orderDoc.payment_status,
             preview_url: previewUrl,
             invoice_id: invoiceDoc.$id,
-            amount: orderDoc.totalAmount,
-            currency: orderDoc.currency,
+            amount: orderDoc.price,
             title: orderDoc.title,
             description: orderDoc.description,
-            created_at: orderDoc.createdAt,
-            updated_at: orderDoc.updatedAt,
+            created_at: orderDoc.created_at,
+            updated_at: orderDoc.updated_at,
+            sessionId: orderDoc.sessionId,
           },
           message: 'Order completed successfully',
           timestamp: new Date().toISOString(),
