@@ -144,6 +144,19 @@ export class WizardService {
                      completeOrderDto.userId || 
                      completeOrderDto.sessionId;
       
+      // Debug logging to see what we're getting
+      console.log('Debug - completeOrderDto:', {
+        order_user_id: completeOrderDto.order?.user_id,
+        order_userId: completeOrderDto.order?.userId,
+        top_level_userId: completeOrderDto.userId,
+        sessionId: completeOrderDto.sessionId,
+        mapped_user_id: user_id
+      });
+      
+      if (!user_id) {
+        throw new BadRequestException('user_id is required but could not be determined from the request');
+      }
+      
       const orderData = {
         title: completeOrderDto.order.title,
         description: completeOrderDto.order.description,
@@ -166,6 +179,9 @@ export class WizardService {
         createdAt: new Date().toISOString(), // Also set createdAt for compatibility
         updatedAt: new Date().toISOString(), // Also set updatedAt for compatibility
       };
+      
+      // Debug logging to see what we're sending to Appwrite
+      console.log('Debug - orderData being sent to Appwrite:', orderData);
 
       const orderDoc = await databases.createDocument(
         databaseId,

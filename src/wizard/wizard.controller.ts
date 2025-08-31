@@ -13,6 +13,8 @@ import {
   Request,
   ParseIntPipe,
   ParseEnumPipe,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -42,6 +44,25 @@ import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/guards/roles.guard';
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
+import { ErrorInterceptor } from '../common/interceptors/error.interceptor';
+import { User } from '../common/decorators/user.decorator';
+import { UserPayload } from '../common/decorators/user.decorator';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+
+// Custom validation pipe that doesn't strip unknown properties
+class WizardValidationPipe extends ValidationPipe {
+  constructor() {
+    super({
+      whitelist: false, // Don't strip unknown properties
+      forbidNonWhitelisted: false,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      forbidUnknownValues: false,
+    });
+  }
+}
 
 @ApiTags('Wizard')
 @Controller('wizard')
@@ -81,6 +102,7 @@ export class WizardController {
   }
 
   @Post('complete-order')
+  @UsePipes(new WizardValidationPipe()) // Use custom validation pipe that doesn't strip user_id
   @ApiOperation({ summary: 'Complete Wizard Order' })
   @ApiResponse({ status: 201, description: 'Order completed successfully', type: WizardOrderDto })
   @ApiResponse({ status: 400, description: 'Bad request' })
