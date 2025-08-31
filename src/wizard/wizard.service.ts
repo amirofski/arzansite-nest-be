@@ -173,7 +173,7 @@ export class WizardService {
                      // Create orderData with ONLY allowed attributes for the Appwrite orders collection
         // Based on the schema, the collection expects camelCase fields
         const orderData = {
-          user_Id: user_id, // Required field - database expects userId (camelCase)
+          user_id: user_id, // Required field - database expects userId (camelCase)
           orderNumber: this.generateOrderNumber(), // Required field - database expects orderNumber
           title: completeOrderDto.order.title, // Required field
           description: completeOrderDto.order.description, // Optional field
