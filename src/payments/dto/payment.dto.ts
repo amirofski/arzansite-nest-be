@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 export class PaymentRequestDto {
   @IsOptional()
   @IsString()
-  orderId?: string;
+  order_id?: string;
 
   @IsNumber()
   @Type(() => Number)
@@ -15,7 +15,7 @@ export class PaymentRequestDto {
 
   @IsOptional()
   @IsString()
-  callbackUrl?: string;
+  callback_url?: string;
 
   @IsOptional()
   @IsString()
@@ -29,7 +29,7 @@ export class PaymentRequestDto {
 export class PaymentVerifyDto {
   @IsOptional()
   @IsString()
-  orderId?: string;
+  order_id?: string;
 
   @IsString()
   authority: string;
@@ -42,7 +42,7 @@ export class PaymentVerifyDto {
 
 export class PaymentRefundDto {
   @IsString()
-  orderId: string;
+  order_id: string;
 
   @IsOptional()
   @IsNumber()
@@ -51,5 +51,5 @@ export class PaymentRefundDto {
 
 export class PaymentCancelDto {
   @IsString()
-  orderId: string;
+  order_id: string;
 }

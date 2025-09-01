@@ -16,13 +16,13 @@ export interface FileMetadata {
   id: string;
   name: string;
   size: number;
-  mimeType: string;
-  bucketId: string;
+  mime_type: string;
+  bucket_id: string;
   bucketName: string;
   uploadedAt: string;
   url?: string;
-  userId?: string;
-  orderId?: string;
+  user_id?: string;
+  order_id?: string;
   fileType: string;
 }
 
@@ -31,11 +31,11 @@ interface AppwriteFileWithMetadata {
   $id: string;
   name: string;
   size: number;
-  mimeType: string;
-  $createdAt: string;
-  userId?: string;
-  orderId?: string;
-  bucketId?: string;
+  mime_type: string;
+  $created_at: string;
+  user_id?: string;
+  order_id?: string;
+  bucket_id?: string;
 }
 
 @Injectable()
@@ -87,7 +87,7 @@ export class UploadsService {
     return Object.keys(buckets)[0];
   }
 
-  async getAllUploads(userId?: string, orderId?: string): Promise<FileUploadResponse> {
+  async getAllUploads(user_id?: string, order_id?: string): Promise<FileUploadResponse> {
     try {
       const storage = this.getStorage();
       const allFiles: FileMetadata[] = [];
@@ -99,9 +99,9 @@ export class UploadsService {
       for (const bucketType of bucketTypes) {
         try {
           const bucketName = this.getBucketName(bucketType);
-          const bucketId = this.getBucketId(bucketName);
+          const bucket_id = this.getBucketId(bucketName);
           
-          const files = await storage.listFiles(bucketId);
+          const files = await storage.listFiles(bucket_id);
           
           for (const file of files.files) {
             // Cast to our extended interface
@@ -111,20 +111,20 @@ export class UploadsService {
               id: fileWithMetadata.$id,
               name: fileWithMetadata.name,
               size: fileWithMetadata.size,
-              mimeType: fileWithMetadata.mimeType,
-              bucketId: bucketId,
+              mime_type: fileWithMetadata.mime_type,
+              bucket_id: bucket_id,
               bucketName: bucketName,
-              uploadedAt: fileWithMetadata.$createdAt,
-              url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${fileWithMetadata.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
-              userId: fileWithMetadata.userId,
-              orderId: fileWithMetadata.orderId,
+              uploadedAt: fileWithMetadata.$created_at,
+              url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucket_id}/files/${fileWithMetadata.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
+              user_id: fileWithMetadata.user_id,
+              order_id: fileWithMetadata.order_id,
               fileType: bucketName,
             };
             
-            // Filter by userId if provided
-            if (!userId || fileWithMetadata.userId === userId) {
-              // Filter by orderId if provided
-              if (!orderId || fileWithMetadata.orderId === orderId) {
+            // Filter by user_id if provided
+            if (!user_id || fileWithMetadata.user_id === user_id) {
+              // Filter by order_id if provided
+              if (!order_id || fileWithMetadata.order_id === order_id) {
                 allFiles.push(fileMetadata);
               }
             }
@@ -160,9 +160,9 @@ export class UploadsService {
 
       if (bucketType) {
         // Search in specific bucket
-        const bucketId = this.getBucketId(bucketType);
+        const bucket_id = this.getBucketId(bucketType);
         try {
-          const rawFile = await storage.getFile(bucketId, id);
+          const rawFile = await storage.getFile(bucket_id, id);
           file = rawFile as unknown as AppwriteFileWithMetadata;
         } catch (error) {
           if (error.code === 404) {
@@ -177,8 +177,8 @@ export class UploadsService {
         
         for (const bucketType of bucketTypes) {
           try {
-            const bucketId = this.getBucketId(bucketType);
-            const rawFile = await storage.getFile(bucketId, id);
+            const bucket_id = this.getBucketId(bucketType);
+            const rawFile = await storage.getFile(bucket_id, id);
             file = rawFile as unknown as AppwriteFileWithMetadata;
             break; // Found the file
           } catch (error) {
@@ -195,19 +195,19 @@ export class UploadsService {
       }
 
       const bucketName = this.getBucketName(bucketType);
-      const bucketId = file.bucketId || this.getBucketId(bucketName);
+      const bucket_id = file.bucket_id || this.getBucketId(bucketName);
 
       const fileMetadata: FileMetadata = {
         id: file.$id,
         name: file.name,
         size: file.size,
-        mimeType: file.mimeType,
-        bucketId: bucketId,
+        mime_type: file.mime_type,
+        bucket_id: bucket_id,
         bucketName: bucketName,
-        uploadedAt: file.$createdAt,
-        url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${file.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
-        userId: file.userId,
-        orderId: file.orderId,
+        uploadedAt: file.$created_at,
+        url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucket_id}/files/${file.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
+        user_id: file.user_id,
+        order_id: file.order_id,
         fileType: bucketName,
       };
 
@@ -239,8 +239,8 @@ export class UploadsService {
 
   async uploadFile(
     file: Express.Multer.File,
-    userId: string,
-    orderId?: string,
+    user_id: string,
+    order_id?: string,
     fileType?: string,
     description?: string,
   ): Promise<FileUploadResponse> {
@@ -251,10 +251,10 @@ export class UploadsService {
 
       const storage = this.getStorage();
       const bucketName = this.getBucketName(fileType);
-      const bucketId = this.getBucketId(bucketName);
+      const bucket_id = this.getBucketId(bucketName);
 
       // Create unique file ID
-      const fileId = ID.unique();
+      const file_id = ID.unique();
 
       // Prepare file data for Appwrite
       let fileData: Buffer;
@@ -277,7 +277,7 @@ export class UploadsService {
       
       // Create a temporary file
       const tempDir = os.tmpdir();
-      const tempFilePath = path.join(tempDir, `${fileId}_${file.originalname}`);
+      const tempFilePath = path.join(tempDir, `${file_id}_${file.originalname}`);
       
       try {
         // Write the buffer to temp file
@@ -288,8 +288,8 @@ export class UploadsService {
         
         // Upload file to Appwrite storage
         const rawUploadedFile = await storage.createFile(
-          bucketId,
-          fileId,
+          bucket_id,
+          file_id,
           fileStream
         );
         
@@ -306,11 +306,11 @@ export class UploadsService {
             ID.unique(),
             {
               file_id: uploadedFile.$id,
-              user_id: userId,
-              order_id: orderId || null,
-              bucket_id: bucketId,
+              user_id: user_id,
+              order_id: order_id || null,
+              bucket_id: bucket_id,
               original_name: uploadedFile.name,
-              mime_type: uploadedFile.mimeType,
+              mime_type: uploadedFile.mime_type,
               size: uploadedFile.size,
               description: description || null,
               created_at: new Date().toISOString(),
@@ -325,13 +325,13 @@ export class UploadsService {
           id: uploadedFile.$id,
           name: uploadedFile.name,
           size: uploadedFile.size,
-          mimeType: uploadedFile.mimeType,
-          bucketId: bucketId,
+          mime_type: uploadedFile.mime_type,
+          bucket_id: bucket_id,
           bucketName: bucketName,
-          uploadedAt: uploadedFile.$createdAt,
-          url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${uploadedFile.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
-          userId,
-          orderId,
+          uploadedAt: uploadedFile.$created_at,
+          url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucket_id}/files/${uploadedFile.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
+          user_id,
+          order_id,
           fileType: bucketName,
         };
 
@@ -365,8 +365,8 @@ export class UploadsService {
 
       if (bucketType) {
         // Delete from specific bucket
-        const bucketId = this.getBucketId(bucketType);
-        await storage.deleteFile(bucketId, id);
+        const bucket_id = this.getBucketId(bucketType);
+        await storage.deleteFile(bucket_id, id);
       } else {
         // Try to delete from all buckets
         const buckets = (this.appwriteService.getConfig() as any).buckets as Record<string, string>;
@@ -375,8 +375,8 @@ export class UploadsService {
 
         for (const bucketType of bucketTypes) {
           try {
-            const bucketId = this.getBucketId(bucketType);
-            await storage.deleteFile(bucketId, id);
+            const bucket_id = this.getBucketId(bucketType);
+            await storage.deleteFile(bucket_id, id);
             deleted = true;
             break;
           } catch (error) {
@@ -394,7 +394,7 @@ export class UploadsService {
 
       return {
         success: true,
-        data: { message: 'File deleted successfully', fileId: id },
+        data: { message: 'File deleted successfully', file_id: id },
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
@@ -418,7 +418,7 @@ export class UploadsService {
     }
   }
 
-  async getFilesByOrder(orderId: string): Promise<FileUploadResponse> {
+  async getFilesByOrder(order_id: string): Promise<FileUploadResponse> {
     try {
       const storage = this.getStorage();
       const allFiles: FileMetadata[] = [];
@@ -430,26 +430,26 @@ export class UploadsService {
       for (const bucketType of bucketTypes) {
         try {
           const bucketName = this.getBucketName(bucketType);
-          const bucketId = this.getBucketId(bucketName);
+          const bucket_id = this.getBucketId(bucketName);
           
-          const files = await storage.listFiles(bucketId);
+          const files = await storage.listFiles(bucket_id);
           
           for (const file of files.files) {
             // Cast to our extended interface
             const fileWithMetadata = file as unknown as AppwriteFileWithMetadata;
             
-            if (fileWithMetadata.orderId === orderId) {
+            if (fileWithMetadata.order_id === order_id) {
               const fileMetadata: FileMetadata = {
                 id: fileWithMetadata.$id,
                 name: fileWithMetadata.name,
                 size: fileWithMetadata.size,
-                mimeType: fileWithMetadata.mimeType,
-                bucketId: bucketId,
+                mime_type: fileWithMetadata.mime_type,
+                bucket_id: bucket_id,
                 bucketName: bucketName,
-                uploadedAt: fileWithMetadata.$createdAt,
-                url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucketId}/files/${fileWithMetadata.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
-                userId: fileWithMetadata.userId,
-                orderId: fileWithMetadata.orderId,
+                uploadedAt: fileWithMetadata.$created_at,
+                url: `${this.configService.get('APPWRITE_ENDPOINT')}/storage/buckets/${bucket_id}/files/${fileWithMetadata.$id}/view?project=${this.configService.get('APPWRITE_PROJECT_ID')}`,
+                user_id: fileWithMetadata.user_id,
+                order_id: fileWithMetadata.order_id,
                 fileType: bucketName,
               };
               

@@ -209,7 +209,7 @@ export class WalletsController {
         paymentUrl: 'https://zarinp.al/invoice/123456789',
         authority: '123456789',
         invoiceId: '123456789',
-        orderId: 'deposit_user123_1701436800000_3000000',
+        order_id: 'deposit_user123_1701436800000_3000000',
         message: 'Payment request created successfully. Redirect to payment gateway.'
       }
     }
@@ -230,7 +230,7 @@ export class WalletsController {
         user.id,
         body.amount,
         body.description,
-        body.callbackUrl
+        body.callback_url
       );
 
       return {
@@ -238,7 +238,7 @@ export class WalletsController {
         paymentUrl: depositResult.paymentUrl,
         authority: depositResult.authority,
         invoiceId: depositResult.invoiceId,
-        orderId: `deposit_${user.id}_${Date.now()}_${body.amount}`,
+        order_id: `deposit_${user.id}_${Date.now()}_${body.amount}`,
         message: 'Payment request created successfully. Redirect to payment gateway.',
       };
     } catch (error) {
@@ -334,18 +334,18 @@ export class WalletsController {
           description: 'Payment amount in Rials',
           example: 3000000
         },
-        userId: {
+        user_id: {
           type: 'string',
           description: 'User ID for the deposit',
           example: 'user_123'
         },
-        orderId: {
+        order_id: {
           type: 'string',
           description: 'Optional order ID',
           example: 'deposit_user123_1701436800000_3000000'
         }
       },
-      required: ['authority', 'refId', 'amount', 'userId']
+      required: ['authority', 'refId', 'amount', 'user_id']
     }
   })
   @ApiOkResponse({
@@ -368,8 +368,8 @@ export class WalletsController {
       authority: string; 
       refId: string; 
       amount: number; 
-      userId: string; 
-      orderId?: string; 
+      user_id: string; 
+      order_id?: string; 
     },
   ) {
     try {
@@ -378,8 +378,8 @@ export class WalletsController {
         authority: body.authority,
         refId: body.refId,
         amount: body.amount,
-        userId: body.userId,
-        orderId: body.orderId,
+        user_id: body.user_id,
+        order_id: body.order_id,
       });
 
       return result;
@@ -413,18 +413,18 @@ export class WalletsController {
           description: 'Expected payment amount in Rials',
           example: 3000000
         },
-        userId: {
+        user_id: {
           type: 'string',
           description: 'User ID for the deposit',
           example: 'user_123'
         },
-        orderId: {
+        order_id: {
           type: 'string',
           description: 'Optional order ID',
           example: 'deposit_user123_1701436800000_3000000'
         }
       },
-      required: ['authority', 'amount', 'userId']
+      required: ['authority', 'amount', 'user_id']
     }
   })
   @ApiOkResponse({
@@ -446,8 +446,8 @@ export class WalletsController {
     @Body() body: { 
       authority: string; 
       amount: number; 
-      userId: string; 
-      orderId?: string; 
+      user_id: string; 
+      order_id?: string; 
     },
   ) {
     try {
@@ -470,8 +470,8 @@ export class WalletsController {
         authority: body.authority,
         refId: verificationResult.refId!,
         amount: body.amount,
-        userId: body.userId,
-        orderId: body.orderId,
+        user_id: body.user_id,
+        order_id: body.order_id,
       });
 
       return result;
@@ -570,7 +570,7 @@ export class WalletsController {
   }
 
   // Admin endpoints
-  @Post(':userId/credit')
+  @Post(':user_id/credit')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @ApiOperation({
@@ -578,7 +578,7 @@ export class WalletsController {
     description: 'Allows administrators to credit a user\'s wallet. Requires admin role.'
   })
   @ApiParam({
-    name: 'userId',
+    name: 'user_id',
     description: 'User ID to credit',
     example: 'user_123'
   })
@@ -611,13 +611,13 @@ export class WalletsController {
     description: 'User not authenticated'
   })
   async creditWallet(
-    @Param('userId') userId: string,
+    @Param('user_id') user_id: string,
     @Body() body: { amount: number; description?: string },
   ) {
-    return this.walletsService.creditWallet(userId, body.amount, body.description);
+    return this.walletsService.creditWallet(user_id, body.amount, body.description);
   }
 
-  @Post(':userId/debit')
+  @Post(':user_id/debit')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @ApiOperation({
@@ -625,7 +625,7 @@ export class WalletsController {
     description: 'Allows administrators to debit a user\'s wallet. Requires admin role.'
   })
   @ApiParam({
-    name: 'userId',
+    name: 'user_id',
     description: 'User ID to debit',
     example: 'user_123'
   })
@@ -661,13 +661,13 @@ export class WalletsController {
     description: 'User not authenticated'
   })
   async debitWallet(
-    @Param('userId') userId: string,
+    @Param('user_id') user_id: string,
     @Body() body: { amount: number; description?: string },
   ) {
-    return this.walletsService.debitWallet(userId, body.amount, body.description);
+    return this.walletsService.debitWallet(user_id, body.amount, body.description);
   }
 
-  @Get(':userId')
+  @Get(':user_id')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @ApiOperation({
@@ -675,7 +675,7 @@ export class WalletsController {
     description: 'Allows administrators to view any user\'s wallet. Requires admin role.'
   })
   @ApiParam({
-    name: 'userId',
+    name: 'user_id',
     description: 'User ID to view wallet',
     example: 'user_123'
   })
@@ -688,11 +688,11 @@ export class WalletsController {
   @ApiUnauthorizedResponse({
     description: 'User not authenticated'
   })
-  async getWallet(@Param('userId') userId: string) {
-    return this.walletsService.getWallet(userId);
+  async getWallet(@Param('user_id') user_id: string) {
+    return this.walletsService.getWallet(user_id);
   }
 
-  @Get(':userId/transactions')
+  @Get(':user_id/transactions')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @ApiOperation({
@@ -700,7 +700,7 @@ export class WalletsController {
     description: 'Allows administrators to view any user\'s wallet transactions. Requires admin role.'
   })
   @ApiParam({
-    name: 'userId',
+    name: 'user_id',
     description: 'User ID to view transactions',
     example: 'user_123'
   })
@@ -728,12 +728,12 @@ export class WalletsController {
     description: 'User not authenticated'
   })
   async getTransactions(
-    @Param('userId') userId: string,
+    @Param('user_id') user_id: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     const limitNum = limit ? parseInt(limit) : 50;
     const offsetNum = offset ? parseInt(offset) : 0;
-    return this.walletsService.getTransactions(userId, limitNum, offsetNum);
+    return this.walletsService.getTransactions(user_id, limitNum, offsetNum);
   }
 }

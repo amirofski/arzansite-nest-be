@@ -91,17 +91,17 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
-  async getCurrentUserFromSession(sessionId: string) {
+  async getCurrentUserFromSession(session_id: string) {
     try {
       // Heuristic: if token looks like a JWT (has dots), use JWT mode; otherwise try session
-      const looksLikeJwt = typeof sessionId === 'string' && sessionId.includes('.') && sessionId.split('.').length === 3;
+      const looksLikeJwt = typeof session_id === 'string' && session_id.includes('.') && session_id.split('.').length === 3;
 
       if (!looksLikeJwt) {
         try {
           const client = new Client()
             .setEndpoint(this.config.endpoint)
             .setProject(this.config.projectId)
-            .setSession(sessionId);
+            .setSession(session_id);
           const account = new Account(client);
           const user = await account.get();
           return user;
@@ -114,7 +114,7 @@ export class AppwriteService implements OnModuleInit {
       const jwtClient = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
-        .setJWT(sessionId);
+        .setJWT(session_id);
       const jwtAccount = new Account(jwtClient);
       const jwtUser = await jwtAccount.get();
       return jwtUser;
@@ -123,22 +123,22 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
-  async deleteSession(sessionId: string) {
+  async deleteSession(session_id: string) {
     try {
       const client = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
-        .setSession(sessionId);
+        .setSession(session_id);
 
       const account = new Account(client);
-      await account.deleteSession(sessionId);
+      await account.deleteSession(session_id);
       return { success: true, message: 'Session deleted successfully' };
     } catch (error) {
       throw new Error(`Failed to delete session: ${error.message}`);
     }
   }
 
-  async listUserSessions(userId: string) {
+  async listUserSessions(user_id: string) {
     try {
       const client = new Client()
         .setEndpoint(this.config.endpoint)
@@ -245,10 +245,10 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
-  async createSessionFromOAuth(userId: string, secret: string) {
+  async createSessionFromOAuth(user_id: string, secret: string) {
     try {
       // Updated method for latest SDK
-      const session = await this.account.createSession(userId, secret);
+      const session = await this.account.createSession(user_id, secret);
       return session;
     } catch (error) {
       console.error('Failed to create session from OAuth:', error);
@@ -273,10 +273,10 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
-  async updateVerification(userId: string, secret: string) {
+  async updateVerification(user_id: string, secret: string) {
     try {
       // Updated method for latest SDK
-      const updatedUser = await this.users.updateEmailVerification(userId, true);
+      const updatedUser = await this.users.updateEmailVerification(user_id, true);
       return updatedUser;
     } catch (error) {
       throw new Error(`Failed to update email verification: ${error.message}`);
@@ -352,7 +352,7 @@ export class AppwriteService implements OnModuleInit {
   }
 
   // Storage methods - Updated for latest SDK
-  async uploadFile(bucketId: string, file: Buffer, fileName: string, mimeType?: string) {
+  async uploadFile(bucket_id: string, file: Buffer, file_name: string, mime_type?: string) {
     try {
       // For now, return a placeholder since file upload needs to be handled differently
       // This will need to be implemented with proper file handling or use frontend SDK
@@ -362,27 +362,27 @@ export class AppwriteService implements OnModuleInit {
     }
   }
 
-  async getFile(bucketId: string, fileId: string) {
+  async getFile(bucket_id: string, file_id: string) {
     try {
-      const file = await this.storage.getFile(bucketId, fileId);
+      const file = await this.storage.getFile(bucket_id, file_id);
       return file;
     } catch (error) {
       throw new Error(`Failed to get file: ${error.message}`);
     }
   }
 
-  async deleteFile(bucketId: string, fileId: string) {
+  async deleteFile(bucket_id: string, file_id: string) {
     try {
-      await this.storage.deleteFile(bucketId, fileId);
+      await this.storage.deleteFile(bucket_id, file_id);
       return { success: true };
     } catch (error) {
       throw new Error(`Failed to delete file: ${error.message}`);
     }
   }
 
-  async listFiles(bucketId: string, queries: string[] = []) {
+  async listFiles(bucket_id: string, queries: string[] = []) {
     try {
-      const response = await this.storage.listFiles(bucketId, queries);
+      const response = await this.storage.listFiles(bucket_id, queries);
       return response;
     } catch (error) {
       throw new Error(`Failed to list files: ${error.message}`);
@@ -436,7 +436,7 @@ export class AppwriteService implements OnModuleInit {
   }
 
   async sendUserPush(
-    userId: string,
+    user_id: string,
     title: string,
     body: string,
     data?: Record<string, any>,
@@ -447,7 +447,7 @@ export class AppwriteService implements OnModuleInit {
         title,
         body,
         [],
-        [userId],
+        [user_id],
         [],
         data ?? undefined,
       );

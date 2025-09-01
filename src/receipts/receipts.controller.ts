@@ -66,8 +66,8 @@ export class ReceiptsController {
           refId: 'PAY_REF_456',
           amount: 5000000,
           format: 'pdf',
-          createdAt: '2024-12-01T10:00:00.000Z',
-          updatedAt: '2024-12-01T10:00:00.000Z'
+          created_at: '2024-12-01T10:00:00.000Z',
+          updated_at: '2024-12-01T10:00:00.000Z'
         }
       ]
     }

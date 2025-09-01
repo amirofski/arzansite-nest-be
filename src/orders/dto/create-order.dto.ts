@@ -40,14 +40,14 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
-  sessionId?: string;
+  session_id?: string;
 
   @IsOptional()
   @IsString()
-  siteType?: string;
+  site_type?: string;
 
   @IsOptional()
-  wizardData?: any; // Consolidated wizard data
+  wizard_data?: any; // Consolidated wizard data
 
   @IsOptional()
   @IsString()

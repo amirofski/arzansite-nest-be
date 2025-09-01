@@ -43,8 +43,8 @@ export class TransactionsController {
     return this.transactionsService.getTransaction(id);
   }
 
-  @Get('order/:orderId')
-  async getTransactionsByOrder(@Param('orderId') orderId: string) {
-    return this.transactionsService.getTransactionsByOrder(orderId);
+  @Get('order/:order_id')
+  async getTransactionsByOrder(@Param('order_id') order_id: string) {
+    return this.transactionsService.getTransactionsByOrder(order_id);
   }
 }

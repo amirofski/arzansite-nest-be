@@ -158,7 +158,7 @@ export class DomainsService {
         {
           price,
           available,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }
       );
       

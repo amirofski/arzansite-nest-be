@@ -6,9 +6,9 @@ import { ID, Query } from 'node-appwrite';
 
 export interface SupportTicket {
   id: string;
-  userId: string;
+  user_id: string;
   type: 'payment_failed' | 'order_problem' | 'wallet_issue' | 'technical_problem' | 'other';
-  orderId?: string;
+  order_id?: string;
   transactionId?: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
@@ -21,8 +21,8 @@ export interface SupportTicket {
   contactPreference: 'email' | 'phone' | 'dashboard';
   userAgent: string;
   ipAddress: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   estimatedResolution?: string;
   assignedTo?: string;
   messages: Array<{
@@ -40,7 +40,7 @@ export interface SupportTicket {
 
 export interface CreateTicketRequest {
   type: 'payment_failed' | 'order_problem' | 'wallet_issue' | 'technical_problem' | 'other';
-  orderId?: string;
+  order_id?: string;
   transactionId?: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
@@ -72,16 +72,16 @@ export class SupportService {
     private readonly configService: ConfigService,
   ) {}
 
-  async reportIssue(userId: string, request: CreateTicketRequest): Promise<TicketResponse> {
+  async reportIssue(user_id: string, request: CreateTicketRequest): Promise<TicketResponse> {
     try {
       // Validate request
       this.validateTicketRequest(request);
 
       // Create ticket in Appwrite
       const ticketData = {
-        userId,
+        user_id,
         type: request.type,
-        orderId: request.orderId || null,
+        order_id: request.order_id || null,
         transactionId: request.transactionId || null,
         description: request.description,
         priority: request.priority,
@@ -90,8 +90,8 @@ export class SupportService {
         contactPreference: request.contactPreference,
         userAgent: request.userAgent,
         ipAddress: request.ipAddress,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         messages: [{
           id: ID.unique(),
           sender: 'user',
@@ -112,7 +112,7 @@ export class SupportService {
       );
 
       // Send confirmation email
-      await this.sendTicketConfirmationEmail(userId, ticket.$id, request);
+      await this.sendTicketConfirmationEmail(user_id, ticket.$id, request);
 
       // Calculate estimated response time based on priority
       const estimatedResponseTime = this.calculateEstimatedResponseTime(request.priority);
@@ -129,7 +129,7 @@ export class SupportService {
     }
   }
 
-  async getTicketStatus(ticketId: string, userId: string): Promise<SupportTicket> {
+  async getTicketStatus(ticketId: string, user_id: string): Promise<SupportTicket> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -141,7 +141,7 @@ export class SupportService {
       );
 
       // Verify user owns this ticket or is admin
-      if (ticket.userId !== userId) {
+      if (ticket.user_id !== user_id) {
         throw new UnauthorizedException('Access denied to this ticket');
       }
 
@@ -156,12 +156,12 @@ export class SupportService {
 
   async addMessageToTicket(
     ticketId: string,
-    userId: string,
+    user_id: string,
     message: string,
     attachments?: Array<{ filename: string; url: string; type: string }>
   ): Promise<{ success: boolean; messageId: string }> {
     try {
-      const ticket = await this.getTicketStatus(ticketId, userId);
+      const ticket = await this.getTicketStatus(ticketId, user_id);
       
       const newMessage = {
         id: ID.unique(),
@@ -182,12 +182,12 @@ export class SupportService {
         ticketId,
         {
           messages: updatedMessages,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }
       );
 
       // Notify support team about new message
-      await this.notifySupportTeam(ticketId, 'new_message', userId);
+      await this.notifySupportTeam(ticketId, 'new_message', user_id);
 
       return {
         success: true,
@@ -220,13 +220,13 @@ export class SupportService {
         ticketId,
         {
           status,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
           assignedTo: adminUserId,
         }
       );
 
       // Notify user about status change
-      await this.notifyUserAboutStatusChange(ticket.userId, ticketId, status);
+      await this.notifyUserAboutStatusChange(ticket.user_id, ticketId, status);
 
       return {
         success: true,
@@ -238,7 +238,7 @@ export class SupportService {
   }
 
   async getUserTickets(
-    userId: string,
+    user_id: string,
     status?: string,
     page: number = 1,
     limit: number = 20
@@ -252,7 +252,7 @@ export class SupportService {
     };
   }> {
     try {
-      const queries = [Query.equal('user_id', userId)];
+      const queries = [Query.equal('user_id', user_id)];
       
       if (status) {
         queries.push(Query.equal('status', status));
@@ -269,7 +269,7 @@ export class SupportService {
         queries
       );
 
-      const total = await this.getTotalTicketCount(userId, status);
+      const total = await this.getTotalTicketCount(user_id, status);
 
       return {
         tickets: tickets.documents.map(doc => this.mapAppwriteDocumentToTicket(doc)),
@@ -319,7 +319,7 @@ export class SupportService {
   }
 
   private async sendTicketConfirmationEmail(
-    userId: string,
+    user_id: string,
     ticketId: string,
     request: CreateTicketRequest
   ): Promise<void> {
@@ -350,19 +350,19 @@ export class SupportService {
   private async notifySupportTeam(
     ticketId: string,
     action: string,
-    userId: string
+    user_id: string
   ): Promise<void> {
     try {
       // This would typically send a notification to the support team
       // For now, we'll just log it
-      console.log(`Support team notification: ${action} on ticket ${ticketId} by user ${userId}`);
+      console.log(`Support team notification: ${action} on ticket ${ticketId} by user ${user_id}`);
     } catch (error) {
       console.error('Failed to notify support team:', error);
     }
   }
 
   private async notifyUserAboutStatusChange(
-    userId: string,
+    user_id: string,
     ticketId: string,
     status: string
   ): Promise<void> {
@@ -385,9 +385,9 @@ export class SupportService {
     }
   }
 
-  private async getTotalTicketCount(userId: string, status?: string): Promise<number> {
+  private async getTotalTicketCount(user_id: string, status?: string): Promise<number> {
     try {
-      const queries = [Query.equal('user_id', userId)];
+      const queries = [Query.equal('user_id', user_id)];
       
       if (status) {
         queries.push(Query.equal('status', status));
@@ -411,9 +411,9 @@ export class SupportService {
   private mapAppwriteDocumentToTicket(doc: any): SupportTicket {
     return {
       id: doc.$id,
-      userId: doc.user_id,
+      user_id: doc.user_id,
       type: doc.type,
-      orderId: doc.orderId,
+      order_id: doc.order_id,
       transactionId: doc.transactionId,
       description: doc.description,
       priority: doc.priority,
@@ -422,8 +422,8 @@ export class SupportService {
       contactPreference: doc.contactPreference,
       userAgent: doc.userAgent,
       ipAddress: doc.ipAddress,
-      createdAt: doc.createdAt,
-      updatedAt: doc.updatedAt,
+      created_at: doc.created_at,
+      updated_at: doc.updated_at,
       estimatedResolution: doc.estimatedResolution,
       assignedTo: doc.assignedTo,
       messages: doc.messages || [],

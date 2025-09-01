@@ -39,7 +39,7 @@ export class SupportController {
     schema: {
       example: {
         type: 'payment_failed',
-        orderId: 'order_123',
+        order_id: 'order_123',
         transactionId: 'txn_123',
         description: 'Payment failed during checkout process',
         priority: 'high',
@@ -111,8 +111,8 @@ export class SupportController {
         priority: 'high',
         subject: 'Payment failed during checkout',
         description: 'Payment failed during checkout process',
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z',
         estimatedResolution: '24-48 hours',
         assignedTo: 'support_team',
         messages: [
@@ -212,8 +212,8 @@ export class SupportController {
             description: 'Payment failed during checkout',
             priority: 'high',
             status: 'open',
-            createdAt: '2024-01-01T00:00:00.000Z',
-            updatedAt: '2024-01-01T00:00:00.000Z',
+            created_at: '2024-01-01T00:00:00.000Z',
+            updated_at: '2024-01-01T00:00:00.000Z',
           },
         ],
         pagination: {

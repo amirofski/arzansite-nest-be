@@ -90,7 +90,7 @@ export class AnalyticsController {
       type,
       period,
       format,
-      userId: user.id,
+      user_id: user.id,
       timestamp: new Date().toISOString(),
     };
   }
@@ -125,7 +125,7 @@ export class AnalyticsController {
           parameters: ['period', 'metrics', 'include_recommendations'],
         },
       ],
-      userId: user.id,
+      user_id: user.id,
     };
   }
 
@@ -190,7 +190,7 @@ export class AnalyticsController {
           positiveInsights: Object.values(insights).flat().filter(i => i.impact === 'positive').length,
           recommendations: Object.values(insights).flat().filter(i => i.recommendation).length,
         },
-        userId: user.id,
+        user_id: user.id,
         generatedAt: new Date().toISOString(),
       };
     }
@@ -198,7 +198,7 @@ export class AnalyticsController {
     return {
       insights: insights[category] || [],
       category,
-      userId: user.id,
+      user_id: user.id,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -217,7 +217,7 @@ export class AnalyticsController {
       metric,
       period1,
       period2,
-      userId: user.id,
+      user_id: user.id,
       timestamp: new Date().toISOString(),
     };
   }
@@ -234,7 +234,7 @@ export class AnalyticsController {
       message: 'Forecasting analytics will be implemented',
       metric,
       horizon,
-      userId: user.id,
+      user_id: user.id,
       timestamp: new Date().toISOString(),
     };
   }

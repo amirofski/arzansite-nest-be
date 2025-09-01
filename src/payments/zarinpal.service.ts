@@ -79,10 +79,10 @@ export class ZarinPalService {
   async createPayment(paymentData: {
     amount: number;
     description: string;
-    callbackUrl: string;
+    callback_url: string;
     mobile?: string;
     email?: string;
-    orderId?: string;
+    order_id?: string;
     currency?: 'IRR' | 'IRT';
   }): Promise<ZarinPalPaymentResponse> {
     try {
@@ -95,7 +95,7 @@ export class ZarinPalService {
       this.logger.log(`Merchant ID: ${this.merchantId}`);
       this.logger.log(`Amount (Rials): ${paymentData.amount}`);
       this.logger.log(`Description: "${paymentData.description}"`);
-      this.logger.log(`Callback URL: ${paymentData.callbackUrl}`);
+      this.logger.log(`Callback URL: ${paymentData.callback_url}`);
 
       // Validate merchant ID format (should be a valid UUID)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -131,25 +131,25 @@ export class ZarinPalService {
 
       // Validate callback URL format
       try {
-        const callbackUrl = new URL(paymentData.callbackUrl);
-        this.logger.log(`Callback URL parsed successfully: ${callbackUrl.toString()}`);
+        const callback_url = new URL(paymentData.callback_url);
+        this.logger.log(`Callback URL parsed successfully: ${callback_url.toString()}`);
         
         // Ensure it's HTTPS for production
-        if (!this.isSandbox && callbackUrl.protocol !== 'https:') {
+        if (!this.isSandbox && callback_url.protocol !== 'https:') {
           throw new BadRequestException('Callback URL must use HTTPS in production');
         }
         
         // Additional validation: ensure URL is properly formatted
-        if (!callbackUrl.hostname || callbackUrl.hostname.length === 0) {
+        if (!callback_url.hostname || callback_url.hostname.length === 0) {
           throw new BadRequestException('Callback URL must have a valid hostname');
         }
         
         // Log the parsed URL components for debugging
-        this.logger.log(`Callback URL components: protocol=${callbackUrl.protocol}, hostname=${callbackUrl.hostname}, pathname=${callbackUrl.pathname}`);
+        this.logger.log(`Callback URL components: protocol=${callback_url.protocol}, hostname=${callback_url.hostname}, pathname=${callback_url.pathname}`);
         
       } catch (urlError) {
         this.logger.error(`Callback URL validation failed: ${urlError.message}`);
-        throw new BadRequestException(`Invalid callback URL format: ${paymentData.callbackUrl}`);
+        throw new BadRequestException(`Invalid callback URL format: ${paymentData.callback_url}`);
       }
 
       // Validate description length (ZarinPal typically has a limit)
@@ -188,7 +188,7 @@ export class ZarinPalService {
         amount: amountInTomans, // Use amountInTomans for the request
         currency: 'IRT', // Explicitly set to Iranian Tomans
         description: cleanDescription,
-        callback_url: paymentData.callbackUrl,
+        callback_url: paymentData.callback_url,
         metadata: {},
       };
 
@@ -217,13 +217,13 @@ export class ZarinPalService {
         paymentRequest.metadata!.email = paymentData.email;
         this.logger.log(`Added email to metadata: ${paymentData.email}`);
       }
-      if (paymentData.orderId) {
+      if (paymentData.order_id) {
         // Validate order ID format
-        if (paymentData.orderId.length > 100) {
+        if (paymentData.order_id.length > 100) {
           throw new BadRequestException('Order ID is too long (maximum 100 characters)');
         }
         // Clean order ID to remove any problematic characters
-        const cleanOrderId = paymentData.orderId.replace(/[^\w\-_]/g, '');
+        const cleanOrderId = paymentData.order_id.replace(/[^\w\-_]/g, '');
         if (cleanOrderId.length === 0) {
           throw new BadRequestException('Order ID contains only invalid characters');
         }
@@ -605,8 +605,8 @@ export class ZarinPalService {
   async createSimplePaymentRequest(params: {
     amount: number; // Amount in Rials
     description: string;
-    callbackUrl: string;
-    orderId?: string;
+    callback_url: string;
+    order_id?: string;
     mobile?: string;
     email?: string;
   }): Promise<{
@@ -626,14 +626,14 @@ export class ZarinPalService {
 
       this.logger.log(`Creating simple payment request: ${JSON.stringify({
         amount: params.amount,
-        orderId: params.orderId || 'N/A'
+        order_id: params.order_id || 'N/A'
       })}`);
 
       const paymentResponse = await this.createPayment({
         amount: params.amount,
         description: params.description,
-        callbackUrl: params.callbackUrl,
-        orderId: params.orderId,
+        callback_url: params.callback_url,
+        order_id: params.order_id,
         mobile: params.mobile,
         email: params.email,
       });

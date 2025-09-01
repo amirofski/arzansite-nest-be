@@ -12,7 +12,7 @@ export class TransactionsService {
   ) {}
 
   async getTransactions(
-    userId?: string,
+    user_id?: string,
     limit: number = 50,
     offset: number = 0,
   ): Promise<Transaction[]> {
@@ -20,7 +20,7 @@ export class TransactionsService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
     const queries: string[] = [Query.orderDesc('created_at'), Query.limit(limit), Query.offset(offset)];
-    if (userId) queries.push(Query.equal('user_id', userId));
+    if (user_id) queries.push(Query.equal('user_id', user_id));
     const res = await databases.listDocuments(databaseId, transactionsCollection, queries);
     return (res.documents as any) || [];
   }
@@ -34,12 +34,12 @@ export class TransactionsService {
     return doc as any;
   }
 
-  async getTransactionsByOrder(orderId: string): Promise<Transaction[]> {
+  async getTransactionsByOrder(order_id: string): Promise<Transaction[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
     const res = await databases.listDocuments(databaseId, transactionsCollection, [
-      Query.equal('reference_id', orderId),
+      Query.equal('reference_id', order_id),
       Query.equal('reference_type', 'order'),
       Query.orderDesc('created_at'),
     ]);

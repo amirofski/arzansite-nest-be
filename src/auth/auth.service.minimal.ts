@@ -44,13 +44,13 @@ export class AuthServiceMinimal {
       console.log('✅ Token validated successfully');
 
       // Get user ID from the reset record
-      const userId = resetRecord.userId;
-      if (!userId) {
+      const user_id = resetRecord.user_id;
+      if (!user_id) {
         console.log('❌ Missing user ID in reset record');
         throw new BadRequestException('Invalid reset token: missing user ID');
       }
 
-      console.log('👤 User ID found:', userId);
+      console.log('👤 User ID found:', user_id);
 
       // Update user password in Appwrite using the Users API
       try {
@@ -110,7 +110,7 @@ export class AuthServiceMinimal {
       }
       
       const user = users.users[0];
-      console.log('✅ User found:', { userId: user.$id, email: user.email });
+      console.log('✅ User found:', { user_id: user.$id, email: user.email });
       
       console.log('🔑 Attempting to update password...');
       

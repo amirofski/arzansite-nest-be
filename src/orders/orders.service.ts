@@ -1,36 +1,36 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
-import { ID } from 'node-appwrite';
+import { ID, Query } from 'node-appwrite';
 import { Order } from '../common/types/database.types';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { BaseAppwriteService } from '../common/services/base-appwrite.service';
 
 @Injectable()
-export class OrdersService {
+export class OrdersService extends BaseAppwriteService {
+  protected readonly collectionId = 'orders';
+
   constructor(
-    private appwriteService: AppwriteService,
-    private configService: ConfigService,
-  ) {}
+    appwriteService: AppwriteService,
+    configService: ConfigService,
+  ) {
+    super(appwriteService, configService);
+  }
 
   async getOrders(userId: string, isAdmin: boolean = false): Promise<Order[]> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-    const { Query } = await import('node-appwrite');
-
     const queries: string[] = [Query.orderDesc('created_at')];
-    if (!isAdmin) queries.push(Query.equal('user_id', userId));
+    
+    if (!isAdmin) {
+      queries.push(Query.equal('user_id', userId));
+    }
 
-    const result = await databases.listDocuments(databaseId, ordersCollection, queries);
-    return (result.documents as any) || [];
+    const result = await this.listDocuments<Order>(queries);
+    return result.documents;
   }
 
   async getOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<Order> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-    const data = await databases.getDocument(databaseId, ordersCollection, orderId).catch(() => null);
+    const data = await this.getDocument<Order>(orderId);
 
     if (!data) {
       throw new NotFoundException('Order not found');
@@ -45,42 +45,37 @@ export class OrdersService {
   }
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-
     // Extract title and description from the payload
-    const title = createOrderDto.title || `Order for ${createOrderDto.siteType || 'website'}`;
-    const description = createOrderDto.description || `Website order from wizard session ${createOrderDto.sessionId}`;
-    const price = createOrderDto.price || createOrderDto.wizardData?.pricing?.totalPrice || 0;
+    const title = createOrderDto.title || `Order for ${createOrderDto.site_type || 'website'}`;
+    const description = createOrderDto.description || `Website order from wizard session ${createOrderDto.session_id}`;
+    const price = createOrderDto.price || createOrderDto.wizard_data?.pricing?.totalPrice || 0;
 
     // Consolidate all wizard data into one field
     const wizardData = {
-      siteType: createOrderDto.siteType,
-      websiteFramework: createOrderDto.wizardData?.websiteFramework,
-      branding: createOrderDto.wizardData?.branding,
-      additionalServices: createOrderDto.wizardData?.additionalServices,
-      domains: createOrderDto.wizardData?.domains,
-      pricing: createOrderDto.wizardData?.pricing,
-      sessionId: createOrderDto.sessionId
+      site_type: createOrderDto.site_type,
+      website_framework: createOrderDto.wizard_data?.website_framework,
+      branding: createOrderDto.wizard_data?.branding,
+      additional_services: createOrderDto.wizard_data?.additional_services,
+      domains: createOrderDto.wizard_data?.domains,
+      pricing: createOrderDto.wizard_data?.pricing,
+      session_id: createOrderDto.session_id
     };
 
-    const orderDoc = await databases.createDocument(databaseId, ordersCollection, ID.unique(), {
+    const orderData = {
       // Basic order fields
       title,
       description,
       price,
-      user_id: userId,
-      userId: userId, // legacy/camelCase for collections requiring `userId`
+      userId,
       status: 'pending',
       payment_status: createOrderDto.payment_status || 'pending',
       comments: createOrderDto.comments,
-      total_pages: createOrderDto.total_pages || createOrderDto.wizardData?.websiteFramework?.dynamicDesign?.pages?.length || 0,
+      total_pages: createOrderDto.total_pages || createOrderDto.wizard_data?.website_framework?.dynamicDesign?.pages?.length || 0,
       total_sections: createOrderDto.total_sections || 
-        createOrderDto.wizardData?.websiteFramework?.dynamicDesign?.pages?.reduce((total, page) => total + (page.sections?.length || 0), 0) || 0,
+        createOrderDto.wizard_data?.website_framework?.dynamicDesign?.pages?.reduce((total, page) => total + (page.sections?.length || 0), 0) || 0,
       
       // Consolidated wizard data
-      wizardData: JSON.stringify(wizardData),
+      wizard_data: JSON.stringify(wizardData),
       
       // Payment fields
       payment_gateway: createOrderDto.payment_gateway,
@@ -90,80 +85,64 @@ export class OrdersService {
       // Timestamps
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    } as any);
+    };
 
-    return orderDoc as any;
+    return this.createDocument<Order>(orderData);
   }
 
   async updateOrder(
     orderId: string,
     userId: string,
     updateOrderDto: UpdateOrderDto,
-    isAdmin: boolean = false,
+    isAdmin: boolean = false
   ): Promise<Order> {
-    // Check ownership or admin access and get current order
-    const current = await this.getOrder(orderId, userId, isAdmin);
-
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-
-    const updated = await databases.updateDocument(databaseId, ordersCollection, orderId, {
-      ...updateOrderDto,
-      updated_at: new Date().toISOString(),
-    } as any);
-
-    // Send notification on status change
-    try {
-      if (updateOrderDto.status && updateOrderDto.status !== current.status) {
-        const title = 'وضعیت سفارش به‌روزرسانی شد';
-        const body = `سفارش شما (${current.title || orderId}) به وضعیت «${updateOrderDto.status}» تغییر کرد.`;
-        await this.appwriteService.sendUserPush(current.user_id, title, body, {
-          type: 'order_status_changed',
-          orderId,
-          oldStatus: current.status,
-          newStatus: updateOrderDto.status,
-        });
-      }
-    } catch (_) {
-      // swallow notification errors
-    }
-
-    return updated as any;
-  }
-
-  async deleteOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<void> {
-    // Check ownership or admin access
-    await this.getOrder(orderId, userId, isAdmin);
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-    await databases.deleteDocument(databaseId, ordersCollection, orderId);
-  }
-
-  async updateOrderPaymentStatus(
-    orderId: string,
-    paymentStatus: string,
-    zarinpalAuthority?: string,
-    zarinpalRefId?: string,
-  ): Promise<Order> {
+    // Verify order exists and user has access
+    const existingOrder = await this.getOrder(orderId, userId, isAdmin);
+    
     const updateData: any = {
-      payment_status: paymentStatus,
       updated_at: new Date().toISOString(),
     };
 
-    if (zarinpalAuthority) {
-      updateData.zarinpal_authority = zarinpalAuthority;
+    // Update fields if provided
+    if (updateOrderDto.title !== undefined) updateData.title = updateOrderDto.title;
+    if (updateOrderDto.description !== undefined) updateData.description = updateOrderDto.description;
+    if (updateOrderDto.status !== undefined) updateData.status = updateOrderDto.status;
+    if (updateOrderDto.price !== undefined) updateData.price = updateOrderDto.price;
+    if (updateOrderDto.comments !== undefined) updateData.comments = updateOrderDto.comments;
+    if (updateOrderDto.payment_status !== undefined) updateData.payment_status = updateOrderDto.payment_status;
+
+    return this.updateDocument<Order>(orderId, updateData);
+  }
+
+  async updateOrderPayment(
+    orderId: string,
+    userId: string,
+    zarinpal_authority?: string,
+    zarinpal_ref_id?: string,
+    isAdmin: boolean = false
+  ): Promise<Order> {
+    // Verify order exists and user has access
+    await this.getOrder(orderId, userId, isAdmin);
+    
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (zarinpal_authority) {
+      updateData.zarinpal_authority = zarinpal_authority;
     }
 
-    if (zarinpalRefId) {
-      updateData.zarinpal_ref_id = zarinpalRefId;
+    if (zarinpal_ref_id) {
+      updateData.zarinpal_ref_id = zarinpal_ref_id;
     }
 
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-    const updated = await databases.updateDocument(databaseId, ordersCollection, orderId, updateData as any);
-    return updated as any;
+    return this.updateDocument<Order>(orderId, updateData);
+  }
+
+  async deleteOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<void> {
+    // Verify order exists and user has access
+    await this.getOrder(orderId, userId, isAdmin);
+    
+    await this.deleteDocument(orderId);
   }
 }

@@ -1,415 +1,374 @@
-# Frontend Database Optimization Migration Guide
+# 🐍 Frontend Database Optimization Guide - Snake_Case Standardization
 
-## Overview
+## 📋 Overview
 
-This guide outlines the changes needed on the frontend after completing the Appwrite database optimization. The optimization has standardized the database schema to use **camelCase** naming conventions and removed duplicate/unused collections and attributes.
+This guide provides comprehensive instructions for frontend developers to work with the updated backend that now uses **snake_case** naming conventions throughout the entire application. All API endpoints, request/response data, and database fields now consistently use `snake_case` format.
 
-## 🚨 Important Changes
+## 🎯 Key Changes Made
 
-### 1. Collection Names Updated
+### 1. **Naming Convention Standardization**
+- **Before**: Mixed `camelCase` and `snake_case` (e.g., `userId`, `user_id`, `createdAt`, `created_at`)
+- **After**: Consistent `snake_case` everywhere (e.g., `user_id`, `created_at`, `updated_at`)
 
-Some collections have been renamed or removed for better organization:
+### 2. **Database Schema Updates**
+- All collections now use `user_id` instead of `userId`/`userid`
+- All timestamp fields use `created_at`, `updated_at`, `completed_at`
+- All relationship fields use `order_id`, `wallet_id`, `invoice_id`
+- All descriptive fields use `full_name`, `site_type`, `payment_status`
 
-| Old Collection Name | New Status | Action Required |
-|-------------------|------------|-----------------|
-| `design_data` | ❌ Removed | Update to use `designs` collection |
-| `payment_transactions` | ❌ Removed | Update to use `transactions` collection |
-| `email_verification_logs` | ❌ Removed | Update to use `email_logs` collection |
-| `enhanced_orders` | ❌ Removed | Update to use `orders` collection |
-| `enhanced_wallet_transactions` | ❌ Removed | Update to use `transactions` collection |
-| `order_progress` | ❌ Removed | Update to use `wizard_orders` collection |
+### 3. **API Response Structure**
+- All API responses now return data in `snake_case` format
+- Frontend should expect and handle `snake_case` field names
+- No more field name mapping required between frontend and backend
 
-### 2. Field Naming Standardization
+## 🔄 Frontend Migration Steps
 
-All database fields now use **camelCase** consistently. The following fields have been updated:
+### Step 1: Update Data Models and Interfaces
 
-#### Orders Collection
+**Before (camelCase):**
 ```typescript
-// OLD (snake_case) - REMOVED
-{
-  user_id: string,
-  created_at: string,
-  updated_at: string,
-  total_amount: number
+interface User {
+  id: string;
+  userId: string;
+  email: string;
+  fullName: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// NEW (camelCase) - USE THESE
-{
-  userId: string,
-  createdAt: string,
-  updatedAt: string,
-  totalAmount: number
-}
-```
-
-#### Profiles Collection
-```typescript
-// OLD (snake_case) - REMOVED
-{
-  user_id: string,
-  full_name: string,
-  phone: string,
-  address: string,
-  created_at: string,
-  updated_at: string
-}
-
-// NEW (camelCase) - USE THESE
-{
-  userId: string,
-  fullName: string,
-  phone: string,
-  address: string,
-  createdAt: string,
-  updatedAt: string
-}
-```
-
-#### Wallets Collection
-```typescript
-// OLD (snake_case) - REMOVED
-{
-  user_id: string,
-  balance: number,
-  created_at: string,
-  updated_at: string
-}
-
-// NEW (camelCase) - USE THESE
-{
-  userId: string,
-  balance: number,
-  createdAt: string,
-  updatedAt: string
-}
-```
-
-#### Transactions Collection
-```typescript
-// OLD (snake_case) - REMOVED
-{
-  user_id: string,
-  wallet_id: string,
-  type: string,
-  amount: number,
-  description: string,
-  status: string,
-  metadata: object,
-  created_at: string
-}
-
-// NEW (camelCase) - USE THESE
-{
-  userId: string,
-  walletId: string,
-  type: string,
-  amount: number,
-  description: string,
-  status: string,
-  metadata: object,
-  createdAt: string
-}
-```
-
-### 3. New Required Fields Added
-
-The `orders` collection now includes these additional fields:
-
-```typescript
 interface Order {
-  // ... existing fields ...
-  designSnapshot?: string;        // Design data snapshot
-  callbackUrl?: string;           // Payment callback URL
-  returnUrl?: string;             // Payment return URL
-  websiteFramework?: string;      // Framework used
-  additionalServices?: string;    // Additional services JSON
-  domains?: string;               // Domain information JSON
-  pricing?: string;               // Pricing details JSON
+  id: string;
+  orderId: string;
+  userId: string;
+  title: string;
+  price: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
-## 🔧 Required Frontend Updates
-
-### 1. Update API Calls
-
-#### Before (using old collection names)
+**After (snake_case):**
 ```typescript
-// ❌ OLD - Don't use these anymore
-const designData = await appwrite.databases.listDocuments(
-  databaseId,
-  'design_data',  // This collection was removed
-  queries
-);
-
-const paymentTx = await appwrite.databases.listDocuments(
-  databaseId,
-  'payment_transactions',  // This collection was removed
-  queries
-);
-```
-
-#### After (using new collection names)
-```typescript
-// ✅ NEW - Use these collections
-const designs = await appwrite.databases.listDocuments(
-  databaseId,
-  'designs',  // Updated collection name
-  queries
-);
-
-const transactions = await appwrite.databases.listDocuments(
-  databaseId,
-  'transactions',  // Updated collection name
-  queries
-);
-```
-
-### 2. Update TypeScript Interfaces
-
-#### Before
-```typescript
-// ❌ OLD - Remove these interfaces
-interface OldOrder {
+interface User {
+  id: string;
   user_id: string;
+  email: string;
+  full_name: string;
   created_at: string;
   updated_at: string;
-  total_amount: number;
 }
 
-interface OldProfile {
+interface Order {
+  id: string;
+  order_id: string;
   user_id: string;
+  title: string;
+  price: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### Step 2: Update API Calls
+
+**Before:**
+```typescript
+// Creating order
+const orderData = {
+  title: "Website Design",
+  description: "Personal website",
+  price: 1000000,
+  userId: currentUser.id,
+  siteType: "personal"
+};
+
+// API call
+const response = await api.post('/orders', orderData);
+```
+
+**After:**
+```typescript
+// Creating order
+const orderData = {
+  title: "Website Design",
+  description: "Personal website",
+  price: 1000000,
+  user_id: currentUser.id,
+  site_type: "personal"
+};
+
+// API call
+const response = await api.post('/orders', orderData);
+```
+
+### Step 3: Update Form Handling
+
+**Before:**
+```typescript
+const [formData, setFormData] = useState({
+  fullName: '',
+  email: '',
+  phone: '',
+  address: ''
+});
+
+const handleSubmit = async () => {
+  await api.put('/profile', {
+    fullName: formData.fullName,
+    email: formData.email,
+    phone: formData.phone,
+    address: formData.address
+  });
+};
+```
+
+**After:**
+```typescript
+const [formData, setFormData] = useState({
+  full_name: '',
+  email: '',
+  phone: '',
+  address: ''
+});
+
+const handleSubmit = async () => {
+  await api.put('/profile', {
+    full_name: formData.full_name,
+    email: formData.email,
+    phone: formData.phone,
+    address: formData.address
+  });
+};
+```
+
+### Step 4: Update Data Display
+
+**Before:**
+```typescript
+return (
+  <div>
+    <h2>{user.fullName}</h2>
+    <p>Created: {new Date(user.createdAt).toLocaleDateString()}</p>
+    <p>Last Updated: {new Date(user.updatedAt).toLocaleDateString()}</p>
+  </div>
+);
+```
+
+**After:**
+```typescript
+return (
+  <div>
+    <h2>{user.full_name}</h2>
+    <p>Created: {new Date(user.created_at).toLocaleDateString()}</p>
+    <p>Last Updated: {new Date(user.updated_at).toLocaleDateString()}</p>
+  </div>
+);
+```
+
+## 📊 Complete Field Mapping Reference
+
+### User-Related Fields
+| Old (camelCase) | New (snake_case) |
+|------------------|------------------|
+| `userId` | `user_id` |
+| `fullName` | `full_name` |
+| `firstName` | `first_name` |
+| `lastName` | `last_name` |
+| `phoneNumber` | `phone_number` |
+| `createdAt` | `created_at` |
+| `updatedAt` | `updated_at` |
+
+### Order-Related Fields
+| Old (camelCase) | New (snake_case) |
+|------------------|------------------|
+| `orderId` | `order_id` |
+| `siteType` | `site_type` |
+| `paymentStatus` | `payment_status` |
+| `totalAmount` | `total_amount` |
+| `orderNumber` | `order_number` |
+| `designData` | `design_data` |
+| `designPreviewUrl` | `design_preview_url` |
+
+### Payment-Related Fields
+| Old (camelCase) | New (snake_case) |
+|------------------|------------------|
+| `paymentGateway` | `payment_gateway` |
+| `zarinpalAuthority` | `zarinpal_authority` |
+| `zarinpalRefId` | `zarinpal_ref_id` |
+| `callbackUrl` | `callback_url` |
+| `returnUrl` | `return_url` |
+
+### File-Related Fields
+| Old (camelCase) | New (snake_case) |
+|------------------|------------------|
+| `bucketId` | `bucket_id` |
+| `fileName` | `file_name` |
+| `originalName` | `original_name` |
+| `mimeType` | `mime_type` |
+| `fileId` | `file_id` |
+
+## 🚀 Best Practices
+
+### 1. **Consistent Naming**
+- Always use `snake_case` for all field names
+- Never mix `camelCase` and `snake_case` in the same component
+- Use TypeScript interfaces to enforce naming consistency
+
+### 2. **Data Transformation**
+- No need to transform field names between frontend and backend
+- API responses are already in the correct format
+- Focus on business logic, not data formatting
+
+### 3. **Error Handling**
+- Update error handling to expect `snake_case` field names
+- Validation errors will reference `snake_case` fields
+- Update error messages accordingly
+
+### 4. **Testing**
+- Update all test data to use `snake_case` field names
+- Mock API responses should use `snake_case` format
+- Update test assertions to expect `snake_case` fields
+
+## 🔧 Utility Functions
+
+### Field Name Conversion (if needed for legacy code)
+```typescript
+// Convert camelCase to snake_case (for legacy code migration)
+export function camelToSnakeCase(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+// Convert snake_case to camelCase (if needed for specific UI components)
+export function snakeToCamelCase(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+// Convert entire object from camelCase to snake_case
+export function objectToSnakeCase(obj: any): any {
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    result[camelToSnakeCase(key)] = value;
+  }
+  return result;
+}
+```
+
+## 📱 Component Examples
+
+### User Profile Component
+```typescript
+interface UserProfile {
+  id: string;
+  user_id: string;
+  email: string;
   full_name: string;
   phone: string;
   address: string;
   created_at: string;
   updated_at: string;
 }
+
+const UserProfileComponent: React.FC<{ user: UserProfile }> = ({ user }) => {
+  return (
+    <div className="user-profile">
+      <h2>{user.full_name}</h2>
+      <p>Email: {user.email}</p>
+      <p>Phone: {user.phone}</p>
+      <p>Address: {user.address}</p>
+      <p>Member since: {new Date(user.created_at).toLocaleDateString()}</p>
+      <p>Last updated: {new Date(user.updated_at).toLocaleDateString()}</p>
+    </div>
+  );
+};
 ```
 
-#### After
+### Order List Component
 ```typescript
-// ✅ NEW - Use these interfaces
 interface Order {
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-  totalAmount: number;
-  // ... other fields
+  id: string;
+  order_id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  price: number;
+  status: string;
+  payment_status: string;
+  site_type: string;
+  created_at: string;
+  updated_at: string;
 }
 
-interface Profile {
-  userId: string;
-  fullName: string;
-  phone: string;
-  address: string;
-  createdAt: string;
-  updatedAt: string;
-  // ... other fields
-}
-```
-
-### 3. Update Form Fields
-
-#### Before
-```typescript
-// ❌ OLD - Remove these field names
-const formData = {
-  user_id: userId,
-  full_name: fullName,
-  phone: phone,
-  address: address
+const OrderListComponent: React.FC<{ orders: Order[] }> = ({ orders }) => {
+  return (
+    <div className="order-list">
+      {orders.map(order => (
+        <div key={order.id} className="order-item">
+          <h3>{order.title}</h3>
+          <p>Status: {order.status}</p>
+          <p>Payment: {order.payment_status}</p>
+          <p>Type: {order.site_type}</p>
+          <p>Price: {order.price.toLocaleString()} تومان</p>
+          <p>Created: {new Date(order.created_at).toLocaleDateString()}</p>
+        </div>
+      ))}
+    </div>
+  );
 };
 ```
 
-#### After
-```typescript
-// ✅ NEW - Use these field names
-const formData = {
-  userId: userId,
-  fullName: fullName,
-  phone: phone,
-  address: address
-};
-```
+## ⚠️ Important Notes
 
-### 4. Update Query Filters
+### 1. **Breaking Changes**
+- This is a **breaking change** - existing frontend code will need updates
+- All API calls must be updated to use `snake_case` field names
+- Database queries and filters must use `snake_case` field names
 
-#### Before
-```typescript
-// ❌ OLD - Remove these field names
-const queries = [
-  Query.equal('user_id', userId),
-  Query.orderDesc('created_at')
-];
-```
+### 2. **Migration Timeline**
+- **Phase 1**: Update all TypeScript interfaces and types
+- **Phase 2**: Update all API calls and data handling
+- **Phase 3**: Update all UI components and forms
+- **Phase 4**: Update tests and documentation
+- **Phase 5**: Deploy and monitor for issues
 
-#### After
-```typescript
-// ✅ NEW - Use these field names
-const queries = [
-  Query.equal('userId', userId),
-  Query.orderDesc('createdAt')
-];
-```
+### 3. **Rollback Plan**
+- Keep backup of old code structure
+- Database can be reverted using the backup scripts
+- Frontend can be reverted to previous commit
 
-### 5. Update Response Handling
+## 🎉 Benefits After Migration
 
-#### Before
-```typescript
-// ❌ OLD - Remove these field mappings
-const order = {
-  id: doc.$id,
-  userId: doc.user_id,        // OLD
-  createdAt: doc.created_at,  // OLD
-  updatedAt: doc.updated_at,  // OLD
-  totalAmount: doc.total_amount // OLD
-};
-```
+### 1. **Consistency**
+- No more confusion about field naming conventions
+- Consistent data structure across entire application
+- Easier to maintain and debug
 
-#### After
-```typescript
-// ✅ NEW - Use these field mappings
-const order = {
-  id: doc.$id,
-  userId: doc.userId,         // NEW
-  createdAt: doc.createdAt,   // NEW
-  updatedAt: doc.updatedAt,   // NEW
-  totalAmount: doc.totalAmount // NEW
-};
-```
+### 2. **Performance**
+- No field name transformation overhead
+- Direct mapping between frontend and backend
+- Reduced data processing complexity
 
-## 📋 Migration Checklist
+### 3. **Developer Experience**
+- Clear naming conventions
+- Easier onboarding for new developers
+- Better code readability and maintainability
 
-### Phase 1: Update Collection References
-- [ ] Replace `design_data` with `designs`
-- [ ] Replace `payment_transactions` with `transactions`
-- [ ] Replace `email_verification_logs` with `email_logs`
-- [ ] Replace `enhanced_orders` with `orders`
-- [ ] Replace `enhanced_wallet_transactions` with `transactions`
-- [ ] Replace `order_progress` with `wizard_orders`
+### 4. **API Clarity**
+- Self-documenting API responses
+- Consistent error message format
+- Easier API integration for third parties
 
-### Phase 2: Update Field Names
-- [ ] Update all `user_id` to `userId`
-- [ ] Update all `created_at` to `createdAt`
-- [ ] Update all `updated_at` to `updatedAt`
-- [ ] Update all `full_name` to `fullName`
-- [ ] Update all `total_amount` to `totalAmount`
-- [ ] Update all `wallet_id` to `walletId`
-- [ ] Update all `order_id` to `orderId`
-- [ ] Update all `invoice_id` to `invoiceId`
+## 📞 Support
 
-### Phase 3: Update API Calls
-- [ ] Update all database queries
-- [ ] Update all form submissions
-- [ ] Update all response mappings
-- [ ] Update all TypeScript interfaces
+If you encounter any issues during the migration:
 
-### Phase 4: Testing
-- [ ] Test user registration/login
-- [ ] Test order creation
-- [ ] Test profile updates
-- [ ] Test wallet operations
-- [ ] Test transaction history
-- [ ] Test design management
-
-## 🧪 Testing Recommendations
-
-### 1. Unit Tests
-```typescript
-// Test that new field names are used
-describe('Order Interface', () => {
-  it('should use camelCase field names', () => {
-    const order: Order = {
-      userId: 'test-user',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-01',
-      totalAmount: 1000
-    };
-    
-    expect(order.userId).toBeDefined();
-    expect(order.createdAt).toBeDefined();
-    expect(order.updatedAt).toBeDefined();
-    expect(order.totalAmount).toBeDefined();
-  });
-});
-```
-
-### 2. Integration Tests
-```typescript
-// Test API calls with new collection names
-describe('API Integration', () => {
-  it('should fetch designs from correct collection', async () => {
-    const designs = await appwrite.databases.listDocuments(
-      databaseId,
-      'designs', // Should use new collection name
-      []
-    );
-    
-    expect(designs).toBeDefined();
-  });
-});
-```
-
-### 3. E2E Tests
-```typescript
-// Test complete user flows
-describe('User Flow', () => {
-  it('should create order with new field names', async () => {
-    // Test complete order creation flow
-    // Ensure all new fields are properly handled
-  });
-});
-```
-
-## 🚨 Common Issues & Solutions
-
-### Issue 1: Field Not Found Errors
-```typescript
-// ❌ Error: Field 'user_id' not found
-Query.equal('user_id', userId)
-
-// ✅ Solution: Use new field name
-Query.equal('userId', userId)
-```
-
-### Issue 2: Collection Not Found Errors
-```typescript
-// ❌ Error: Collection 'design_data' not found
-appwrite.databases.listDocuments(databaseId, 'design_data', [])
-
-// ✅ Solution: Use new collection name
-appwrite.databases.listDocuments(databaseId, 'designs', [])
-```
-
-### Issue 3: Type Mismatch Errors
-```typescript
-// ❌ Error: Type 'string' is not assignable to type 'undefined'
-interface OldInterface {
-  user_id?: string; // OLD
-}
-
-// ✅ Solution: Use new interface
-interface NewInterface {
-  userId: string; // NEW - required field
-}
-```
-
-## 📚 Additional Resources
-
-- [Appwrite Database API Reference](https://appwrite.io/docs/references/cloud/databases)
-- [Appwrite Query Builder](https://appwrite.io/docs/references/cloud/databases/query)
-- [TypeScript Interface Documentation](https://www.typescriptlang.org/docs/handbook/interfaces.html)
-
-## 🆘 Support
-
-If you encounter issues during migration:
-
-1. Check the browser console for error messages
-2. Verify collection names in Appwrite console
-3. Confirm field names in database schema
-4. Review API response structure
-5. Contact the backend team for assistance
+1. **Check the API documentation** for correct field names
+2. **Review the field mapping reference** above
+3. **Use TypeScript interfaces** to catch naming errors
+4. **Test thoroughly** before deploying to production
+5. **Contact the backend team** for any clarification
 
 ---
 
-**Remember**: Always test thoroughly in a development environment before deploying to production!
+**Remember**: The goal is to have **100% consistency** in using `snake_case` throughout the entire application. This will make the codebase more maintainable and reduce confusion for all developers.

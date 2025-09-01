@@ -108,7 +108,7 @@ import {
             totalPages: 1,
           },
           summary: {
-            totalAmount: 10000000,
+            total_amount: 10000000,
             transactionCount: 1,
             averageAmount: 10000000,
           },
@@ -147,7 +147,7 @@ import {
     @ApiBody({
       schema: {
         example: {
-          orderId: 'order_123',
+          order_id: 'order_123',
           amount: 5000000,
           description: 'Payment for website design order',
           referenceData: {
@@ -180,7 +180,7 @@ import {
     async processWalletPaymentForOrder(
       @User() user: UserPayload,
       @Body() body: {
-        orderId: string;
+        order_id: string;
         amount: number;
         description: string;
         referenceData?: {
@@ -190,8 +190,8 @@ import {
         };
       },
     ) {
-      if (!body.orderId || !body.amount || !body.description) {
-        throw new BadRequestException('orderId, amount, and description are required');
+      if (!body.order_id || !body.amount || !body.description) {
+        throw new BadRequestException('order_id, amount, and description are required');
       }
   
       if (body.amount <= 0) {
@@ -200,7 +200,7 @@ import {
   
       return this.enhancedWalletsService.processWalletPaymentForOrder(
         user.id,
-        body.orderId,
+        body.order_id,
         body.amount,
         body.description,
         body.referenceData,
@@ -217,7 +217,7 @@ import {
         example: {
           amount: 10000000,
           description: 'Wallet top-up for future orders',
-          callbackUrl: 'https://example.com/callback',
+          callback_url: 'https://example.com/callback',
           metadata: {
             source: 'dashboard',
             user_agent: 'Mozilla/5.0...',
@@ -234,7 +234,7 @@ import {
       schema: {
         example: {
           paymentUrl: 'https://payment.zarinpal.com/pg/StartPay/authority_123',
-          orderId: 'deposit_user_123_1704067200000_10000000',
+          order_id: 'deposit_user_123_1704067200000_10000000',
           depositId: 'authority_123',
           expiresAt: '2024-01-02T00:00:00.000Z',
           qrCode: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...',
@@ -248,7 +248,7 @@ import {
       @Body() depositRequest: {
         amount: number;
         description: string;
-        callbackUrl?: string;
+        callback_url?: string;
         metadata?: {
           source?: 'dashboard' | 'order_flow' | 'wallet_page';
           user_agent?: string;
@@ -280,7 +280,7 @@ import {
     @ApiBody({
       schema: {
         example: {
-          orderId: 'deposit_user_123_1704067200000_10000000',
+          order_id: 'deposit_user_123_1704067200000_10000000',
           authority: 'authority_123',
           userIp: '192.168.1.1',
           userAgent: 'Mozilla/5.0...',
@@ -294,7 +294,7 @@ import {
         example: {
           success: true,
           refId: 'ref_123',
-          orderId: 'deposit_user_123_1704067200000_10000000',
+          order_id: 'deposit_user_123_1704067200000_10000000',
           amount: 10000000,
           description: 'Wallet deposit verified successfully',
           retryable: false,
@@ -307,19 +307,19 @@ import {
     async verifyEnhancedWalletDeposit(
       @User() user: UserPayload,
       @Body() body: {
-        orderId: string;
+        order_id: string;
         authority: string;
         userIp?: string;
         userAgent?: string;
       },
     ) {
-      if (!body.orderId || !body.authority) {
-        throw new BadRequestException('orderId and authority are required');
+      if (!body.order_id || !body.authority) {
+        throw new BadRequestException('order_id and authority are required');
       }
   
       return this.enhancedWalletsService.verifyEnhancedWalletDeposit(
         user.id,
-        body.orderId,
+        body.order_id,
         body.authority,
         body.userIp,
         body.userAgent,

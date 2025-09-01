@@ -664,8 +664,8 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
   }
 
   // New email templates for wallet and invoice management
-  async sendWalletTopUpEmail(userId: string, amount: number, refId: string): Promise<void> {
-    const user = await this.getUserById(userId);
+  async sendWalletTopUpEmail(user_id: string, amount: number, refId: string): Promise<void> {
+    const user = await this.getUserById(user_id);
     if (!user) return;
 
     const template = this.getWalletTopUpTemplate(amount, refId);
@@ -677,8 +677,8 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     });
   }
 
-  async sendInvoiceCreatedEmail(userId: string, invoiceId: string, amount: number): Promise<void> {
-    const user = await this.getUserById(userId);
+  async sendInvoiceCreatedEmail(user_id: string, invoiceId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(user_id);
     if (!user) return;
 
     const template = this.getInvoiceCreatedTemplate(invoiceId, amount);
@@ -690,8 +690,8 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     });
   }
 
-  async sendInvoicePaidEmail(userId: string, invoiceId: string, amount: number): Promise<void> {
-    const user = await this.getUserById(userId);
+  async sendInvoicePaidEmail(user_id: string, invoiceId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(user_id);
     if (!user) return;
 
     const template = this.getInvoicePaidTemplate(invoiceId, amount);
@@ -703,8 +703,8 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     });
   }
 
-  async sendInvoiceOverdueEmail(userId: string, invoiceId: string, amount: number): Promise<void> {
-    const user = await this.getUserById(userId);
+  async sendInvoiceOverdueEmail(user_id: string, invoiceId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(user_id);
     if (!user) return;
 
     const template = this.getInvoiceOverdueTemplate(invoiceId, amount);
@@ -716,12 +716,12 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     });
   }
 
-  async sendReceiptCreatedEmail(userId: string, receiptId: string, amount: number): Promise<void> {
-    const user = await this.getUserById(userId);
+  async sendReceiptCreatedEmail(user_id: string, receiptId: string, amount: number): Promise<void> {
+    const user = await this.getUserById(user_id);
     if (!user) return;
 
     const template = this.getReceiptCreatedTemplate(receiptId, amount);
-    await this.sendInvoiceCreatedEmail(userId, receiptId, amount);
+    await this.sendInvoiceCreatedEmail(user_id, receiptId, amount);
   }
 
   private getWalletTopUpTemplate(amount: number, refId: string): EmailTemplate {
@@ -974,7 +974,7 @@ Download Receipt: https://arzansite.com/receipts/${receiptId}/download
     };
   }
 
-  private async getUserById(userId: string): Promise<any> {
+  private async getUserById(user_id: string): Promise<any> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -982,7 +982,7 @@ Download Receipt: https://arzansite.com/receipts/${receiptId}/download
       
       const { Query } = await import('node-appwrite');
       const result = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
       

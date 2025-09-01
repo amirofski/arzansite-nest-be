@@ -252,7 +252,7 @@ export class WizardDataDto {
   @ApiProperty({ description: 'Website framework configuration' })
   @ValidateNested()
   @Type(() => WebsiteFrameworkDto)
-  websiteFramework: WebsiteFrameworkDto;
+  website_framework: WebsiteFrameworkDto;
 
   @ApiProperty({ description: 'Branding configuration' })
   @ValidateNested()
@@ -262,7 +262,7 @@ export class WizardDataDto {
   @ApiProperty({ description: 'Additional services' })
   @ValidateNested()
   @Type(() => AdditionalServicesDto)
-  additionalServices: AdditionalServicesDto;
+  additional_services: AdditionalServicesDto;
 
   @ApiProperty({ description: 'Domain configuration' })
   @ValidateNested()
@@ -303,12 +303,12 @@ export class CreateEnhancedOrderDto {
 
   @ApiProperty({ description: 'Site type', enum: SiteType })
   @IsEnum(SiteType)
-  siteType: SiteType;
+  site_type: SiteType;
 
   @ApiProperty({ description: 'Wizard configuration data' })
   @ValidateNested()
   @Type(() => WizardDataDto)
-  wizardData: WizardDataDto;
+  wizard_data: WizardDataDto;
 
   @ApiProperty({ description: 'Order status', enum: OrderStatus, default: OrderStatus.PENDING })
   @IsOptional()
@@ -328,7 +328,7 @@ export class CreateEnhancedOrderDto {
   @ApiProperty({ description: 'Session ID', required: false })
   @IsOptional()
   @IsString()
-  sessionId?: string;
+  session_id?: string;
 }
 
 export class UpdateEnhancedOrderDto {
@@ -376,7 +376,7 @@ export class UpdateEnhancedOrderDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => WizardDataDto)
-  wizardData?: WizardDataDto;
+  wizard_data?: WizardDataDto;
 }
 
 export class EnhancedOrderResponseDto {
@@ -421,7 +421,7 @@ export class EnhancedOrderResponseDto {
 }
 
 export interface OrderProgress {
-  orderId: string;
+  order_id: string;
   currentStep: string;
   completedSteps: string[];
   remainingSteps: string[];
@@ -435,7 +435,7 @@ export interface OrderProgress {
 export interface ProgressTimeline {
   step: string;
   status: 'completed' | 'in_progress' | 'pending';
-  completedAt?: string;
+  completed_at?: string;
   estimatedDuration: string;
   description: string;
 }

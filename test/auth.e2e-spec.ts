@@ -18,7 +18,7 @@ describe('AuthController (e2e) - Comprehensive Authentication Tests', () => {
   let passwordResetToken: string;
   let accessToken: string;
   let refreshToken: string;
-  let userId: string;
+  let user_id: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -60,7 +60,7 @@ describe('AuthController (e2e) - Comprehensive Authentication Tests', () => {
       expect(response.body.data.verificationEmailSent).toBe(true);
       
       // Store user ID for later tests
-      userId = response.body.data.user.id;
+      user_id = response.body.data.user.id;
     });
 
     it('should return error for duplicate email registration', async () => {
@@ -338,7 +338,7 @@ describe('AuthController (e2e) - Comprehensive Authentication Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.sessionId).toBeDefined();
+      expect(response.body.data.session_id).toBeDefined();
       expect(response.body.data.user).toBeDefined();
     });
 
@@ -352,13 +352,13 @@ describe('AuthController (e2e) - Comprehensive Authentication Tests', () => {
         })
         .expect(200);
 
-      const sessionId = sessionResponse.body.data.sessionId;
+      const session_id = sessionResponse.body.data.session_id;
 
       // Then authenticate with it
       const authResponse = await request(app.getHttpServer())
         .post('/api/auth/authenticate-session')
         .send({
-          sessionId: sessionId,
+          session_id: session_id,
           email: testUser.email
         })
         .expect(200);
@@ -377,12 +377,12 @@ describe('AuthController (e2e) - Comprehensive Authentication Tests', () => {
         })
         .expect(200);
 
-      const sessionId = sessionResponse.body.data.sessionId;
+      const session_id = sessionResponse.body.data.session_id;
 
       // Then validate it
       const validateResponse = await request(app.getHttpServer())
         .post('/api/auth/validate-session')
-        .send({ sessionId: sessionId })
+        .send({ session_id: session_id })
         .expect(200);
 
       expect(validateResponse.body.success).toBe(true);
@@ -399,12 +399,12 @@ describe('AuthController (e2e) - Comprehensive Authentication Tests', () => {
         })
         .expect(200);
 
-      const sessionId = sessionResponse.body.data.sessionId;
+      const session_id = sessionResponse.body.data.session_id;
 
       // Then logout
       const logoutResponse = await request(app.getHttpServer())
         .post('/api/auth/logout-session')
-        .send({ sessionId: sessionId })
+        .send({ session_id: session_id })
         .expect(200);
 
       expect(logoutResponse.body.success).toBe(true);

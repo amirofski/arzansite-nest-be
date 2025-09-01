@@ -36,20 +36,20 @@ export class UpdateOrderDto {
 
   @IsOptional()
   @IsString()
-  sessionId?: string;
+  session_id?: string;
 
   @IsOptional()
   @IsString()
-  siteType?: string;
+  site_type?: string;
 
   @IsOptional()
-  websiteFramework?: any;
+  website_framework?: any;
 
   @IsOptional()
   branding?: any;
 
   @IsOptional()
-  additionalServices?: any;
+  additional_services?: any;
 
   @IsOptional()
   domains?: any;

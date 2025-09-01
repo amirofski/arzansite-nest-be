@@ -189,10 +189,10 @@ export class ProjectFileDto {
   filename: string;
 
   @IsString()
-  originalName: string;
+  original_name: string;
 
   @IsString()
-  mimeType: string;
+  mime_type: string;
 
   @IsNumber()
   size: number;
@@ -211,17 +211,17 @@ export class WizardOrderDto {
 
   @IsOptional()
   @IsString()
-  userId?: string;
+  user_id?: string;
 
   @IsString()
-  sessionId: string;
+  session_id: string;
 
   @IsEnum(SiteType)
-  siteType: SiteType;
+  site_type: SiteType;
 
   @ValidateNested()
   @Type(() => WebsiteFrameworkDto)
-  websiteFramework: WebsiteFrameworkDto;
+  website_framework: WebsiteFrameworkDto;
 
   @ValidateNested()
   @Type(() => BrandingDto)
@@ -229,7 +229,7 @@ export class WizardOrderDto {
 
   @ValidateNested()
   @Type(() => AdditionalServicesDto)
-  additionalServices: AdditionalServicesDto;
+  additional_services: AdditionalServicesDto;
 
   @ValidateNested()
   @Type(() => DomainsDto)
@@ -246,32 +246,32 @@ export class WizardOrderDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProjectFileDto)
-  projectFiles: ProjectFileDto[];
+  project_files: ProjectFileDto[];
 
   @IsEnum(OrderStatus)
   status: OrderStatus;
 
   @IsOptional()
   @IsDateString()
-  completedAt?: Date;
+  completed_at?: Date;
 }
 
 export class SaveProgressDto {
   @IsString()
-  sessionId: string;
+  session_id: string;
 
   @IsOptional()
   @IsString()
-  userId?: string;
+  user_id?: string;
 
   @IsOptional()
   @IsEnum(SiteType)
-  siteType?: SiteType;
+  site_type?: SiteType;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => WebsiteFrameworkDto)
-  websiteFramework?: WebsiteFrameworkDto;
+  website_framework?: WebsiteFrameworkDto;
 
   @IsOptional()
   @ValidateNested()
@@ -281,7 +281,7 @@ export class SaveProgressDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => AdditionalServicesDto)
-  additionalServices?: AdditionalServicesDto;
+  additional_services?: AdditionalServicesDto;
 
   @IsOptional()
   @ValidateNested()
@@ -315,11 +315,7 @@ export class OrderDto {
 
   @IsOptional()
   @IsEnum(SiteType)
-  siteType?: SiteType;
-
-  @IsOptional()
-  @IsString()
-  userId?: string; // Added to allow userId inside the order object
+  site_type?: SiteType;
 
   @IsOptional()
   @IsString()
@@ -328,18 +324,18 @@ export class OrderDto {
 
 export class CompleteOrderDto {
   @IsString()
-  sessionId: string;
+  session_id: string;
 
   @IsOptional()
   @IsString()
-  userId?: string;
+  user_id?: string;
 
   @ValidateNested()
   @Type(() => OrderDto)
   order: OrderDto;
 
   @IsObject()
-  designSnapshot: Record<string, unknown>;
+  design_snapshot: Record<string, unknown>;
 }
 
 export class UpdateOrderDto {
@@ -350,7 +346,7 @@ export class UpdateOrderDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => WebsiteFrameworkDto)
-  websiteFramework?: WebsiteFrameworkDto;
+  website_framework?: WebsiteFrameworkDto;
 
   @IsOptional()
   @ValidateNested()
@@ -360,7 +356,7 @@ export class UpdateOrderDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => AdditionalServicesDto)
-  additionalServices?: AdditionalServicesDto;
+  additional_services?: AdditionalServicesDto;
 
   @IsOptional()
   @ValidateNested()
@@ -381,23 +377,23 @@ export class UpdateOrderDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProjectFileDto)
-  projectFiles?: ProjectFileDto[];
+  project_files?: ProjectFileDto[];
 }
 
 export class CalculatePriceDto {
   @IsOptional()
   @IsEnum(SiteType)
-  siteType?: SiteType;
+  site_type?: SiteType;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => WebsiteFrameworkDto)
-  websiteFramework?: WebsiteFrameworkDto;
+  website_framework?: WebsiteFrameworkDto;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => AdditionalServicesDto)
-  additionalServices?: AdditionalServicesDto;
+  additional_services?: AdditionalServicesDto;
 
   @IsOptional()
   @ValidateNested()
@@ -411,10 +407,10 @@ export class CalculatePriceDto {
 
 export class FileUploadDto {
   @IsString()
-  orderId: string;
+  order_id: string;
 
   @IsString()
-  sessionId: string;
+  session_id: string;
 }
 
 export class DomainAvailabilityDto {
@@ -438,7 +434,7 @@ export class DomainPriceDto {
 
 export class DesignOptionsDto {
   @IsString()
-  siteType: string;
+  site_type: string;
 
   @IsArray()
   modules: unknown[];
@@ -455,7 +451,7 @@ export class DesignOptionsDto {
 
 export class SaveDesignDto {
   @IsString()
-  orderId: string;
+  order_id: string;
 
   @ValidateNested()
   @Type(() => DynamicDesignDto)
@@ -468,12 +464,12 @@ export class SaveDesignDto {
 
 export class GetDesignDto {
   @IsString()
-  orderId: string;
+  order_id: string;
 }
 
 export class OrderResponseDto {
   success: boolean;
-  orderId: string;
+  order_id: string;
   invoiceId: string;
   message: string;
   order: {
@@ -488,13 +484,13 @@ export class OrderResponseDto {
   };
   invoice: {
     id: string;
-    orderId: string;
-    userId: string;
+    order_id: string;
+    user_id: string;
     amount: number;
     dueDate: string;
     status: string;
     description: string;
-    createdAt: string;
-    updatedAt: string;
+    created_at: string;
+    updated_at: string;
   };
 }

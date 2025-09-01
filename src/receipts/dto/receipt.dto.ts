@@ -11,8 +11,8 @@ export class ReceiptResponseDto {
   refId: string;
   amount: number;
   format: ReceiptFormat;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export class DownloadReceiptDto {

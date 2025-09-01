@@ -48,8 +48,8 @@ export class NotificationsController {
   @ApiBody({
     schema: {
       example: {
-        orderId: 'order_123',
-        userId: 'user_123',
+        order_id: 'order_123',
+        user_id: 'user_123',
         notificationType: 'order_created',
         message: 'Your order has been created successfully',
         priority: 'medium',
@@ -78,10 +78,10 @@ export class NotificationsController {
   async sendOrderStatusNotification(
     @Body() notificationRequest: NotificationRequest
   ) {
-    this.logger.log(`Sending order status notification for order ${notificationRequest.orderId}`);
+    this.logger.log(`Sending order status notification for order ${notificationRequest.order_id}`);
 
-    if (!notificationRequest.orderId || !notificationRequest.userId || !notificationRequest.message) {
-      throw new BadRequestException('orderId, userId, and message are required');
+    if (!notificationRequest.order_id || !notificationRequest.user_id || !notificationRequest.message) {
+      throw new BadRequestException('order_id, user_id, and message are required');
     }
 
     return this.notificationsService.sendOrderStatusNotification(notificationRequest);
@@ -416,8 +416,8 @@ export class NotificationsController {
     }
 
     const testNotification: NotificationRequest = {
-      orderId: 'test_order',
-      userId: user.id,
+      order_id: 'test_order',
+      user_id: user.id,
       notificationType: 'order_created',
       message: body.message,
       priority: 'low',
@@ -556,7 +556,7 @@ export class NotificationsController {
     return sortedNotifications[0].created_at;
   }
 
-  private async getLastDashboardActivity(userId: string): Promise<string | null> {
+  private async getLastDashboardActivity(user_id: string): Promise<string | null> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -564,7 +564,7 @@ export class NotificationsController {
       const { Query } = await import('node-appwrite');
 
       const result = await databases.listDocuments(databaseId, userActivityCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.equal('activity_type', 'dashboard_login'),
         Query.orderDesc('created_at'),
         Query.limit(1),

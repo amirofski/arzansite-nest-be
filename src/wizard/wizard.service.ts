@@ -29,7 +29,7 @@ export class WizardService {
     },
     pageCost: 100000, // 100,000 Toman per page
     sectionCost: 50000, // 50,000 Toman per section
-    additionalServices: {
+    additional_services: {
       seoOptimization: 200000,
       socialMediaIntegration: 150000,
       analyticsSetup: 100000,
@@ -69,7 +69,7 @@ export class WizardService {
 
     // Check if progress already exists
     const existingProgress = await databases.listDocuments(databaseId, wizardOrdersCollection, [
-      Query.equal('sessionId', saveProgressDto.sessionId),
+      Query.equal('session_id', saveProgressDto.session_id),
       Query.limit(1),
     ]);
 
@@ -82,7 +82,7 @@ export class WizardService {
         existingDoc.$id,
         {
           ...saveProgressDto,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }
       );
       return updated as any;
@@ -95,22 +95,22 @@ export class WizardService {
         {
           ...saveProgressDto,
           status: OrderStatus.DRAFT,
-          projectFiles: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          project_files: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }
       );
       return newDoc as any;
     }
   }
 
-  async getProgress(sessionId: string, userId?: string): Promise<WizardOrderDto> {
+  async getProgress(session_id: string, user_id?: string): Promise<WizardOrderDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
     const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
-      Query.equal('sessionId', sessionId),
+      Query.equal('session_id', session_id),
       Query.limit(1),
     ]);
 
@@ -121,21 +121,21 @@ export class WizardService {
     const progress = result.documents[0] as any;
 
     // Check if user has access to this progress
-    if (userId && progress.userId && progress.userId !== userId) {
+    if (user_id && progress.user_id && progress.user_id !== user_id) {
       throw new ForbiddenException('Access denied');
     }
 
     return progress;
   }
 
-  async getUserProgress(userId: string): Promise<WizardOrderDto[]> {
+  async getUserProgress(user_id: string): Promise<WizardOrderDto[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
     const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
-      Query.equal('userId', userId),
-      Query.orderDesc('updatedAt'),
+      Query.equal('user_id', user_id),
+      Query.orderDesc('updated_at'),
     ]);
 
     return (result.documents as any) || [];
@@ -150,23 +150,23 @@ export class WizardService {
 
     try {
       // 1. Calculate total price from design snapshot
-      const designSnapshot = completeOrderDto.designSnapshot;
-      const pricing = designSnapshot.pricing as any;
+      const design_snapshot = completeOrderDto.design_snapshot;
+      const pricing = design_snapshot.pricing as any;
       const priceRials = pricing.totalPrice || 0;
 
       // 2. Create the order with pending status
-      // Map user_id from order.user_id, order.userId, or top-level userId
+      // Map user_id from order.user_id, order.user_id, or top-level user_id
       const mapped_user_id = completeOrderDto.order?.user_id || 
-                            completeOrderDto.order?.userId || 
-                            completeOrderDto.userId || 
+                            completeOrderDto.order?.user_id || 
+                            completeOrderDto.user_id || 
                             user_id;
       
       // Debug logging to see what we're getting
       console.log('Debug - completeOrderDto:', {
         order_user_id: completeOrderDto.order?.user_id,
-        order_userId: completeOrderDto.order?.userId,
-        top_level_userId: completeOrderDto.userId,
-        sessionId: completeOrderDto.sessionId,
+        order_userId: completeOrderDto.order?.user_id,
+        top_level_userId: completeOrderDto.user_id,
+        session_id: completeOrderDto.session_id,
         mapped_user_id: mapped_user_id
       });
 
@@ -177,25 +177,25 @@ export class WizardService {
         orderNumber: this.generateOrderNumber(), // Required field - database expects orderNumber
         title: completeOrderDto.order.title, // Required field
         description: completeOrderDto.order.description, // Required field
-        totalAmount: priceRials, // Required field - database expects totalAmount (camelCase)
+        total_amount: priceRials, // Required field - database expects total_amount (camelCase)
         currency: 'IRR', // Required field - database expects currency
         status: 'pending', // Required field - database expects status
         payment_status: 'pending', // Required field - database expects payment_status
         comments: completeOrderDto.order.comments, // Optional field
-        sessionId: completeOrderDto.sessionId, // Optional field
-        siteType: completeOrderDto.order.siteType, // Optional field
-        branding: JSON.stringify(designSnapshot.branding || {}), // Optional field
+        session_id: completeOrderDto.session_id, // Optional field
+        site_type: completeOrderDto.order.site_type, // Optional field
+        branding: JSON.stringify(design_snapshot.branding || {}), // Optional field
         payment_gateway: 'zarinpal', // Optional field
         zarinpal_authority: '', // Optional field
         zarinpal_ref_id: '', // Optional field
-        wizardData: JSON.stringify(designSnapshot), // Optional field
-        createdAt: new Date().toISOString(), // Required field - database expects createdAt (camelCase)
-        updatedAt: new Date().toISOString(), // Required field - database expects updatedAt (camelCase)
+        wizard_data: JSON.stringify(design_snapshot), // Optional field
+        created_at: new Date().toISOString(), // Required field - database expects created_at (camelCase)
+        updated_at: new Date().toISOString(), // Required field - database expects updated_at (camelCase)
       };
 
       console.log('Debug - orderData being sent to Appwrite:', orderData);
 
-      // Note: designSnapshot is NOT sent to the orders collection
+      // Note: design_snapshot is NOT sent to the orders collection
       // It should be saved separately in a designs collection or uploaded to storage
       const orderDoc = await databases.createDocument(
         databaseId,
@@ -228,7 +228,7 @@ export class WizardService {
       const { Query } = await import('node-appwrite');
       
       const existingWizardOrder = await databases.listDocuments(databaseId, wizardOrdersCollection, [
-        Query.equal('sessionId', completeOrderDto.sessionId),
+        Query.equal('session_id', completeOrderDto.session_id),
         Query.limit(1),
       ]);
 
@@ -239,7 +239,7 @@ export class WizardService {
           existingWizardOrder.documents[0].$id,
           {
             status: 'completed',
-            completedAt: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }
         );
@@ -251,29 +251,29 @@ export class WizardService {
       // 6. Return success response
       return {
         success: true,
-        orderId: orderDoc.$id,
+        order_id: orderDoc.$id,
         invoiceId: invoiceDoc.$id,
         message: 'Order completed successfully',
         order: {
           id: orderDoc.$id,
           title: orderDoc.title,
           description: orderDoc.description,
-          price: orderDoc.totalAmount,
+          price: orderDoc.total_amount,
           status: orderDoc.status,
           user_id: orderDoc.user_id,
-          created_at: orderDoc.createdAt,
-          updated_at: orderDoc.updatedAt,
+          created_at: orderDoc.created_at,
+          updated_at: orderDoc.updated_at,
         },
         invoice: {
           id: invoiceDoc.$id,
-          orderId: invoiceDoc.order_id,
-          userId: invoiceDoc.user_id,
+          order_id: invoiceDoc.order_id,
+          user_id: invoiceDoc.user_id,
           amount: invoiceDoc.amount,
           dueDate: invoiceDoc.due_date,
           status: invoiceDoc.status,
           description: invoiceDoc.description,
-          createdAt: invoiceDoc.created_at,
-          updatedAt: invoiceDoc.updated_at,
+          created_at: invoiceDoc.created_at,
+          updated_at: invoiceDoc.updated_at,
         },
       };
 
@@ -284,13 +284,13 @@ export class WizardService {
   }
 
   async updateOrder(
-    orderId: string,
+    order_id: string,
     updateOrderDto: UpdateOrderDto,
-    userId: string,
+    user_id: string,
     isAdmin: boolean = false
   ): Promise<WizardOrderDto> {
     // Check ownership or admin access
-    const existingOrder = await this.getOrder(orderId, userId, isAdmin);
+    const existingOrder = await this.getOrder(order_id, user_id, isAdmin);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -299,37 +299,37 @@ export class WizardService {
     const updated = await databases.updateDocument(
       databaseId,
       wizardOrdersCollection,
-      orderId,
+      order_id,
       {
         ...updateOrderDto,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }
     );
 
     return updated as any;
   }
 
-  async getOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<WizardOrderDto> {
+  async getOrder(order_id: string, user_id: string, isAdmin: boolean = false): Promise<WizardOrderDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
-    const data = await databases.getDocument(databaseId, wizardOrdersCollection, orderId).catch(() => null);
+    const data = await databases.getDocument(databaseId, wizardOrdersCollection, order_id).catch(() => null);
 
     if (!data) {
       throw new NotFoundException('Order not found');
     }
 
     // Check ownership or admin access
-    if (!isAdmin && data.userId !== userId) {
+    if (!isAdmin && data.user_id !== user_id) {
       throw new ForbiddenException('Access denied');
     }
 
     return data as any;
   }
 
-  async listUserOrders(userId: string): Promise<WizardOrderDto[]> {
-    return this.getUserProgress(userId);
+  async listUserOrders(user_id: string): Promise<WizardOrderDto[]> {
+    return this.getUserProgress(user_id);
   }
 
   async listAllOrders(
@@ -342,7 +342,7 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
-    const queries: string[] = [Query.orderDesc('updatedAt')];
+    const queries: string[] = [Query.orderDesc('updated_at')];
 
     if (status) {
       queries.push(Query.equal('status', status));
@@ -368,12 +368,12 @@ export class WizardService {
   }
 
   async uploadFiles(
-    orderId: string,
-    sessionId: string,
+    order_id: string,
+    session_id: string,
     files: Express.Multer.File[]
   ): Promise<{ uploadedFiles: any[]; errors: string[] }> {
     // Verify order exists and user has access
-    const order = await this.getOrder(orderId, sessionId, true); // Allow session-based access
+    const order = await this.getOrder(order_id, session_id, true); // Allow session-based access
 
     const uploadedFiles: any[] = [];
     const errors: string[] = [];
@@ -387,10 +387,10 @@ export class WizardService {
         }
 
         // Upload to storage
-        const bucketId = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
-        const uploadResult = await this.storageService.uploadMultipart(bucketId, file);
+        const bucket_id = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
+        const uploadResult = await this.storageService.uploadMultipart(bucket_id, file);
 
-        if (uploadResult.fileId === 'placeholder-file-id') {
+        if (uploadResult.file_id === 'placeholder-file-id') {
           // Handle case where storage service is not fully implemented
           errors.push(`File upload not implemented: ${file.originalname}`);
           continue;
@@ -398,20 +398,20 @@ export class WizardService {
 
         // Create file record
         const fileRecord = {
-          id: uploadResult.fileId,
+          id: uploadResult.file_id,
           filename: file.filename || file.originalname,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
+          original_name: file.originalname,
+          mime_type: file.mimetype,
           size: file.size,
-          url: uploadResult.fileId, // This should be the actual URL
+          url: uploadResult.file_id, // This should be the actual URL
           uploadedAt: new Date(),
         };
 
         // Update order with new file
         await this.updateOrder(
-          orderId,
-          { projectFiles: [...order.projectFiles, fileRecord] },
-          order.userId || sessionId,
+          order_id,
+          { project_files: [...order.project_files, fileRecord] },
+          order.user_id || session_id,
           false
         );
 
@@ -424,36 +424,36 @@ export class WizardService {
     return { uploadedFiles, errors };
   }
 
-  async deleteFile(orderId: string, fileId: string, userId: string, isAdmin: boolean = false): Promise<void> {
-    const order = await this.getOrder(orderId, userId, isAdmin);
+  async deleteFile(order_id: string, file_id: string, user_id: string, isAdmin: boolean = false): Promise<void> {
+    const order = await this.getOrder(order_id, user_id, isAdmin);
 
     // Find and remove file from order
-    const updatedFiles = order.projectFiles.filter((file: any) => file.id !== fileId);
+    const updatedFiles = order.project_files.filter((file: any) => file.id !== file_id);
     
-    if (updatedFiles.length === order.projectFiles.length) {
+    if (updatedFiles.length === order.project_files.length) {
       throw new NotFoundException('File not found in order');
     }
 
     // Update order
     await this.updateOrder(
-      orderId,
-      { projectFiles: updatedFiles },
-      userId,
+      order_id,
+      { project_files: updatedFiles },
+      user_id,
       isAdmin
     );
 
     // Delete from storage
     try {
-      const bucketId = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
-      await this.storageService.deleteFile(bucketId, fileId);
+      const bucket_id = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
+      await this.storageService.deleteFile(bucket_id, file_id);
     } catch (error) {
       console.error('Failed to delete file from storage:', error);
     }
   }
 
-  async listOrderFiles(orderId: string, userId: string, isAdmin: boolean = false): Promise<any[]> {
-    const order = await this.getOrder(orderId, userId, isAdmin);
-    return order.projectFiles || [];
+  async listOrderFiles(order_id: string, user_id: string, isAdmin: boolean = false): Promise<any[]> {
+    const order = await this.getOrder(order_id, user_id, isAdmin);
+    return order.project_files || [];
   }
 
   async getAvailableDomainExtensions(): Promise<any[]> {
@@ -498,7 +498,7 @@ export class WizardService {
       {
         price,
         available,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }
     );
 
@@ -513,13 +513,13 @@ export class WizardService {
     let domainCost = 0;
 
     // Base price based on site type
-    if (calculatePriceDto.siteType) {
-      basePrice = this.pricingConfig.basePrice[calculatePriceDto.siteType];
+    if (calculatePriceDto.site_type) {
+      basePrice = this.pricingConfig.basePrice[calculatePriceDto.site_type];
     }
 
     // Pages and sections cost
-    if (calculatePriceDto.websiteFramework?.dynamicDesign) {
-      const pages = calculatePriceDto.websiteFramework.dynamicDesign.pages;
+    if (calculatePriceDto.website_framework?.dynamicDesign) {
+      const pages = calculatePriceDto.website_framework.dynamicDesign.pages;
       pagesCost = pages.length * this.pricingConfig.pageCost;
       
       const totalSections = pages.reduce((total, page) => total + page.sections.length, 0);
@@ -527,10 +527,10 @@ export class WizardService {
     }
 
     // Additional services cost
-    if (calculatePriceDto.additionalServices) {
-      Object.entries(calculatePriceDto.additionalServices).forEach(([service, enabled]) => {
-        if (enabled && this.pricingConfig.additionalServices[service]) {
-          additionalServicesCost += this.pricingConfig.additionalServices[service];
+    if (calculatePriceDto.additional_services) {
+      Object.entries(calculatePriceDto.additional_services).forEach(([service, enabled]) => {
+        if (enabled && this.pricingConfig.additional_services[service]) {
+          additionalServicesCost += this.pricingConfig.additional_services[service];
         }
       });
     }
@@ -569,9 +569,9 @@ export class WizardService {
     return this.pricingConfig;
   }
 
-  async saveDesign(saveDesignDto: SaveDesignDto, userId: string): Promise<any> {
+  async saveDesign(saveDesignDto: SaveDesignDto, user_id: string): Promise<any> {
     // First verify the order exists and user has access
-    const order = await this.getOrder(saveDesignDto.orderId, userId, false);
+    const order = await this.getOrder(saveDesignDto.order_id, user_id, false);
     
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -584,7 +584,7 @@ export class WizardService {
 
     // Check if design already exists for this order
     const existing = await databases.listDocuments(databaseId, designsCollection, [
-      Query.equal('order_id', saveDesignDto.orderId),
+      Query.equal('order_id', saveDesignDto.order_id),
       Query.limit(1),
     ]);
 
@@ -607,8 +607,8 @@ export class WizardService {
         designsCollection, 
         ID.unique(), 
         {
-          order_id: saveDesignDto.orderId,
-          user_id: userId,
+          order_id: saveDesignDto.order_id,
+          user_id: user_id,
           dynamic_design: saveDesignDto.dynamicDesign,
           options: saveDesignDto.options,
           created_at: new Date().toISOString(),
@@ -620,9 +620,9 @@ export class WizardService {
     return { success: true, message: 'Design saved successfully' };
   }
 
-  async getDesign(orderId: string, userId: string): Promise<any> {
+  async getDesign(order_id: string, user_id: string): Promise<any> {
     // First verify the order exists and user has access
-    const order = await this.getOrder(orderId, userId, false);
+    const order = await this.getOrder(order_id, user_id, false);
     
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -634,7 +634,7 @@ export class WizardService {
     const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
 
     const design = await databases.listDocuments(databaseId, designsCollection, [
-      Query.equal('order_id', orderId),
+      Query.equal('order_id', order_id),
       Query.limit(1),
     ]);
 
@@ -667,11 +667,11 @@ export class WizardService {
     });
   }
 
-  private extractPageCount(designSnapshot: Record<string, unknown>): number {
+  private extractPageCount(design_snapshot: Record<string, unknown>): number {
     try {
-      const websiteFramework = designSnapshot.websiteFramework as any;
-      if (websiteFramework?.dynamicDesign?.pages) {
-        return (websiteFramework.dynamicDesign.pages as any[]).length;
+      const website_framework = design_snapshot.website_framework as any;
+      if (website_framework?.dynamicDesign?.pages) {
+        return (website_framework.dynamicDesign.pages as any[]).length;
       }
       return 1; // Default to 1 page
     } catch {
@@ -679,11 +679,11 @@ export class WizardService {
     }
   }
 
-  private extractSectionCount(designSnapshot: Record<string, unknown>): number {
+  private extractSectionCount(design_snapshot: Record<string, unknown>): number {
     try {
-      const websiteFramework = designSnapshot.websiteFramework as any;
-      if (websiteFramework?.dynamicDesign?.pages) {
-        const pages = websiteFramework.dynamicDesign.pages as any[];
+      const website_framework = design_snapshot.website_framework as any;
+      if (website_framework?.dynamicDesign?.pages) {
+        const pages = website_framework.dynamicDesign.pages as any[];
         return pages.reduce((total, page) => {
           return total + (page.sections?.length || 0);
         }, 0);
@@ -694,27 +694,27 @@ export class WizardService {
     }
   }
 
-  private async generatePreviewUrl(orderId: string, designSnapshot: Record<string, unknown>): Promise<string> {
+  private async generatePreviewUrl(order_id: string, design_snapshot: Record<string, unknown>): Promise<string> {
     // For now, return a placeholder URL
     // In production, this would trigger an async job to generate the actual preview
-    return `https://preview.arzansite.com/orders/${orderId}/preview`;
+    return `https://preview.arzansite.com/orders/${order_id}/preview`;
   }
 
   private async sendOrderConfirmationEmails(orderDoc: any, invoiceDoc: any, completeOrderDto: CompleteOrderDto): Promise<void> {
     try {
       // Map user_id from multiple possible sources (same logic as in completeOrder)
       const mapped_user_id = completeOrderDto.order?.user_id || 
-                            completeOrderDto.order?.userId || 
-                            completeOrderDto.userId || 
-                            completeOrderDto.sessionId;
+                            completeOrderDto.order?.user_id || 
+                            completeOrderDto.user_id || 
+                            completeOrderDto.session_id;
 
       // Send order confirmation to user
       await this.emailService.sendOrderNotification(
         mapped_user_id, // Use mapped user_id
         {
-          orderId: orderDoc.$id,
+          order_id: orderDoc.$id,
           title: orderDoc.title,
-          amount: orderDoc.totalAmount,
+          amount: orderDoc.total_amount,
           status: orderDoc.status,
         }
       );

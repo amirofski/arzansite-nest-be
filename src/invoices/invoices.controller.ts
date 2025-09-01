@@ -55,7 +55,7 @@ export class InvoicesController {
       example1: {
         summary: 'Basic invoice',
         value: {
-          orderId: 'order_123456',
+          order_id: 'order_123456',
           amount: 5000000,
           dueDate: '2024-12-31T23:59:59.000Z',
           description: 'Website design services for company branding'
@@ -69,14 +69,14 @@ export class InvoicesController {
     schema: {
       example: {
         id: 'invoice_123456',
-        userId: 'user_789',
-        orderId: 'order_123456',
+        user_id: 'user_789',
+        order_id: 'order_123456',
         amount: 5000000,
         dueDate: '2024-12-31T23:59:59.000Z',
         status: 'pending',
         description: 'Website design services for company branding',
-        createdAt: '2024-12-01T10:00:00.000Z',
-        updatedAt: '2024-12-01T10:00:00.000Z'
+        created_at: '2024-12-01T10:00:00.000Z',
+        updated_at: '2024-12-01T10:00:00.000Z'
       }
     }
   })
@@ -119,14 +119,14 @@ export class InvoicesController {
       example: [
         {
           id: 'invoice_123456',
-          userId: 'user_789',
-          orderId: 'order_123456',
+          user_id: 'user_789',
+          order_id: 'order_123456',
           amount: 5000000,
           dueDate: '2024-12-31T23:59:59.000Z',
           status: 'pending',
           description: 'Website design services',
-          createdAt: '2024-12-01T10:00:00.000Z',
-          updatedAt: '2024-12-01T10:00:00.000Z'
+          created_at: '2024-12-01T10:00:00.000Z',
+          updated_at: '2024-12-01T10:00:00.000Z'
         }
       ]
     }
@@ -293,7 +293,7 @@ export class InvoicesController {
     example: 'pending'
   })
   @ApiQuery({
-    name: 'userId',
+    name: 'user_id',
     required: false,
     type: String,
     description: 'Filter by user ID',
@@ -313,7 +313,7 @@ export class InvoicesController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('status') status?: string,
-    @Query('userId') userId?: string
+    @Query('user_id') user_id?: string
   ): Promise<InvoiceResponseDto[]> {
     // Admin endpoint to get all invoices with filtering
     return this.invoicesService.getInvoices('', true);

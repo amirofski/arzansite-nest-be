@@ -24,7 +24,7 @@ export class WalletAdjustmentDto {
 
 export class WalletAdjustmentResponseDto {
   id: string;
-  walletId: string;
+  wallet_id: string;
   adminId: string;
   amount: number;
   type: AdjustmentType;
@@ -32,7 +32,7 @@ export class WalletAdjustmentResponseDto {
   notes?: string;
   balanceBefore: number;
   balanceAfter: number;
-  createdAt: string;
+  created_at: string;
 }
 
 export class AdminDashboardStatsDto {
@@ -61,8 +61,8 @@ export class DomainExtensionDto {
   available: boolean;
   description: string;
   isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export class CreateDomainExtensionDto {
@@ -152,7 +152,7 @@ export class ServiceStatusDto {
 
 export class WalletAdjustmentHistoryDto {
   id: string;
-  walletId: string;
+  wallet_id: string;
   adminId: string;
   adminName: string;
   type: AdjustmentType;
@@ -161,7 +161,7 @@ export class WalletAdjustmentHistoryDto {
   notes?: string;
   balanceBefore: number;
   balanceAfter: number;
-  createdAt: string;
+  created_at: string;
 }
 
 export class WalletAdjustmentHistoryResponseDto {

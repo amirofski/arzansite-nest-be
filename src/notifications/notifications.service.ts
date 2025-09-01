@@ -5,8 +5,8 @@ import { EmailService } from '../email/email.service';
 import { ID } from 'node-appwrite';
 
 export interface NotificationRequest {
-  orderId: string;
-  userId: string;
+  order_id: string;
+  user_id: string;
   notificationType: 'order_created' | 'payment_success' | 'payment_failed' | 'progress_update' | 'order_completed';
   message: string;
   priority: 'low' | 'medium' | 'high';
@@ -63,14 +63,14 @@ export class NotificationsService {
   ) {}
 
   async sendOrderStatusNotification(notificationRequest: NotificationRequest): Promise<NotificationResponse> {
-    this.logger.log(`Sending order status notification for order ${notificationRequest.orderId}, user ${notificationRequest.userId}`);
+    this.logger.log(`Sending order status notification for order ${notificationRequest.order_id}, user ${notificationRequest.user_id}`);
 
     try {
       // Validate notification request
       this.validateNotificationRequest(notificationRequest);
 
       // Get user notification preferences
-      const userPreferences = await this.getUserNotificationPreferences(notificationRequest.userId);
+      const userPreferences = await this.getUserNotificationPreferences(notificationRequest.user_id);
 
       // Create notification record
       const notificationId = await this.createNotificationRecord(notificationRequest);
@@ -94,7 +94,7 @@ export class NotificationsService {
       // Update notification status
       await this.updateNotificationStatus(notificationId, sentChannels, failedChannels);
 
-      this.logger.log(`Order status notification sent successfully for order ${notificationRequest.orderId}`);
+      this.logger.log(`Order status notification sent successfully for order ${notificationRequest.order_id}`);
 
       return {
         success: sentChannels.length > 0,
@@ -108,8 +108,8 @@ export class NotificationsService {
     }
   }
 
-  async getUserNotificationPreferences(userId: string): Promise<NotificationPreferences> {
-    this.logger.log(`Getting notification preferences for user ${userId}`);
+  async getUserNotificationPreferences(user_id: string): Promise<NotificationPreferences> {
+    this.logger.log(`Getting notification preferences for user ${user_id}`);
 
     try {
       const databases = this.appwriteService.getDatabases();
@@ -118,7 +118,7 @@ export class NotificationsService {
       const { Query } = await import('node-appwrite');
 
       const result = await databases.listDocuments(databaseId, preferencesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -135,10 +135,10 @@ export class NotificationsService {
   }
 
   async updateNotificationPreferences(
-    userId: string,
+    user_id: string,
     preferences: Partial<NotificationPreferences>
   ): Promise<NotificationPreferences> {
-    this.logger.log(`Updating notification preferences for user ${userId}`);
+    this.logger.log(`Updating notification preferences for user ${user_id}`);
 
     try {
       const databases = this.appwriteService.getDatabases();
@@ -147,7 +147,7 @@ export class NotificationsService {
       const { Query } = await import('node-appwrite');
 
       const existingPreferences = await databases.listDocuments(databaseId, preferencesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -171,7 +171,7 @@ export class NotificationsService {
           preferencesCollection,
           ID.unique(),
           {
-            user_id: userId,
+            user_id: user_id,
             ...this.mapToDatabaseFormat(preferences),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -187,7 +187,7 @@ export class NotificationsService {
   }
 
   async getNotificationHistory(
-    userId: string,
+    user_id: string,
     filters: {
       type?: string;
       status?: string;
@@ -205,7 +205,7 @@ export class NotificationsService {
       totalPages: number;
     };
   }> {
-    this.logger.log(`Getting notification history for user ${userId}`);
+    this.logger.log(`Getting notification history for user ${user_id}`);
 
     try {
       const databases = this.appwriteService.getDatabases();
@@ -214,7 +214,7 @@ export class NotificationsService {
       const { Query } = await import('node-appwrite');
 
       // Build query filters
-      const queryFilters = [Query.equal('user_id', userId)];
+      const queryFilters = [Query.equal('user_id', user_id)];
       
       if (filters.type) {
         queryFilters.push(Query.equal('notification_type', filters.type));
@@ -246,7 +246,7 @@ export class NotificationsService {
 
       // Get total count for pagination
       const totalResult = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('user_id', userId)
+        Query.equal('user_id', user_id)
       ]);
 
       const total = totalResult.total;
@@ -267,8 +267,8 @@ export class NotificationsService {
     }
   }
 
-  async markNotificationAsRead(notificationId: string, userId: string): Promise<void> {
-    this.logger.log(`Marking notification ${notificationId} as read for user ${userId}`);
+  async markNotificationAsRead(notificationId: string, user_id: string): Promise<void> {
+    this.logger.log(`Marking notification ${notificationId} as read for user ${user_id}`);
 
     try {
       const databases = this.appwriteService.getDatabases();
@@ -278,7 +278,7 @@ export class NotificationsService {
 
       const notification = await databases.listDocuments(databaseId, notificationsCollection, [
         Query.equal('$id', notificationId),
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -299,8 +299,8 @@ export class NotificationsService {
     }
   }
 
-  async markAllNotificationsAsRead(userId: string): Promise<void> {
-    this.logger.log(`Marking all notifications as read for user ${userId}`);
+  async markAllNotificationsAsRead(user_id: string): Promise<void> {
+    this.logger.log(`Marking all notifications as read for user ${user_id}`);
 
     try {
       const databases = this.appwriteService.getDatabases();
@@ -309,7 +309,7 @@ export class NotificationsService {
       const { Query } = await import('node-appwrite');
 
       const unreadNotifications = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.isNull('read_at'),
         Query.limit(100), // Limit to prevent overwhelming the system
       ]);
@@ -333,8 +333,8 @@ export class NotificationsService {
 
   // Private helper methods
   private validateNotificationRequest(notificationRequest: NotificationRequest): void {
-    if (!notificationRequest.orderId || !notificationRequest.userId || !notificationRequest.message) {
-      throw new BadRequestException('orderId, userId, and message are required');
+    if (!notificationRequest.order_id || !notificationRequest.user_id || !notificationRequest.message) {
+      throw new BadRequestException('order_id, user_id, and message are required');
     }
 
     if (!notificationRequest.channels || notificationRequest.channels.length === 0) {
@@ -361,8 +361,8 @@ export class NotificationsService {
         notificationsCollection,
         ID.unique(),
         {
-          user_id: notificationRequest.userId,
-          order_id: notificationRequest.orderId,
+          user_id: notificationRequest.user_id,
+          order_id: notificationRequest.order_id,
           notification_type: notificationRequest.notificationType,
           message: notificationRequest.message,
           priority: notificationRequest.priority,
@@ -468,7 +468,7 @@ export class NotificationsService {
   private async sendEmailNotification(notificationRequest: NotificationRequest): Promise<void> {
     try {
       // Get user email
-      const userEmail = await this.getUserEmail(notificationRequest.userId);
+      const userEmail = await this.getUserEmail(notificationRequest.user_id);
       if (!userEmail) {
         throw new Error('User email not found');
       }
@@ -492,7 +492,7 @@ export class NotificationsService {
   private async sendSMSNotification(notificationRequest: NotificationRequest): Promise<void> {
     try {
       // Get user phone number
-      const userPhone = await this.getUserPhone(notificationRequest.userId);
+      const userPhone = await this.getUserPhone(notificationRequest.user_id);
       if (!userPhone) {
         throw new Error('User phone number not found');
       }
@@ -511,7 +511,7 @@ export class NotificationsService {
   private async sendPushNotification(notificationRequest: NotificationRequest): Promise<void> {
     try {
       // Get user push tokens
-      const pushTokens = await this.getUserPushTokens(notificationRequest.userId);
+      const pushTokens = await this.getUserPushTokens(notificationRequest.user_id);
       if (!pushTokens || pushTokens.length === 0) {
         throw new Error('User push tokens not found');
       }
@@ -531,14 +531,14 @@ export class NotificationsService {
     try {
       // Dashboard notifications are stored in the database and retrieved by the frontend
       // No additional action needed here
-      this.logger.log(`Dashboard notification stored for user ${notificationRequest.userId}`);
+      this.logger.log(`Dashboard notification stored for user ${notificationRequest.user_id}`);
     } catch (error) {
       this.logger.error(`Failed to send dashboard notification: ${error.message}`);
       throw error;
     }
   }
 
-  private async getUserEmail(userId: string): Promise<string | null> {
+  private async getUserEmail(user_id: string): Promise<string | null> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -546,7 +546,7 @@ export class NotificationsService {
       const { Query } = await import('node-appwrite');
 
       const result = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -557,7 +557,7 @@ export class NotificationsService {
     }
   }
 
-  private async getUserPhone(userId: string): Promise<string | null> {
+  private async getUserPhone(user_id: string): Promise<string | null> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -565,7 +565,7 @@ export class NotificationsService {
       const { Query } = await import('node-appwrite');
 
       const result = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -576,7 +576,7 @@ export class NotificationsService {
     }
   }
 
-  private async getUserPushTokens(userId: string): Promise<string[] | null> {
+  private async getUserPushTokens(user_id: string): Promise<string[] | null> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -584,7 +584,7 @@ export class NotificationsService {
       const { Query } = await import('node-appwrite');
 
       const result = await databases.listDocuments(databaseId, pushTokensCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.equal('active', true),
       ]);
 

@@ -6,10 +6,10 @@ import { EmailService } from '../email/email.service';
 import { ID } from 'node-appwrite';
 
 export interface EnhancedZarinPalPaymentRequest {
-  orderId: string;
+  order_id: string;
   amount: number;
   description: string;
-  callbackUrl: string;
+  callback_url: string;
   userData: {
     email: string;
     mobile: string;
@@ -25,7 +25,7 @@ export interface EnhancedZarinPalPaymentRequest {
 export interface EnhancedZarinPalPaymentResponse {
   paymentUrl: string;
   authority: string;
-  orderId: string;
+  order_id: string;
   expiresAt: string;
   qrCode?: string;
 }
@@ -33,7 +33,7 @@ export interface EnhancedZarinPalPaymentResponse {
 export interface EnhancedPaymentVerificationResponse {
   success: boolean;
   refId: string;
-  orderId: string;
+  order_id: string;
   amount: number;
   description: string;
   error?: string;
@@ -44,7 +44,7 @@ export interface EnhancedPaymentVerificationResponse {
 }
 
 export interface EnhancedRefundRequest {
-  orderId: string;
+  order_id: string;
   transactionId: string;
   amount: number;
   reason: string;
@@ -58,7 +58,7 @@ export interface EnhancedRefundRequest {
 export interface EnhancedRefundResponse {
   success: boolean;
   refundId: string;
-  orderId: string;
+  order_id: string;
   amount: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   estimatedProcessingTime: string;
@@ -70,7 +70,7 @@ export interface EnhancedRefundResponse {
 }
 
 export interface EnhancedCancellationRequest {
-  orderId: string;
+  order_id: string;
   transactionId: string;
   reason: string;
   description: string;
@@ -83,7 +83,7 @@ export interface EnhancedCancellationRequest {
 export interface EnhancedCancellationResponse {
   success: boolean;
   cancellationId: string;
-  orderId: string;
+  order_id: string;
   status: 'cancelled';
   cancelledAt: string;
   cancellationDetails: {
@@ -105,23 +105,23 @@ export class EnhancedPaymentsService {
   ) {}
 
   async requestEnhancedZarinPalPayment(
-    userId: string,
+    user_id: string,
     paymentRequest: EnhancedZarinPalPaymentRequest
   ): Promise<EnhancedZarinPalPaymentResponse> {
-    this.logger.log(`Requesting enhanced ZarinPal payment for order ${paymentRequest.orderId}, user ${userId}`);
+    this.logger.log(`Requesting enhanced ZarinPal payment for order ${paymentRequest.order_id}, user ${user_id}`);
 
     try {
       // Validate order exists and belongs to user
-      await this.validateOrderOwnership(userId, paymentRequest.orderId);
+      await this.validateOrderOwnership(user_id, paymentRequest.order_id);
 
       // Create payment request with ZarinPal using simplified method
       const zarinPalResponse = await this.zarinPalService.createSimplePaymentRequest({
         amount: paymentRequest.amount,
         description: paymentRequest.description,
-        callbackUrl: paymentRequest.callbackUrl,
+        callback_url: paymentRequest.callback_url,
         mobile: paymentRequest.userData.mobile,
         email: paymentRequest.userData.email,
-        orderId: paymentRequest.orderId,
+        order_id: paymentRequest.order_id,
       });
 
       if (!zarinPalResponse.success || !zarinPalResponse.authority) {
@@ -130,7 +130,7 @@ export class EnhancedPaymentsService {
 
       // Store enhanced payment request
       const paymentRequestId = await this.storeEnhancedPaymentRequest(
-        userId,
+        user_id,
         paymentRequest,
         zarinPalResponse.authority
       );
@@ -142,14 +142,14 @@ export class EnhancedPaymentsService {
       const qrCode = await this.generatePaymentQRCode(zarinPalResponse.paymentUrl);
 
       // Send payment request notification
-      await this.sendPaymentRequestNotification(userId, paymentRequest);
+      await this.sendPaymentRequestNotification(user_id, paymentRequest);
 
-      this.logger.log(`Enhanced ZarinPal payment request created successfully for order ${paymentRequest.orderId}`);
+      this.logger.log(`Enhanced ZarinPal payment request created successfully for order ${paymentRequest.order_id}`);
 
       return {
         paymentUrl: zarinPalResponse.paymentUrl,
         authority: zarinPalResponse.authority,
-        orderId: paymentRequest.orderId,
+        order_id: paymentRequest.order_id,
         expiresAt,
         qrCode,
       };
@@ -160,20 +160,20 @@ export class EnhancedPaymentsService {
   }
 
   async verifyEnhancedZarinPalPayment(
-    userId: string,
+    user_id: string,
     verificationData: {
       authority: string;
-      orderId: string;
+      order_id: string;
       amount: number;
       userIp?: string;
       userAgent?: string;
     }
   ): Promise<EnhancedPaymentVerificationResponse> {
-    this.logger.log(`Verifying enhanced ZarinPal payment for order ${verificationData.orderId}, user ${userId}`);
+    this.logger.log(`Verifying enhanced ZarinPal payment for order ${verificationData.order_id}, user ${user_id}`);
 
     try {
       // Validate order exists and belongs to user
-      await this.validateOrderOwnership(userId, verificationData.orderId);
+      await this.validateOrderOwnership(user_id, verificationData.order_id);
 
       // Verify payment with ZarinPal using simplified method
       const verificationResult = await this.zarinPalService.verifySimplePayment({
@@ -185,7 +185,7 @@ export class EnhancedPaymentsService {
         return {
           success: false,
           refId: '',
-          orderId: verificationData.orderId,
+          order_id: verificationData.order_id,
           amount: 0,
           description: 'Payment verification failed',
           error: 'Verification failed',
@@ -198,8 +198,8 @@ export class EnhancedPaymentsService {
 
       // Log verification metadata
       await this.logPaymentVerification(
-        userId,
-        verificationData.orderId,
+        user_id,
+        verificationData.order_id,
         verificationData.authority,
         verificationData.userIp,
         verificationData.userAgent
@@ -207,7 +207,7 @@ export class EnhancedPaymentsService {
 
       // Update order payment status
       await this.updateOrderPaymentStatus(
-        verificationData.orderId,
+        verificationData.order_id,
         'succeeded',
         'zarinpal',
         verificationResult.refId,
@@ -215,14 +215,14 @@ export class EnhancedPaymentsService {
       );
 
       // Send success notification
-      await this.sendPaymentSuccessNotification(userId, verificationData.orderId, verificationData.amount);
+      await this.sendPaymentSuccessNotification(user_id, verificationData.order_id, verificationData.amount);
 
-      this.logger.log(`Enhanced ZarinPal payment verified successfully for order ${verificationData.orderId}`);
+      this.logger.log(`Enhanced ZarinPal payment verified successfully for order ${verificationData.order_id}`);
 
       return {
         success: true,
         refId: verificationResult.refId,
-        orderId: verificationData.orderId,
+        order_id: verificationData.order_id,
         amount: verificationData.amount,
         description: 'Payment verified successfully',
         retryable: false,
@@ -237,7 +237,7 @@ export class EnhancedPaymentsService {
       return {
         success: false,
         refId: '',
-        orderId: verificationData.orderId,
+        order_id: verificationData.order_id,
         amount: 0,
         description: 'Payment verification failed',
         error: error.message,
@@ -250,15 +250,15 @@ export class EnhancedPaymentsService {
   }
 
   async verifyEnhancedWalletDeposit(
-    userId: string,
+    user_id: string,
     verificationData: {
-      orderId: string;
+      order_id: string;
       authority: string;
       userIp?: string;
       userAgent?: string;
     }
   ): Promise<EnhancedPaymentVerificationResponse> {
-    this.logger.log(`Verifying enhanced wallet deposit for order ${verificationData.orderId}, user ${userId}`);
+    this.logger.log(`Verifying enhanced wallet deposit for order ${verificationData.order_id}, user ${user_id}`);
 
     try {
       // Verify payment with ZarinPal using simplified method
@@ -271,7 +271,7 @@ export class EnhancedPaymentsService {
         return {
           success: false,
           refId: '',
-          orderId: verificationData.orderId,
+          order_id: verificationData.order_id,
           amount: 0,
           description: 'Deposit verification failed',
           error: 'Verification failed',
@@ -283,29 +283,29 @@ export class EnhancedPaymentsService {
       }
 
       // Get deposit amount from the order
-      const depositAmount = await this.getDepositAmount(verificationData.orderId);
+      const depositAmount = await this.getDepositAmount(verificationData.order_id);
 
       // Log verification metadata
       await this.logPaymentVerification(
-        userId,
-        verificationData.orderId,
+        user_id,
+        verificationData.order_id,
         verificationData.authority,
         verificationData.userIp,
         verificationData.userAgent
       );
 
       // Update wallet balance
-      await this.updateWalletBalance(userId, depositAmount);
+      await this.updateWalletBalance(user_id, depositAmount);
 
       // Send success notification
-      await this.sendDepositSuccessNotification(userId, depositAmount, verificationResult.refId);
+      await this.sendDepositSuccessNotification(user_id, depositAmount, verificationResult.refId);
 
-      this.logger.log(`Enhanced wallet deposit verified successfully for order ${verificationData.orderId}`);
+      this.logger.log(`Enhanced wallet deposit verified successfully for order ${verificationData.order_id}`);
 
       return {
         success: true,
         refId: verificationResult.refId,
-        orderId: verificationData.orderId,
+        order_id: verificationData.order_id,
         amount: depositAmount,
         description: 'Wallet deposit verified successfully',
         retryable: false,
@@ -320,7 +320,7 @@ export class EnhancedPaymentsService {
       return {
         success: false,
         refId: '',
-        orderId: verificationData.orderId,
+        order_id: verificationData.order_id,
         amount: 0,
         description: 'Deposit verification failed',
         error: error.message,
@@ -333,30 +333,30 @@ export class EnhancedPaymentsService {
   }
 
   async requestEnhancedRefund(
-    userId: string,
+    user_id: string,
     refundRequest: EnhancedRefundRequest
   ): Promise<EnhancedRefundResponse> {
-    this.logger.log(`Requesting enhanced refund for order ${refundRequest.orderId}, user ${userId}`);
+    this.logger.log(`Requesting enhanced refund for order ${refundRequest.order_id}, user ${user_id}`);
 
     try {
       // Validate order exists and belongs to user
-      await this.validateOrderOwnership(userId, refundRequest.orderId);
+      await this.validateOrderOwnership(user_id, refundRequest.order_id);
 
       // Validate transaction exists
       await this.validateTransactionExists(refundRequest.transactionId);
 
       // Create refund request
-      const refundId = await this.createRefundRequest(userId, refundRequest);
+      const refundId = await this.createRefundRequest(user_id, refundRequest);
 
       // Send refund request notification
-      await this.sendRefundRequestNotification(userId, refundRequest.orderId, refundRequest.amount);
+      await this.sendRefundRequestNotification(user_id, refundRequest.order_id, refundRequest.amount);
 
-      this.logger.log(`Enhanced refund request created successfully for order ${refundRequest.orderId}`);
+      this.logger.log(`Enhanced refund request created successfully for order ${refundRequest.order_id}`);
 
       return {
         success: true,
         refundId,
-        orderId: refundRequest.orderId,
+        order_id: refundRequest.order_id,
         amount: refundRequest.amount,
         status: 'pending',
         estimatedProcessingTime: '3-5 business days',
@@ -373,24 +373,24 @@ export class EnhancedPaymentsService {
   }
 
   async cancelEnhancedPayment(
-    userId: string,
+    user_id: string,
     cancellationRequest: EnhancedCancellationRequest
   ): Promise<EnhancedCancellationResponse> {
-    this.logger.log(`Cancelling enhanced payment for order ${cancellationRequest.orderId}, user ${userId}`);
+    this.logger.log(`Cancelling enhanced payment for order ${cancellationRequest.order_id}, user ${user_id}`);
 
     try {
       // Validate order exists and belongs to user
-      await this.validateOrderOwnership(userId, cancellationRequest.orderId);
+      await this.validateOrderOwnership(user_id, cancellationRequest.order_id);
 
       // Validate transaction exists
       await this.validateTransactionExists(cancellationRequest.transactionId);
 
       // Create cancellation request
-      const cancellationId = await this.createCancellationRequest(userId, cancellationRequest);
+      const cancellationId = await this.createCancellationRequest(user_id, cancellationRequest);
 
       // Update order payment status
       await this.updateOrderPaymentStatus(
-        cancellationRequest.orderId,
+        cancellationRequest.order_id,
         'cancelled',
         'system',
         null,
@@ -398,14 +398,14 @@ export class EnhancedPaymentsService {
       );
 
       // Send cancellation notification
-      await this.sendCancellationNotification(userId, cancellationRequest.orderId);
+      await this.sendCancellationNotification(user_id, cancellationRequest.order_id);
 
-      this.logger.log(`Enhanced payment cancellation processed successfully for order ${cancellationRequest.orderId}`);
+      this.logger.log(`Enhanced payment cancellation processed successfully for order ${cancellationRequest.order_id}`);
 
       return {
         success: true,
         cancellationId,
-        orderId: cancellationRequest.orderId,
+        order_id: cancellationRequest.order_id,
         status: 'cancelled',
         cancelledAt: new Date().toISOString(),
         cancellationDetails: {
@@ -424,12 +424,12 @@ export class EnhancedPaymentsService {
     authority: string;
     refId: string;
     amount: number;
-    orderId: string;
+    order_id: string;
     status: string;
     timestamp: string;
     signature?: string;
   }) {
-    this.logger.log(`Processing enhanced ZarinPal webhook for order ${webhookData.orderId}`);
+    this.logger.log(`Processing enhanced ZarinPal webhook for order ${webhookData.order_id}`);
 
     try {
       // Validate webhook signature if provided
@@ -450,12 +450,12 @@ export class EnhancedPaymentsService {
       // Log webhook processing
       await this.logWebhookProcessing(webhookData);
 
-      this.logger.log(`Enhanced ZarinPal webhook processed successfully for order ${webhookData.orderId}`);
+      this.logger.log(`Enhanced ZarinPal webhook processed successfully for order ${webhookData.order_id}`);
 
       return {
         success: true,
         message: 'Webhook processed successfully',
-        orderId: webhookData.orderId,
+        order_id: webhookData.order_id,
         refId: webhookData.refId,
         processedAt: new Date().toISOString(),
       };
@@ -467,14 +467,14 @@ export class EnhancedPaymentsService {
 
   async handleEnhancedWalletWebhook(webhookData: {
     transactionId: string;
-    orderId: string;
+    order_id: string;
     amount: number;
     status: string;
     refId: string;
     timestamp: string;
     signature?: string;
   }) {
-    this.logger.log(`Processing enhanced wallet webhook for order ${webhookData.orderId}`);
+    this.logger.log(`Processing enhanced wallet webhook for order ${webhookData.order_id}`);
 
     try {
       // Validate webhook signature if provided
@@ -495,12 +495,12 @@ export class EnhancedPaymentsService {
       // Log webhook processing
       await this.logWebhookProcessing(webhookData);
 
-      this.logger.log(`Enhanced wallet webhook processed successfully for order ${webhookData.orderId}`);
+      this.logger.log(`Enhanced wallet webhook processed successfully for order ${webhookData.order_id}`);
 
       return {
         success: true,
         message: 'Wallet webhook processed successfully',
-        orderId: webhookData.orderId,
+        order_id: webhookData.order_id,
         transactionId: webhookData.transactionId,
         processedAt: new Date().toISOString(),
       };
@@ -511,7 +511,7 @@ export class EnhancedPaymentsService {
   }
 
   // Private helper methods
-  private async validateOrderOwnership(userId: string, orderId: string): Promise<void> {
+  private async validateOrderOwnership(user_id: string, order_id: string): Promise<void> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
@@ -519,8 +519,8 @@ export class EnhancedPaymentsService {
 
     try {
       const result = await databases.listDocuments(databaseId, ordersCollection, [
-        Query.equal('$id', orderId),
-        Query.equal('user_id', userId),
+        Query.equal('$id', order_id),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -559,7 +559,7 @@ export class EnhancedPaymentsService {
   }
 
   private async storeEnhancedPaymentRequest(
-    userId: string,
+    user_id: string,
     paymentRequest: EnhancedZarinPalPaymentRequest,
     authority: string
   ): Promise<string> {
@@ -573,12 +573,12 @@ export class EnhancedPaymentsService {
         paymentRequestsCollection,
         ID.unique(),
         {
-          user_id: userId,
-          order_id: paymentRequest.orderId,
+          user_id: user_id,
+          order_id: paymentRequest.order_id,
           authority,
           amount: paymentRequest.amount,
           description: paymentRequest.description,
-          callback_url: paymentRequest.callbackUrl,
+          callback_url: paymentRequest.callback_url,
           user_data: JSON.stringify(paymentRequest.userData),
           metadata: JSON.stringify(paymentRequest.metadata),
           status: 'pending',
@@ -601,8 +601,8 @@ export class EnhancedPaymentsService {
   }
 
   private async logPaymentVerification(
-    userId: string,
-    orderId: string,
+    user_id: string,
+    order_id: string,
     authority: string,
     userIp?: string,
     userAgent?: string
@@ -617,8 +617,8 @@ export class EnhancedPaymentsService {
         verificationLogsCollection,
         ID.unique(),
         {
-          user_id: userId,
-          order_id: orderId,
+          user_id: user_id,
+          order_id: order_id,
           authority,
           user_ip: userIp,
           user_agent: userAgent,
@@ -631,7 +631,7 @@ export class EnhancedPaymentsService {
   }
 
   private async updateOrderPaymentStatus(
-    orderId: string,
+    order_id: string,
     status: string,
     method: string,
     refId?: string,
@@ -644,7 +644,7 @@ export class EnhancedPaymentsService {
 
     try {
       const order = await databases.listDocuments(databaseId, ordersCollection, [
-        Query.equal('$id', orderId),
+        Query.equal('$id', order_id),
         Query.limit(1),
       ]);
 
@@ -676,7 +676,7 @@ export class EnhancedPaymentsService {
     }
   }
 
-  private async getDepositAmount(orderId: string): Promise<number> {
+  private async getDepositAmount(order_id: string): Promise<number> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const depositOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_DEPOSIT_ORDERS');
@@ -684,7 +684,7 @@ export class EnhancedPaymentsService {
 
     try {
       const result = await databases.listDocuments(databaseId, depositOrdersCollection, [
-        Query.equal('$id', orderId),
+        Query.equal('$id', order_id),
         Query.limit(1),
       ]);
 
@@ -699,7 +699,7 @@ export class EnhancedPaymentsService {
     }
   }
 
-  private async updateWalletBalance(userId: string, amount: number): Promise<void> {
+  private async updateWalletBalance(user_id: string, amount: number): Promise<void> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
@@ -707,7 +707,7 @@ export class EnhancedPaymentsService {
 
     try {
       const wallet = await databases.listDocuments(databaseId, walletsCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -732,7 +732,7 @@ export class EnhancedPaymentsService {
   }
 
   private async createRefundRequest(
-    userId: string,
+    user_id: string,
     refundRequest: EnhancedRefundRequest
   ): Promise<string> {
     const databases = this.appwriteService.getDatabases();
@@ -745,8 +745,8 @@ export class EnhancedPaymentsService {
         refundsCollection,
         ID.unique(),
         {
-          user_id: userId,
-          order_id: refundRequest.orderId,
+          user_id: user_id,
+          order_id: refundRequest.order_id,
           transaction_id: refundRequest.transactionId,
           amount: refundRequest.amount,
           reason: refundRequest.reason,
@@ -766,7 +766,7 @@ export class EnhancedPaymentsService {
   }
 
   private async createCancellationRequest(
-    userId: string,
+    user_id: string,
     cancellationRequest: EnhancedCancellationRequest
   ): Promise<string> {
     const databases = this.appwriteService.getDatabases();
@@ -779,8 +779,8 @@ export class EnhancedPaymentsService {
         cancellationsCollection,
         ID.unique(),
         {
-          user_id: userId,
-          order_id: cancellationRequest.orderId,
+          user_id: user_id,
+          order_id: cancellationRequest.order_id,
           transaction_id: cancellationRequest.transactionId,
           reason: cancellationRequest.reason,
           description: cancellationRequest.description,
@@ -806,22 +806,22 @@ export class EnhancedPaymentsService {
 
   private async processSuccessfulPaymentWebhook(webhookData: any): Promise<void> {
     // Process successful payment webhook
-    this.logger.log(`Processing successful payment webhook for order ${webhookData.orderId}`);
+    this.logger.log(`Processing successful payment webhook for order ${webhookData.order_id}`);
   }
 
   private async processFailedPaymentWebhook(webhookData: any): Promise<void> {
     // Process failed payment webhook
-    this.logger.log(`Processing failed payment webhook for order ${webhookData.orderId}`);
+    this.logger.log(`Processing failed payment webhook for order ${webhookData.order_id}`);
   }
 
   private async processSuccessfulWalletWebhook(webhookData: any): Promise<void> {
     // Process successful wallet webhook
-    this.logger.log(`Processing successful wallet webhook for order ${webhookData.orderId}`);
+    this.logger.log(`Processing successful wallet webhook for order ${webhookData.order_id}`);
   }
 
   private async processFailedWalletWebhook(webhookData: any): Promise<void> {
     // Process failed wallet webhook
-    this.logger.log(`Processing failed wallet webhook for order ${webhookData.orderId}`);
+    this.logger.log(`Processing failed wallet webhook for order ${webhookData.order_id}`);
   }
 
   private async logWebhookProcessing(webhookData: any): Promise<void> {
@@ -847,7 +847,7 @@ export class EnhancedPaymentsService {
 
   // Email notification methods
   private async sendPaymentRequestNotification(
-    userId: string,
+    user_id: string,
     paymentRequest: EnhancedZarinPalPaymentRequest
   ): Promise<void> {
     try {
@@ -858,14 +858,14 @@ export class EnhancedPaymentsService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
       if (userProfile.documents.length > 0) {
         const email = userProfile.documents[0].email;
         await this.emailService.sendPaymentNotification(email, {
-          id: paymentRequest.orderId,
+          id: paymentRequest.order_id,
           amount: paymentRequest.amount,
           status: 'pending',
           order_title: paymentRequest.description,
@@ -878,8 +878,8 @@ export class EnhancedPaymentsService {
   }
 
   private async sendPaymentSuccessNotification(
-    userId: string,
-    orderId: string,
+    user_id: string,
+    order_id: string,
     amount: number
   ): Promise<void> {
     try {
@@ -890,14 +890,14 @@ export class EnhancedPaymentsService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
       if (userProfile.documents.length > 0) {
         const email = userProfile.documents[0].email;
         await this.emailService.sendPaymentNotification(email, {
-          id: orderId,
+          id: order_id,
           amount: amount,
           status: 'succeeded',
           order_title: 'Payment successful',
@@ -910,20 +910,20 @@ export class EnhancedPaymentsService {
   }
 
   private async sendDepositSuccessNotification(
-    userId: string,
+    user_id: string,
     amount: number,
     refId: string
   ): Promise<void> {
     try {
-      await this.emailService.sendWalletTopUpEmail(userId, amount, refId);
+      await this.emailService.sendWalletTopUpEmail(user_id, amount, refId);
     } catch (error) {
       this.logger.warn(`Failed to send deposit success notification: ${error.message}`);
     }
   }
 
   private async sendRefundRequestNotification(
-    userId: string,
-    orderId: string,
+    user_id: string,
+    order_id: string,
     amount: number
   ): Promise<void> {
     try {
@@ -934,14 +934,14 @@ export class EnhancedPaymentsService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
       if (userProfile.documents.length > 0) {
         const email = userProfile.documents[0].email;
         // This would send a refund request notification email
-        this.logger.log(`Refund request notification sent to ${email} for order ${orderId}`);
+        this.logger.log(`Refund request notification sent to ${email} for order ${order_id}`);
       }
     } catch (error) {
       this.logger.warn(`Failed to send refund request notification: ${error.message}`);
@@ -949,8 +949,8 @@ export class EnhancedPaymentsService {
   }
 
   private async sendCancellationNotification(
-    userId: string,
-    orderId: string
+    user_id: string,
+    order_id: string
   ): Promise<void> {
     try {
       // Get user profile for email
@@ -960,14 +960,14 @@ export class EnhancedPaymentsService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
       if (userProfile.documents.length > 0) {
         const email = userProfile.documents[0].email;
         // This would send a cancellation notification email
-        this.logger.log(`Cancellation notification sent to ${email} for order ${orderId}`);
+        this.logger.log(`Cancellation notification sent to ${email} for order ${order_id}`);
       }
     } catch (error) {
       this.logger.warn(`Failed to send cancellation notification: ${error.message}`);

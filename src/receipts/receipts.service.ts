@@ -12,7 +12,7 @@ export class ReceiptsService {
     private configService: ConfigService,
   ) {}
 
-  async getReceipts(userId: string, isAdmin: boolean = false): Promise<ReceiptResponseDto[]> {
+  async getReceipts(user_id: string, isAdmin: boolean = false): Promise<ReceiptResponseDto[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
@@ -20,7 +20,7 @@ export class ReceiptsService {
 
     // Get user's invoices first
     const userInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
-      Query.equal('user_id', userId),
+      Query.equal('user_id', user_id),
     ]);
 
     const invoiceIds = userInvoices.documents.map(inv => inv.$id);
@@ -38,7 +38,7 @@ export class ReceiptsService {
     return receipts.documents.map(doc => this.mapToResponseDto(doc));
   }
 
-  async getReceipt(receiptId: string, userId: string, isAdmin: boolean = false): Promise<ReceiptResponseDto> {
+  async getReceipt(receiptId: string, user_id: string, isAdmin: boolean = false): Promise<ReceiptResponseDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
@@ -52,7 +52,7 @@ export class ReceiptsService {
     // Check access rights
     if (!isAdmin) {
       const invoice = await databases.getDocument(databaseId, invoicesCollection, receipt.invoice_id);
-      if (invoice.user_id !== userId) {
+      if (invoice.user_id !== user_id) {
         throw new BadRequestException('Access denied');
       }
     }
@@ -60,8 +60,8 @@ export class ReceiptsService {
     return this.mapToResponseDto(receipt);
   }
 
-  async downloadReceipt(receiptId: string, userId: string, format: ReceiptFormat): Promise<{ data: Buffer; filename: string; contentType: string }> {
-    const receipt = await this.getReceipt(receiptId, userId);
+  async downloadReceipt(receiptId: string, user_id: string, format: ReceiptFormat): Promise<{ data: Buffer; filename: string; contentType: string }> {
+    const receipt = await this.getReceipt(receiptId, user_id);
     
     if (format === ReceiptFormat.PDF) {
       return this.generatePDFReceipt(receipt);
@@ -84,7 +84,7 @@ export class ReceiptsService {
     doc.text(`Invoice ID: ${receipt.invoiceId}`);
     doc.text(`Reference ID: ${receipt.refId}`);
     doc.text(`Amount: ${receipt.amount.toLocaleString()} Rials`);
-    doc.text(`Date: ${new Date(receipt.createdAt).toLocaleDateString()}`);
+    doc.text(`Date: ${new Date(receipt.created_at).toLocaleDateString()}`);
     doc.moveDown();
     doc.text('Thank you for your payment!', { align: 'center' });
 
@@ -120,7 +120,7 @@ export class ReceiptsService {
           <p><strong>Invoice ID:</strong> ${receipt.invoiceId}</p>
           <p><strong>Reference ID:</strong> ${receipt.refId}</p>
           <p class="amount">Amount: ${receipt.amount.toLocaleString()} Rials</p>
-          <p><strong>Date:</strong> ${new Date(receipt.createdAt).toLocaleDateString()}</p>
+          <p><strong>Date:</strong> ${new Date(receipt.created_at).toLocaleDateString()}</p>
         </div>
         <div style="text-align: center; margin-top: 40px;">
           <p>Thank you for your payment!</p>
@@ -143,8 +143,8 @@ export class ReceiptsService {
       refId: receipt.ref_id,
       amount: receipt.amount,
       format: receipt.format,
-      createdAt: receipt.created_at,
-      updatedAt: receipt.updated_at,
+      created_at: receipt.created_at,
+      updated_at: receipt.updated_at,
     };
   }
 }

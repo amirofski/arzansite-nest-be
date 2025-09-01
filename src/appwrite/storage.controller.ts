@@ -41,14 +41,14 @@ import {
 export class StorageController {
   constructor(private readonly appwriteService: AppwriteService) {}
 
-  @Post('upload/:bucketId')
+  @Post('upload/:bucket_id')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({
     summary: 'Upload file',
     description: 'Upload a file to the specified bucket',
   })
-  @ApiParam({ name: 'bucketId', description: 'Bucket ID' })
+  @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -68,7 +68,7 @@ export class StorageController {
     schema: {
       type: 'object',
       properties: {
-        fileId: { type: 'string', example: 'unique-file-id' },
+        file_id: { type: 'string', example: 'unique-file-id' },
         message: { type: 'string', example: 'File uploaded successfully' },
       },
     },
@@ -76,16 +76,16 @@ export class StorageController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async uploadFile(
-    @Param('bucketId') bucketId: string,
+    @Param('bucket_id') bucket_id: string,
     @UploadedFile() file: any,
-    @Body('orderId') orderId?: string,
+    @Body('order_id') order_id?: string,
     @Request() req?: any,
   ) {
     if (!file) {
       return {
         success: false,
         error: 'No file provided',
-      } as any;
+      };
     }
 
     // Use underlying UploadsService implementation which handles Storage + DB mapping
@@ -94,7 +94,7 @@ export class StorageController {
     const os = require('os');
     const path = require('path');
 
-    const userId = req?.user?.id || req?.user?.userId;
+    const user_id = req?.user?.id || req?.user?.user_id;
     const adminTeamId = process.env.APPWRITE_ADMIN_TEAM_ID;
     const id = ID.unique();
     const tmp = path.join(os.tmpdir(), `${id}_${file.originalname}`);
@@ -107,13 +107,13 @@ export class StorageController {
 
       const storage = this.appwriteService.getStorage();
       const permissions = [
-        userId ? `read("user:${userId}")` : undefined,
-        userId ? `write("user:${userId}")` : undefined,
+        user_id ? `read("user:${user_id}")` : undefined,
+        user_id ? `write("user:${user_id}")` : undefined,
         adminTeamId ? `read("team:${adminTeamId}")` : undefined,
         adminTeamId ? `write("team:${adminTeamId}")` : undefined,
       ].filter(Boolean) as string[];
 
-      const uploaded = await storage.createFile(bucketId, id, stream, permissions);
+      const uploaded = await storage.createFile(bucket_id, id, stream, permissions);
 
       // Persist metadata to project_files collection
       try {
@@ -129,16 +129,15 @@ export class StorageController {
           ID.unique(),
           {
             file_id: uploaded.$id,
-            user_id: userId || null,
-            order_id: orderId || null,
+            user_id: user_id || null,
+            order_id: order_id || null,
             bucket_id: uploaded.bucketId,
             original_name: uploaded.name,
             mime_type: uploaded.mimeType,
             size: uploaded.sizeOriginal,
             created_at: now,
             updated_at: now,
-
-          } as any,
+          },
           permissions,
         );
       } catch (e) {
@@ -152,22 +151,22 @@ export class StorageController {
         name: uploaded.name,
         bucket_id: uploaded.bucketId,
         permissions,
-        order_id: orderId || null,
-        user_id: userId || null,
-      } as any;
+        order_id: order_id || null,
+        user_id: user_id || null,
+      };
     } finally {
       try { fs.unlinkSync(tmp); } catch (_) {}
     }
   }
 
-  @Get(':bucketId/:fileId')
+  @Get(':bucket_id/:file_id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get file',
     description: 'Retrieve file information by ID from the specified bucket',
   })
-  @ApiParam({ name: 'bucketId', description: 'Bucket ID' })
-  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
+  @ApiParam({ name: 'file_id', description: 'File ID' })
   @ApiResponse({
     status: 200,
     description: 'File retrieved successfully',
@@ -176,10 +175,10 @@ export class StorageController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'File not found' })
   async getFile(
-    @Param('bucketId') bucketId: string,
-    @Param('fileId') fileId: string,
+    @Param('bucket_id') bucket_id: string,
+    @Param('file_id') file_id: string,
   ): Promise<FileResponseDto> {
-    const file = await this.appwriteService.getFile(bucketId, fileId);
+    const file = await this.appwriteService.getFile(bucket_id, file_id);
     return {
       $id: file.$id,
       bucket_id: file.bucketId,
@@ -188,17 +187,17 @@ export class StorageController {
       $createdAt: file.$createdAt,
       $updatedAt: file.$updatedAt,
       $permissions: file.$permissions,
-    } as FileResponseDto;
+    };
   }
 
-  @Delete(':bucketId/:fileId')
+  @Delete(':bucket_id/:file_id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete file',
     description: 'Delete a file from the specified bucket',
   })
-  @ApiParam({ name: 'bucketId', description: 'Bucket ID' })
-  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
+  @ApiParam({ name: 'file_id', description: 'File ID' })
   @ApiResponse({
     status: 200,
     description: 'File deleted successfully',
@@ -212,19 +211,19 @@ export class StorageController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'File not found' })
   async deleteFile(
-    @Param('bucketId') bucketId: string,
-    @Param('fileId') fileId: string,
+    @Param('bucket_id') bucket_id: string,
+    @Param('file_id') file_id: string,
   ): Promise<{ success: boolean }> {
-    return await this.appwriteService.deleteFile(bucketId, fileId);
+    return await this.appwriteService.deleteFile(bucket_id, file_id);
   }
 
-  @Get(':bucketId')
+  @Get(':bucket_id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'List files',
     description: 'List files from the specified bucket with optional queries',
   })
-  @ApiParam({ name: 'bucketId', description: 'Bucket ID' })
+  @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
   @ApiQuery({ name: 'queries', required: false, type: [String] })
   @ApiResponse({
     status: 200,
@@ -233,11 +232,11 @@ export class StorageController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async listFiles(
-    @Param('bucketId') bucketId: string,
+    @Param('bucket_id') bucket_id: string,
     @Query() query: ListFilesDto,
   ): Promise<ListFilesResponseDto> {
     const response = await this.appwriteService.listFiles(
-      bucketId,
+      bucket_id,
       query.queries || [],
     );
     return {
@@ -250,18 +249,18 @@ export class StorageController {
         $createdAt: file.$createdAt,
         $updatedAt: file.$updatedAt,
         $permissions: file.$permissions,
-      })) as FileResponseDto[],
+      })),
     };
   }
 
-  @Get(':bucketId/:fileId/url')
+  @Get(':bucket_id/:file_id/url')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get file URL',
     description: 'Get a viewable URL for the specified file',
   })
-  @ApiParam({ name: 'bucketId', description: 'Bucket ID' })
-  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
+  @ApiParam({ name: 'file_id', description: 'File ID' })
   @ApiResponse({
     status: 200,
     description: 'File URL retrieved successfully',
@@ -270,15 +269,15 @@ export class StorageController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'File not found' })
   async getFileUrl(
-    @Param('bucketId') bucketId: string,
-    @Param('fileId') fileId: string,
+    @Param('bucket_id') bucket_id: string,
+    @Param('file_id') file_id: string,
   ): Promise<FileUrlResponseDto> {
     const config = this.appwriteService.getConfig();
-    const url = `${config.endpoint}/storage/buckets/${bucketId}/files/${fileId}/view?project=${config.projectId}`;
+    const url = `${config.endpoint}/storage/buckets/${bucket_id}/files/${file_id}/view?project=${config.projectId}`;
     
     return {
       url,
-      file_id: fileId,
+      file_id: file_id,
     };
   }
 }

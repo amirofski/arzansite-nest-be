@@ -42,7 +42,7 @@ export interface EnhancedWalletTransactions {
     totalPages: number;
   };
   summary: {
-    totalAmount: number;
+    total_amount: number;
     transactionCount: number;
     averageAmount: number;
   };
@@ -63,7 +63,7 @@ export interface WalletPaymentResult {
 export interface EnhancedDepositRequest {
   amount: number;
   description: string;
-  callbackUrl?: string;
+  callback_url?: string;
   metadata?: {
     source?: 'dashboard' | 'order_flow' | 'wallet_page';
     user_agent?: string;
@@ -75,7 +75,7 @@ export interface EnhancedDepositRequest {
 
 export interface EnhancedDepositResponse {
   paymentUrl: string;
-  orderId: string;
+  order_id: string;
   depositId: string;
   expiresAt: string;
   qrCode?: string;
@@ -92,18 +92,18 @@ export class EnhancedWalletsService {
     private readonly emailService: EmailService,
   ) {}
 
-  async getEnhancedWalletBalance(userId: string): Promise<EnhancedWalletBalance> {
-    this.logger.log(`Getting enhanced wallet balance for user ${userId}`);
+  async getEnhancedWalletBalance(user_id: string): Promise<EnhancedWalletBalance> {
+    this.logger.log(`Getting enhanced wallet balance for user ${user_id}`);
 
     try {
       // Get basic wallet balance
-      const basicBalance = await this.getBasicWalletBalance(userId);
+      const basicBalance = await this.getBasicWalletBalance(user_id);
       
       // Get recent transactions
-      const recentTransactions = await this.getRecentTransactions(userId, 5);
+      const recentTransactions = await this.getRecentTransactions(user_id, 5);
       
       // Calculate statistics
-      const statistics = await this.calculateWalletStatistics(userId);
+      const statistics = await this.calculateWalletStatistics(user_id);
 
       return {
         balance: basicBalance.balance,
@@ -119,7 +119,7 @@ export class EnhancedWalletsService {
   }
 
   async getEnhancedWalletTransactions(
-    userId: string,
+    user_id: string,
     filters: {
       type?: string;
       status?: string;
@@ -131,7 +131,7 @@ export class EnhancedWalletsService {
       reference_id?: string;
     } = {}
   ): Promise<EnhancedWalletTransactions> {
-    this.logger.log(`Getting enhanced wallet transactions for user ${userId} with filters: ${JSON.stringify(filters)}`);
+    this.logger.log(`Getting enhanced wallet transactions for user ${user_id} with filters: ${JSON.stringify(filters)}`);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -140,7 +140,7 @@ export class EnhancedWalletsService {
 
     try {
       // Build query filters
-      const queryFilters = [Query.equal('user_id', userId)];
+      const queryFilters = [Query.equal('user_id', user_id)];
       
       if (filters.type) {
         queryFilters.push(Query.equal('type', filters.type));
@@ -180,7 +180,7 @@ export class EnhancedWalletsService {
 
       // Get total count for pagination
       const totalResult = await databases.listDocuments(databaseId, transactionsCollection, [
-        Query.equal('user_id', userId)
+        Query.equal('user_id', user_id)
       ]);
 
       const transactions = result.documents.map(tx => this.mapToEnhancedTransaction(tx));
@@ -207,8 +207,8 @@ export class EnhancedWalletsService {
   }
 
   async processWalletPaymentForOrder(
-    userId: string,
-    orderId: string,
+    user_id: string,
+    order_id: string,
     amount: number,
     description: string,
     referenceData?: {
@@ -217,33 +217,33 @@ export class EnhancedWalletsService {
       domain: string;
     }
   ): Promise<WalletPaymentResult> {
-    this.logger.log(`Processing wallet payment for order ${orderId}, user ${userId}, amount ${amount}`);
+    this.logger.log(`Processing wallet payment for order ${order_id}, user ${user_id}, amount ${amount}`);
 
     try {
       // Check wallet balance
-      const walletBalance = await this.getBasicWalletBalance(userId);
+      const walletBalance = await this.getBasicWalletBalance(user_id);
       if (walletBalance.balance < amount) {
         throw new BadRequestException('Insufficient wallet balance');
       }
 
       // Create payment transaction
-      const paymentResult = await this.createWalletTransaction(userId, {
+      const paymentResult = await this.createWalletTransaction(user_id, {
         type: 'payment',
         amount: amount,
         description: description,
-        referenceId: orderId,
+        referenceId: order_id,
         referenceType: 'order',
         metadata: referenceData,
       });
 
       // Update wallet balance
       const newBalance = walletBalance.balance - amount;
-      await this.updateWalletBalance(userId, newBalance);
+      await this.updateWalletBalance(user_id, newBalance);
 
       // Send payment confirmation email
-      await this.sendWalletPaymentEmail(userId, amount, orderId, description);
+      await this.sendWalletPaymentEmail(user_id, amount, order_id, description);
 
-      this.logger.log(`Wallet payment processed successfully for order ${orderId}`);
+      this.logger.log(`Wallet payment processed successfully for order ${order_id}`);
 
       return {
         success: true,
@@ -253,7 +253,7 @@ export class EnhancedWalletsService {
           amount,
           description,
           timestamp: new Date().toISOString(),
-          referenceId: orderId,
+          referenceId: order_id,
         },
       };
     } catch (error) {
@@ -263,10 +263,10 @@ export class EnhancedWalletsService {
   }
 
   async requestEnhancedWalletDeposit(
-    userId: string,
+    user_id: string,
     depositRequest: EnhancedDepositRequest
   ): Promise<EnhancedDepositResponse> {
-    this.logger.log(`Requesting enhanced wallet deposit for user ${userId}, amount ${depositRequest.amount}`);
+    this.logger.log(`Requesting enhanced wallet deposit for user ${user_id}, amount ${depositRequest.amount}`);
 
     try {
       // Validate amount
@@ -276,21 +276,21 @@ export class EnhancedWalletsService {
 
       // Create deposit request using payments service
       const depositResult = await this.paymentsService.createWalletDeposit(
-        userId,
+        user_id,
         depositRequest.amount,
         depositRequest.description,
-        depositRequest.callbackUrl
+        depositRequest.callback_url
       );
 
       // Store deposit metadata
-      await this.storeDepositMetadata(userId, depositResult.orderId, depositRequest);
+      await this.storeDepositMetadata(user_id, depositResult.order_id, depositRequest);
 
       // Calculate expiration (24 hours from now)
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
       return {
         paymentUrl: depositResult.paymentUrl,
-        orderId: depositResult.orderId,
+        order_id: depositResult.order_id,
         depositId: depositResult.invoiceId,
         expiresAt,
         qrCode: await this.generateQRCode(depositResult.paymentUrl),
@@ -302,15 +302,15 @@ export class EnhancedWalletsService {
   }
 
   async verifyEnhancedWalletDeposit(
-    userId: string,
-    orderId: string,
+    user_id: string,
+    order_id: string,
     authority: string,
     userIp?: string,
     userAgent?: string
   ): Promise<{
     success: boolean;
     refId: string;
-    orderId: string;
+    order_id: string;
     amount: number;
     description: string;
     error?: string;
@@ -319,23 +319,23 @@ export class EnhancedWalletsService {
     retryable: boolean;
     supportRequired: boolean;
   }> {
-    this.logger.log(`Verifying enhanced wallet deposit for user ${userId}, order ${orderId}, authority ${authority}`);
+    this.logger.log(`Verifying enhanced wallet deposit for user ${user_id}, order ${order_id}, authority ${authority}`);
 
     try {
       // Verify payment with ZarinPal
-      const verificationResult = await this.paymentsService.verifyWalletDeposit(userId, authority);
+      const verificationResult = await this.paymentsService.verifyWalletDeposit(user_id, authority);
 
       if (verificationResult.success) {
         // Log verification metadata
-        await this.logDepositVerification(userId, orderId, authority, userIp, userAgent);
+        await this.logDepositVerification(user_id, order_id, authority, userIp, userAgent);
 
         // Send success notification
-        await this.sendDepositSuccessEmail(userId, verificationResult.amount, verificationResult.refId);
+        await this.sendDepositSuccessEmail(user_id, verificationResult.amount, verificationResult.refId);
 
         return {
           success: true,
           refId: verificationResult.refId,
-          orderId,
+          order_id,
           amount: verificationResult.amount,
           description: 'Wallet deposit verified successfully',
           retryable: false,
@@ -345,7 +345,7 @@ export class EnhancedWalletsService {
         return {
           success: false,
           refId: '',
-          orderId,
+          order_id,
           amount: 0,
           description: 'Deposit verification failed',
           error: 'Verification failed',
@@ -364,7 +364,7 @@ export class EnhancedWalletsService {
       return {
         success: false,
         refId: '',
-        orderId,
+        order_id,
         amount: 0,
         description: 'Deposit verification failed',
         error: error.message,
@@ -376,7 +376,7 @@ export class EnhancedWalletsService {
     }
   }
 
-  private async getBasicWalletBalance(userId: string): Promise<{ balance: number }> {
+  private async getBasicWalletBalance(user_id: string): Promise<{ balance: number }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
@@ -384,13 +384,13 @@ export class EnhancedWalletsService {
 
     try {
       const result = await databases.listDocuments(databaseId, walletsCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
       if (result.documents.length === 0) {
         // Create wallet if it doesn't exist
-        return await this.createWallet(userId);
+        return await this.createWallet(user_id);
       }
 
       return { balance: result.documents[0].balance || 0 };
@@ -400,7 +400,7 @@ export class EnhancedWalletsService {
     }
   }
 
-  private async getRecentTransactions(userId: string, limit: number): Promise<any[]> {
+  private async getRecentTransactions(user_id: string, limit: number): Promise<any[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLET_TRANSACTIONS');
@@ -408,7 +408,7 @@ export class EnhancedWalletsService {
 
     try {
       const result = await databases.listDocuments(databaseId, transactionsCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.orderDesc('created_at'),
         Query.limit(limit),
       ]);
@@ -420,7 +420,7 @@ export class EnhancedWalletsService {
     }
   }
 
-  private async calculateWalletStatistics(userId: string): Promise<WalletStatistics> {
+  private async calculateWalletStatistics(user_id: string): Promise<WalletStatistics> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLET_TRANSACTIONS');
@@ -428,7 +428,7 @@ export class EnhancedWalletsService {
 
     try {
       const allTransactions = await databases.listDocuments(databaseId, transactionsCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.equal('status', 'completed'),
       ]);
 
@@ -468,7 +468,7 @@ export class EnhancedWalletsService {
     }
   }
 
-  private async createWallet(userId: string): Promise<{ balance: number }> {
+  private async createWallet(user_id: string): Promise<{ balance: number }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
@@ -479,7 +479,7 @@ export class EnhancedWalletsService {
         walletsCollection,
         ID.unique(),
         {
-          user_id: userId,
+          user_id: user_id,
           balance: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -494,7 +494,7 @@ export class EnhancedWalletsService {
   }
 
   private async createWalletTransaction(
-    userId: string,
+    user_id: string,
     transactionData: {
       type: string;
       amount: number;
@@ -514,7 +514,7 @@ export class EnhancedWalletsService {
         transactionsCollection,
         ID.unique(),
         {
-          user_id: userId,
+          user_id: user_id,
           type: transactionData.type,
           amount: transactionData.amount,
           description: transactionData.description,
@@ -534,7 +534,7 @@ export class EnhancedWalletsService {
     }
   }
 
-  private async updateWalletBalance(userId: string, newBalance: number): Promise<void> {
+  private async updateWalletBalance(user_id: string, newBalance: number): Promise<void> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
@@ -542,7 +542,7 @@ export class EnhancedWalletsService {
 
     try {
       const wallet = await databases.listDocuments(databaseId, walletsCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -579,24 +579,24 @@ export class EnhancedWalletsService {
   }
 
   private calculateTransactionSummary(transactions: EnhancedTransaction[]): {
-    totalAmount: number;
+    total_amount: number;
     transactionCount: number;
     averageAmount: number;
   } {
     if (transactions.length === 0) {
-      return { totalAmount: 0, transactionCount: 0, averageAmount: 0 };
+      return { total_amount: 0, transactionCount: 0, averageAmount: 0 };
     }
 
-    const totalAmount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
+    const total_amount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
     const transactionCount = transactions.length;
-    const averageAmount = totalAmount / transactionCount;
+    const averageAmount = total_amount / transactionCount;
 
-    return { totalAmount, transactionCount, averageAmount };
+    return { total_amount, transactionCount, averageAmount };
   }
 
   private async storeDepositMetadata(
-    userId: string,
-    orderId: string,
+    user_id: string,
+    order_id: string,
     depositRequest: EnhancedDepositRequest
   ): Promise<void> {
     const databases = this.appwriteService.getDatabases();
@@ -609,8 +609,8 @@ export class EnhancedWalletsService {
         metadataCollection,
         ID.unique(),
         {
-          user_id: userId,
-          order_id: orderId,
+          user_id: user_id,
+          order_id: order_id,
           metadata: JSON.stringify(depositRequest.metadata || {}),
           preferred_payment_method: depositRequest.preferredPaymentMethod,
           created_at: new Date().toISOString(),
@@ -628,8 +628,8 @@ export class EnhancedWalletsService {
   }
 
   private async logDepositVerification(
-    userId: string,
-    orderId: string,
+    user_id: string,
+    order_id: string,
     authority: string,
     userIp?: string,
     userAgent?: string
@@ -644,8 +644,8 @@ export class EnhancedWalletsService {
         verificationLogsCollection,
         ID.unique(),
         {
-          user_id: userId,
-          order_id: orderId,
+          user_id: user_id,
+          order_id: order_id,
           authority,
           user_ip: userIp,
           user_agent: userAgent,
@@ -658,9 +658,9 @@ export class EnhancedWalletsService {
   }
 
   private async sendWalletPaymentEmail(
-    userId: string,
+    user_id: string,
     amount: number,
-    orderId: string,
+    order_id: string,
     description: string
   ): Promise<void> {
     try {
@@ -671,14 +671,14 @@ export class EnhancedWalletsService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
       if (userProfile.documents.length > 0) {
         const email = userProfile.documents[0].email;
         await this.emailService.sendPaymentNotification(email, {
-          id: orderId,
+          id: order_id,
           amount: amount,
           status: 'completed',
           order_title: description,
@@ -691,7 +691,7 @@ export class EnhancedWalletsService {
   }
 
   private async sendDepositSuccessEmail(
-    userId: string,
+    user_id: string,
     amount: number,
     refId: string
   ): Promise<void> {
@@ -703,13 +703,13 @@ export class EnhancedWalletsService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
       if (userProfile.documents.length > 0) {
         const email = userProfile.documents[0].email;
-        await this.emailService.sendWalletTopUpEmail(userId, amount, refId);
+        await this.emailService.sendWalletTopUpEmail(user_id, amount, refId);
       }
     } catch (error) {
       this.logger.warn(`Failed to send deposit success email: ${error.message}`);

@@ -14,13 +14,13 @@ export class DesignsService {
   ) {}
 
   async saveDesign(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     saveDesignDto: SaveDesignDto,
     isAdmin: boolean = false,
   ): Promise<{ ok: boolean }> {
     // Check order ownership or admin access
-    await this.ordersService.getOrder(orderId, userId, isAdmin);
+    await this.ordersService.getOrder(order_id, user_id, isAdmin);
 
     // Upsert design document in Appwrite
     const databases = this.appwriteService.getDatabases();
@@ -28,7 +28,7 @@ export class DesignsService {
     const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
 
     const existing = await databases.listDocuments(databaseId, designsCollection, [
-      Query.equal('order_id', orderId),
+      Query.equal('order_id', order_id),
       Query.limit(1),
     ]);
 
@@ -39,7 +39,7 @@ export class DesignsService {
       } as any);
     } else {
       await databases.createDocument(databaseId, designsCollection, ID.unique(), {
-        order_id: orderId,
+        order_id: order_id,
         design: saveDesignDto.design,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -48,25 +48,25 @@ export class DesignsService {
 
     // Update design options if provided
     if (saveDesignDto.options) {
-      await this.updateDesignOptions(orderId, userId, { options: saveDesignDto.options }, isAdmin);
+      await this.updateDesignOptions(order_id, user_id, { options: saveDesignDto.options }, isAdmin);
     }
 
     return { ok: true };
   }
 
   async getDesign(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     isAdmin: boolean = false,
   ): Promise<{ design: any }> {
     // Check order ownership or admin access
-    await this.ordersService.getOrder(orderId, userId, isAdmin);
+    await this.ordersService.getOrder(order_id, user_id, isAdmin);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
     const existing = await databases.listDocuments(databaseId, designsCollection, [
-      Query.equal('order_id', orderId),
+      Query.equal('order_id', order_id),
       Query.limit(1),
     ]);
     const doc: any = existing.documents[0] || null;
@@ -74,29 +74,29 @@ export class DesignsService {
   }
 
   async getDesignOptions(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     isAdmin: boolean = false,
   ): Promise<{ options: any }> {
     // Check order ownership or admin access
-    const order = await this.ordersService.getOrder(orderId, userId, isAdmin);
+    const order = await this.ordersService.getOrder(order_id, user_id, isAdmin);
 
     return { options: order.design_options || null };
   }
 
   async updateDesignOptions(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     updateDesignOptionsDto: UpdateDesignOptionsDto,
     isAdmin: boolean = false,
   ): Promise<{ ok: boolean }> {
     // Check order ownership or admin access
-    await this.ordersService.getOrder(orderId, userId, isAdmin);
+    await this.ordersService.getOrder(order_id, user_id, isAdmin);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-    await databases.updateDocument(databaseId, ordersCollection, orderId, {
+    await databases.updateDocument(databaseId, ordersCollection, order_id, {
       design_options: updateDesignOptionsDto.options,
       updated_at: new Date().toISOString(),
     } as any);
@@ -105,18 +105,18 @@ export class DesignsService {
   }
 
   async updatePreviewUrl(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     updatePreviewUrlDto: UpdatePreviewUrlDto,
     isAdmin: boolean = false,
   ): Promise<{ ok: boolean }> {
     // Check order ownership or admin access
-    await this.ordersService.getOrder(orderId, userId, isAdmin);
+    await this.ordersService.getOrder(order_id, user_id, isAdmin);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-    await databases.updateDocument(databaseId, ordersCollection, orderId, {
+    await databases.updateDocument(databaseId, ordersCollection, order_id, {
       design_preview_url: updatePreviewUrlDto.previewUrl,
       updated_at: new Date().toISOString(),
     } as any);

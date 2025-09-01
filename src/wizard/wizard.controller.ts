@@ -79,27 +79,27 @@ export class WizardController {
     return this.wizardService.saveProgress(saveProgressDto);
   }
 
-  @Get('progress/:sessionId')
+  @Get('progress/:session_id')
   @ApiOperation({ summary: 'Get Wizard Progress by Session ID' })
-  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiParam({ name: 'session_id', description: 'Session ID' })
   @ApiResponse({ status: 200, description: 'Progress retrieved successfully', type: WizardOrderDto })
   @ApiResponse({ status: 404, description: 'Progress not found' })
   async getProgress(
-    @Param('sessionId') sessionId: string,
-    @Query('userId') userId?: string,
+    @Param('session_id') session_id: string,
+    @Query('user_id') user_id?: string,
   ): Promise<WizardOrderDto> {
-    return this.wizardService.getProgress(sessionId, userId);
+    return this.wizardService.getProgress(session_id, user_id);
   }
 
-  @Get('progress/user/:userId')
+  @Get('progress/user/:user_id')
   @ApiOperation({ summary: 'Get User Wizard Progress' })
-  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiParam({ name: 'user_id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User progress retrieved successfully', type: [WizardOrderDto] })
   @ApiResponse({ status: 403, description: 'Access denied' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  async getUserProgress(@Param('userId') userId: string): Promise<WizardOrderDto[]> {
-    return this.wizardService.getUserProgress(userId);
+  async getUserProgress(@Param('user_id') user_id: string): Promise<WizardOrderDto[]> {
+    return this.wizardService.getUserProgress(user_id);
   }
 
   @Post('complete-order')
@@ -113,52 +113,52 @@ export class WizardController {
     @Body() completeOrderDto: CompleteOrderDto,
     @Request() req: any,
   ): Promise<OrderResponseDto> {
-    const user_id = req.user?.user_id || req.user?.userId || req.user?.id;
+    const user_id = req.user?.user_id || req.user?.user_id || req.user?.id;
     return this.wizardService.completeOrder(completeOrderDto, user_id);
   }
 
-  @Put('orders/:orderId')
+  @Put('orders/:order_id')
   @ApiOperation({ summary: 'Update Wizard Order' })
-  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'order_id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Order updated successfully', type: WizardOrderDto })
   @ApiResponse({ status: 403, description: 'Access denied' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
   async updateOrder(
-    @Param('orderId') orderId: string,
+    @Param('order_id') order_id: string,
     @Body() updateOrderDto: UpdateOrderDto,
     @Request() req: any,
   ): Promise<WizardOrderDto> {
-    const userId = req.user?.userId || req.user?.id;
-    return this.wizardService.updateOrder(orderId, updateOrderDto, userId, false);
+    const user_id = req.user?.user_id || req.user?.id;
+    return this.wizardService.updateOrder(order_id, updateOrderDto, user_id, false);
   }
 
-  @Get('orders/:orderId')
+  @Get('orders/:order_id')
   @ApiOperation({ summary: 'Get Wizard Order' })
-  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'order_id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Order retrieved successfully', type: WizardOrderDto })
   @ApiResponse({ status: 403, description: 'Access denied' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
   async getOrder(
-    @Param('orderId') orderId: string,
+    @Param('order_id') order_id: string,
     @Request() req: any,
   ): Promise<WizardOrderDto> {
-    const userId = req.user?.userId || req.user?.id;
-    return this.wizardService.getOrder(orderId, userId, false);
+    const user_id = req.user?.user_id || req.user?.id;
+    return this.wizardService.getOrder(order_id, user_id, false);
   }
 
-  @Get('orders/user/:userId')
+  @Get('orders/user/:user_id')
   @ApiOperation({ summary: 'List User Orders' })
-  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiParam({ name: 'user_id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User orders retrieved successfully', type: [WizardOrderDto] })
   @ApiResponse({ status: 403, description: 'Access denied' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  async listUserOrders(@Param('userId') userId: string): Promise<WizardOrderDto[]> {
-    return this.wizardService.listUserOrders(userId);
+  async listUserOrders(@Param('user_id') user_id: string): Promise<WizardOrderDto[]> {
+    return this.wizardService.listUserOrders(user_id);
   }
 
   @Get('orders/admin')
@@ -189,8 +189,8 @@ export class WizardController {
     schema: {
       type: 'object',
       properties: {
-        orderId: { type: 'string' },
-        sessionId: { type: 'string' },
+        order_id: { type: 'string' },
+        session_id: { type: 'string' },
         files: {
           type: 'array',
           items: {
@@ -205,53 +205,53 @@ export class WizardController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @UseInterceptors(FilesInterceptor('files', 10))
   async uploadFiles(
-    @Body() fileUploadDto: { orderId: string; sessionId: string },
+    @Body() fileUploadDto: { order_id: string; session_id: string },
             @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.wizardService.uploadFiles(fileUploadDto.orderId, fileUploadDto.sessionId, files);
+    return this.wizardService.uploadFiles(fileUploadDto.order_id, fileUploadDto.session_id, files);
   }
 
-  @Get('files/:fileId')
+  @Get('files/:file_id')
   @ApiOperation({ summary: 'Get File Info' })
-  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiParam({ name: 'file_id', description: 'File ID' })
   @ApiResponse({ status: 200, description: 'File info retrieved successfully' })
   @ApiResponse({ status: 404, description: 'File not found' })
-  async getFileInfo(@Param('fileId') fileId: string) {
+  async getFileInfo(@Param('file_id') file_id: string) {
     // This would need to be implemented based on your storage service
-    return { fileId, message: 'File info retrieval not implemented' };
+    return { file_id, message: 'File info retrieval not implemented' };
   }
 
-  @Delete('files/:fileId')
+  @Delete('files/:file_id')
   @ApiOperation({ summary: 'Delete File' })
-  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiParam({ name: 'file_id', description: 'File ID' })
   @ApiResponse({ status: 200, description: 'File deleted successfully' })
   @ApiResponse({ status: 403, description: 'Access denied' })
   @ApiResponse({ status: 404, description: 'File not found' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
   async deleteFile(
-    @Param('fileId') fileId: string,
-    @Query('orderId') orderId: string,
+    @Param('file_id') file_id: string,
+    @Query('order_id') order_id: string,
     @Request() req: any,
   ) {
-    const userId = req.user?.userId || req.user?.id;
-    return this.wizardService.deleteFile(orderId, fileId, userId, false);
+    const user_id = req.user?.user_id || req.user?.id;
+    return this.wizardService.deleteFile(order_id, file_id, user_id, false);
   }
 
-  @Get('orders/:orderId/files')
+  @Get('orders/:order_id/files')
   @ApiOperation({ summary: 'List Order Files' })
-  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'order_id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Order files retrieved successfully' })
   @ApiResponse({ status: 403, description: 'Access denied' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
   async listOrderFiles(
-    @Param('orderId') orderId: string,
+    @Param('order_id') order_id: string,
     @Request() req: any,
   ) {
-    const userId = req.user?.userId || req.user?.id;
-    return this.wizardService.listOrderFiles(orderId, userId, false);
+    const user_id = req.user?.user_id || req.user?.id;
+    return this.wizardService.listOrderFiles(order_id, user_id, false);
   }
 
   @Get('domains/extensions')
@@ -322,19 +322,19 @@ export class WizardController {
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
   async saveDesign(@Body() saveDesignDto: SaveDesignDto, @Request() req: any) {
-    const userId = req.user?.userId || req.user?.id;
-    return this.wizardService.saveDesign(saveDesignDto, userId);
+    const user_id = req.user?.user_id || req.user?.id;
+    return this.wizardService.saveDesign(saveDesignDto, user_id);
   }
 
-  @Get('designs/:orderId')
+  @Get('designs/:order_id')
   @ApiOperation({ summary: 'Get Design by Order' })
-  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'order_id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Design retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Design not found' })
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  async getDesign(@Param('orderId') orderId: string, @Request() req: any) {
-    const userId = req.user?.userId || req.user?.id;
-    return this.wizardService.getDesign(orderId, userId);
+  async getDesign(@Param('order_id') order_id: string, @Request() req: any) {
+    const user_id = req.user?.user_id || req.user?.id;
+    return this.wizardService.getDesign(order_id, user_id);
   }
 }

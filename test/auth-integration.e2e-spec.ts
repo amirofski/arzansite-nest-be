@@ -18,7 +18,7 @@ describe('Auth Integration Tests (e2e)', () => {
     name: 'Integration Test User'
   };
 
-  let userId: string;
+  let user_id: string;
   let accessToken: string;
   let refreshToken: string;
 
@@ -57,7 +57,7 @@ describe('Auth Integration Tests (e2e)', () => {
 
       expect(signUpResponse.body.success).toBe(true);
       expect(signUpResponse.body.data.user.email).toBe(testUser.email);
-      userId = signUpResponse.body.data.user.id;
+      user_id = signUpResponse.body.data.user.id;
 
       // Step 2: Try to login (should work even without email verification)
       console.log('Step 2: Logging in...');
@@ -208,15 +208,15 @@ describe('Auth Integration Tests (e2e)', () => {
         .expect(200);
 
       expect(sessionResponse.body.success).toBe(true);
-      expect(sessionResponse.body.data.sessionId).toBeDefined();
+      expect(sessionResponse.body.data.session_id).toBeDefined();
       
-      const sessionId = sessionResponse.body.data.sessionId;
+      const session_id = sessionResponse.body.data.session_id;
 
       // Step 2: Validate session
       console.log('Step 2: Validating session...');
       const validateResponse = await request(app.getHttpServer())
         .post('/api/auth/validate-session')
-        .send({ sessionId })
+        .send({ session_id })
         .expect(200);
 
       expect(validateResponse.body.success).toBe(true);
@@ -225,7 +225,7 @@ describe('Auth Integration Tests (e2e)', () => {
       // Step 3: Get session info
       console.log('Step 3: Getting session info...');
       const infoResponse = await request(app.getHttpServer())
-        .get(`/api/auth/session/${sessionId}/info`)
+        .get(`/api/auth/session/${session_id}/info`)
         .expect(200);
 
       expect(infoResponse.body.success).toBe(true);
@@ -235,7 +235,7 @@ describe('Auth Integration Tests (e2e)', () => {
       console.log('Step 4: Logging out session...');
       const logoutResponse = await request(app.getHttpServer())
         .post('/api/auth/logout-session')
-        .send({ sessionId })
+        .send({ session_id })
         .expect(200);
 
       expect(logoutResponse.body.success).toBe(true);
@@ -244,7 +244,7 @@ describe('Auth Integration Tests (e2e)', () => {
       console.log('Step 5: Validating logged out session...');
       const invalidSessionResponse = await request(app.getHttpServer())
         .post('/api/auth/validate-session')
-        .send({ sessionId })
+        .send({ session_id })
         .expect(400);
 
       expect(invalidSessionResponse.body.success).toBe(false);
@@ -397,7 +397,7 @@ describe('Auth Integration Tests (e2e)', () => {
       // Attempt to clean up the test user
       // Note: In a production test environment, you might want to implement
       // a cleanup mechanism or use a test database
-      console.log(`Test user created: ${testUser.email} (ID: ${userId})`);
+      console.log(`Test user created: ${testUser.email} (ID: ${user_id})`);
       console.log('Consider implementing cleanup mechanism for test data');
     } catch (error) {
       console.log('Cleanup note:', error.message);

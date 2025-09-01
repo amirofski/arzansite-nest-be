@@ -43,7 +43,7 @@ export class CreateTransactionDto {
 
 export class RefundOrderDto {
   @IsString()
-  orderId: string;
+  order_id: string;
 }
 
 export class WalletDepositDto {
@@ -55,8 +55,8 @@ export class WalletDepositDto {
   description: string;
 
   @IsOptional()
-  @IsUrl({ require_tld: true, protocols: ['https'] }, { message: 'callbackUrl must be a valid HTTPS URL' })
-  callbackUrl?: string;
+  @IsUrl({ require_tld: true, protocols: ['https'] }, { message: 'callback_url must be a valid HTTPS URL' })
+  callback_url?: string;
 
   @IsOptional()
   @IsString()

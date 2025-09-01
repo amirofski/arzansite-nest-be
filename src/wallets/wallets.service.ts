@@ -14,20 +14,20 @@ export class WalletsService {
     private configService: ConfigService,
   ) {}
 
-  async getWallet(userId: string): Promise<Wallet> {
+  async getWallet(user_id: string): Promise<Wallet> {
     // Try to get existing wallet
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
     const existing = await databases.listDocuments(databaseId, walletsCollection, [
-      Query.equal('user_id', userId),
+      Query.equal('user_id', user_id),
       Query.limit(1),
     ]);
 
     const wallet: any = existing.documents[0];
     if (!wallet) {
       const newWallet = await databases.createDocument(databaseId, walletsCollection, ID.unique(), {
-        user_id: userId,
+        user_id: user_id,
         balance: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -38,13 +38,13 @@ export class WalletsService {
     return wallet as any;
   }
 
-  async getBalance(userId: string): Promise<{ balance: number }> {
-    const wallet = await this.getWallet(userId);
+  async getBalance(user_id: string): Promise<{ balance: number }> {
+    const wallet = await this.getWallet(user_id);
     return { balance: wallet.balance };
   }
 
   async getTransactions(
-    userId: string,
+    user_id: string,
     limit: number = 50,
     offset: number = 0,
   ): Promise<Transaction[]> {
@@ -53,7 +53,7 @@ export class WalletsService {
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
     const { Query } = await import('node-appwrite');
     const result = await databases.listDocuments(databaseId, transactionsCollection, [
-      Query.equal('user_id', userId),
+      Query.equal('user_id', user_id),
       Query.orderDesc('created_at'),
       Query.limit(limit),
       Query.offset(offset),
@@ -79,17 +79,17 @@ export class WalletsService {
    * Create a transaction with streamlined approach
    */
   async createTransaction(
-    userId: string,
+    user_id: string,
     createTransactionDto: CreateTransactionDto,
   ): Promise<{ transactionId: string; balanceAfter: number }> {
-    this.logger.log(`Creating transaction for user ${userId}: ${JSON.stringify({
+    this.logger.log(`Creating transaction for user ${user_id}: ${JSON.stringify({
       type: createTransactionDto.type,
       amount: createTransactionDto.amount,
       referenceType: createTransactionDto.referenceType
     })}`);
 
     // Ensure wallet exists
-    const wallet = await this.getWallet(userId);
+    const wallet = await this.getWallet(user_id);
     const balanceBefore = wallet.balance || 0;
 
     // Validate transaction
@@ -100,7 +100,7 @@ export class WalletsService {
 
     // Prepare transaction document
     const transactionDoc = this.prepareTransactionDocument(
-      userId,
+      user_id,
       wallet.id,
       createTransactionDto,
       balanceBefore,
@@ -136,7 +136,7 @@ export class WalletsService {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to create transaction for user ${userId}:`, error.message);
+      this.logger.error(`Failed to create transaction for user ${user_id}:`, error.message);
       throw new BadRequestException('Failed to create transaction. Please try again.');
     }
   }
@@ -200,8 +200,8 @@ export class WalletsService {
    * Prepare transaction document
    */
   private prepareTransactionDocument(
-    userId: string,
-    walletId: string,
+    user_id: string,
+    wallet_id: string,
     createTransactionDto: CreateTransactionDto,
     balanceBefore: number,
     balanceAfter: number
@@ -211,8 +211,8 @@ export class WalletsService {
       : null;
 
     return {
-      user_id: userId,
-      wallet_id: walletId,
+      user_id: user_id,
+      wallet_id: wallet_id,
       type: createTransactionDto.type,
       status: 'completed',
       amount: createTransactionDto.amount,
@@ -246,49 +246,49 @@ export class WalletsService {
   }
 
   async refundOrder(refundOrderDto: RefundOrderDto): Promise<{ resultId: string }> {
-    this.logger.log(`Processing refund for order: ${refundOrderDto.orderId}`);
+    this.logger.log(`Processing refund for order: ${refundOrderDto.order_id}`);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
 
     try {
-      const order: any = await databases.getDocument(databaseId, ordersCollection, refundOrderDto.orderId);
+      const order: any = await databases.getDocument(databaseId, ordersCollection, refundOrderDto.order_id);
       const amount = order.price || 0;
-      const userId = order.user_id;
+      const user_id = order.user_id;
 
       if (amount <= 0) {
         throw new BadRequestException('Order amount is invalid or zero');
       }
 
-      const result = await this.createTransaction(userId, {
+      const result = await this.createTransaction(user_id, {
         type: TransactionType.CREDIT,
         amount,
         description: 'Order refund',
-        referenceId: refundOrderDto.orderId,
+        referenceId: refundOrderDto.order_id,
         referenceType: 'order_refund',
         metadata: {
-          orderId: refundOrderDto.orderId,
+          order_id: refundOrderDto.order_id,
           refundReason: 'customer_request',
           originalOrderAmount: amount,
           refundTimestamp: new Date().toISOString(),
         },
       });
 
-      this.logger.log(`Refund processed successfully for order ${refundOrderDto.orderId}. Transaction: ${result.transactionId}`);
+      this.logger.log(`Refund processed successfully for order ${refundOrderDto.order_id}. Transaction: ${result.transactionId}`);
 
       return { resultId: result.transactionId };
 
     } catch (error) {
-      this.logger.error(`Failed to process refund for order ${refundOrderDto.orderId}:`, error.message);
+      this.logger.error(`Failed to process refund for order ${refundOrderDto.order_id}:`, error.message);
       throw new BadRequestException(`Failed to process refund: ${error.message}`);
     }
   }
 
-  async creditWallet(userId: string, amount: number, description?: string): Promise<Wallet> {
-    this.logger.log(`Crediting wallet for user ${userId}: ${amount} Rials`);
+  async creditWallet(user_id: string, amount: number, description?: string): Promise<Wallet> {
+    this.logger.log(`Crediting wallet for user ${user_id}: ${amount} Rials`);
 
-    await this.createTransaction(userId, {
+    await this.createTransaction(user_id, {
       type: TransactionType.CREDIT,
       amount,
       description: description || 'Admin credit',
@@ -300,13 +300,13 @@ export class WalletsService {
       },
     });
 
-    return this.getWallet(userId);
+    return this.getWallet(user_id);
   }
 
-  async debitWallet(userId: string, amount: number, description?: string): Promise<Wallet> {
-    this.logger.log(`Debiting wallet for user ${userId}: ${amount} Rials`);
+  async debitWallet(user_id: string, amount: number, description?: string): Promise<Wallet> {
+    this.logger.log(`Debiting wallet for user ${user_id}: ${amount} Rials`);
 
-    await this.createTransaction(userId, {
+    await this.createTransaction(user_id, {
       type: TransactionType.DEBIT,
       amount,
       description: description || 'Admin debit',
@@ -318,11 +318,11 @@ export class WalletsService {
       },
     });
 
-    return this.getWallet(userId);
+    return this.getWallet(user_id);
   }
 
-  async topUpWallet(userId: string, amount: number, refId: string): Promise<{ success: boolean; transactionId: string; balanceAfter: number }> {
-    this.logger.log(`Processing wallet top-up for user ${userId}: ${amount} Rials, Ref ID: ${refId}`);
+  async topUpWallet(user_id: string, amount: number, refId: string): Promise<{ success: boolean; transactionId: string; balanceAfter: number }> {
+    this.logger.log(`Processing wallet top-up for user ${user_id}: ${amount} Rials, Ref ID: ${refId}`);
 
     // Validate minimum amount
     if (amount < 1000000) {
@@ -330,7 +330,7 @@ export class WalletsService {
     }
 
     // Create top-up transaction
-    const result = await this.createTransaction(userId, {
+    const result = await this.createTransaction(user_id, {
       type: TransactionType.CREDIT,
       amount,
       description: 'Wallet top-up',
@@ -344,7 +344,7 @@ export class WalletsService {
       },
     });
 
-    this.logger.log(`Wallet top-up successful for user ${userId}. Transaction: ${result.transactionId}`);
+    this.logger.log(`Wallet top-up successful for user ${user_id}. Transaction: ${result.transactionId}`);
 
     return { 
       success: true, 
@@ -353,7 +353,7 @@ export class WalletsService {
     };
   }
 
-  async verifyPaymentRefId(refId: string): Promise<{ isValid: boolean; amount?: number; userId?: string }> {
+  async verifyPaymentRefId(refId: string): Promise<{ isValid: boolean; amount?: number; user_id?: string }> {
     this.logger.log(`Verifying payment Ref ID: ${refId}`);
 
     try {
@@ -381,7 +381,7 @@ export class WalletsService {
       return { 
         isValid: true, 
         amount: 1000000, // This should come from gateway
-        userId: 'user_id_from_gateway' // This should come from gateway
+        user_id: 'user_id_from_gateway' // This should come from gateway
       };
 
     } catch (error) {
@@ -430,8 +430,8 @@ export class WalletsService {
     authority: string;
     refId: string;
     amount: number;
-    userId: string;
-    orderId?: string;
+    user_id: string;
+    order_id?: string;
   }): Promise<{
     success: boolean;
     message: string;
@@ -444,8 +444,8 @@ export class WalletsService {
       authority: params.authority,
       refId: params.refId,
       amount: params.amount,
-      userId: params.userId,
-      orderId: params.orderId
+      user_id: params.user_id,
+      order_id: params.order_id
     })}`);
 
     try {
@@ -494,7 +494,7 @@ export class WalletsService {
       }
 
       // 4. Create transaction and credit wallet atomically
-      const result = await this.createTransaction(params.userId, {
+      const result = await this.createTransaction(params.user_id, {
         type: TransactionType.CREDIT,
         amount: params.amount,
         description: `Wallet deposit via ZarinPal - Ref ID: ${params.refId}`,
@@ -504,13 +504,13 @@ export class WalletsService {
           zarinpal_authority: params.authority,
           zarinpal_ref_id: params.refId,
           payment_gateway: 'zarinpal',
-          orderId: params.orderId,
+          order_id: params.order_id,
           depositTimestamp: new Date().toISOString(),
           verificationMethod: 'callback',
         },
       });
 
-      this.logger.log(`Wallet deposit verification successful for user ${params.userId}`, {
+      this.logger.log(`Wallet deposit verification successful for user ${params.user_id}`, {
         authority: params.authority,
         refId: params.refId,
         transactionId: result.transactionId,
@@ -530,7 +530,7 @@ export class WalletsService {
       this.logger.error(`Wallet deposit verification failed:`, {
         authority: params.authority,
         refId: params.refId,
-        userId: params.userId,
+        user_id: params.user_id,
         error: error.message
       });
 
@@ -591,11 +591,11 @@ export class WalletsService {
    * Enhanced top-up method with idempotency checks
    */
   async topUpWalletWithIdempotency(params: {
-    userId: string;
+    user_id: string;
     amount: number;
     refId: string;
     authority?: string;
-    orderId?: string;
+    order_id?: string;
   }): Promise<{
     success: boolean;
     transactionId?: string;
@@ -604,7 +604,7 @@ export class WalletsService {
     error?: string;
   }> {
     this.logger.log(`Processing wallet top-up with idempotency: ${JSON.stringify({
-      userId: params.userId,
+      user_id: params.user_id,
       amount: params.amount,
       refId: params.refId,
       authority: params.authority
@@ -616,7 +616,7 @@ export class WalletsService {
       
       if (existingTransaction) {
         this.logger.warn(`Duplicate top-up ignored - Ref ID already exists: ${params.refId}`, {
-          userId: params.userId,
+          user_id: params.user_id,
           refId: params.refId,
           existingTransactionId: existingTransaction.id
         });
@@ -635,7 +635,7 @@ export class WalletsService {
         
         if (existingByAuthority) {
           this.logger.warn(`Duplicate top-up ignored - Authority already exists: ${params.authority}`, {
-            userId: params.userId,
+            user_id: params.user_id,
             refId: params.refId,
             authority: params.authority,
             existingTransactionId: existingByAuthority.id
@@ -651,7 +651,7 @@ export class WalletsService {
       }
 
       // Create the top-up transaction
-      const result = await this.createTransaction(params.userId, {
+      const result = await this.createTransaction(params.user_id, {
         type: TransactionType.CREDIT,
         amount: params.amount,
         description: 'Wallet top-up',
@@ -663,11 +663,11 @@ export class WalletsService {
           topUpMethod: 'payment_gateway',
           timestamp: new Date().toISOString(),
           gateway: 'zarinpal',
-          orderId: params.orderId,
+          order_id: params.order_id,
         },
       });
 
-      this.logger.log(`Wallet top-up successful for user ${params.userId}`, {
+      this.logger.log(`Wallet top-up successful for user ${params.user_id}`, {
         refId: params.refId,
         authority: params.authority,
         transactionId: result.transactionId,
@@ -684,7 +684,7 @@ export class WalletsService {
 
     } catch (error) {
       this.logger.error(`Wallet top-up failed:`, {
-        userId: params.userId,
+        user_id: params.user_id,
         refId: params.refId,
         authority: params.authority,
         error: error.message

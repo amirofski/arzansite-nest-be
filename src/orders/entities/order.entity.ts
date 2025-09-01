@@ -57,19 +57,19 @@ export class Order {
   status: OrderStatus;
 
   @Column({ nullable: true })
-  sessionId?: string;
+  session_id?: string;
 
   @Column({ nullable: true })
-  siteType?: string;
+  site_type?: string;
 
   @Column({ type: 'json', nullable: true })
-  websiteFramework?: any;
+  website_framework?: any;
 
   @Column({ type: 'json', nullable: true })
   branding?: any;
 
   @Column({ type: 'json', nullable: true })
-  additionalServices?: any;
+  additional_services?: any;
 
   @Column({ type: 'json', nullable: true })
   domains?: any;

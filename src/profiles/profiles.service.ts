@@ -12,13 +12,13 @@ export class ProfilesService {
     private configService: ConfigService,
   ) {}
 
-  async getProfile(userId: string): Promise<Profile> {
+  async getProfile(user_id: string): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
     const { Query } = await import('node-appwrite');
     const existing = await databases.listDocuments(databaseId, profilesCollection, [
-      Query.equal('user_id', userId),
+      Query.equal('user_id', user_id),
       Query.limit(1),
     ]);
     const doc: any = existing.documents[0];
@@ -26,13 +26,13 @@ export class ProfilesService {
     return doc as any;
   }
 
-  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<Profile> {
+  async updateProfile(user_id: string, updateProfileDto: UpdateProfileDto): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
     const { Query } = await import('node-appwrite');
     const existing = await databases.listDocuments(databaseId, profilesCollection, [
-      Query.equal('user_id', userId),
+      Query.equal('user_id', user_id),
       Query.limit(1),
     ]);
     const doc: any = existing.documents[0];
@@ -44,19 +44,19 @@ export class ProfilesService {
     return updated as any;
   }
 
-  async createProfileIfNotExists(userId: string, email: string): Promise<Profile> {
+  async createProfileIfNotExists(user_id: string, email: string): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
     const { Query } = await import('node-appwrite');
     const existing = await databases.listDocuments(databaseId, profilesCollection, [
-      Query.equal('user_id', userId),
+      Query.equal('user_id', user_id),
       Query.limit(1),
     ]);
     if (existing.documents[0]) return existing.documents[0] as any;
     const now = new Date().toISOString();
     const doc = await databases.createDocument(databaseId, profilesCollection, ID.unique(), {
-      user_id: userId, // use snake_case for database
+      user_id: user_id, // use snake_case for database
       email,
       full_name: '',
       created_at: now,

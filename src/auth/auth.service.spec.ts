@@ -100,8 +100,8 @@ describe("AuthService", () => {
     $id: "user123",
     email: "test@example.com",
     emailVerification: false,
-    $createdAt: "2023-01-01T00:00:00Z",
-    $updatedAt: "2023-01-01T00:00:00Z",
+    $created_at: "2023-01-01T00:00:00Z",
+    $updated_at: "2023-01-01T00:00:00Z",
     name: "Test User",
     registration: "2023-01-01T00:00:00Z",
     status: 1,
@@ -114,8 +114,8 @@ describe("AuthService", () => {
 
     const mockVerification = {
       $id: "verification123",
-      $createdAt: "2023-01-01T00:00:00Z",
-      userId: "user123",
+      $created_at: "2023-01-01T00:00:00Z",
+      user_id: "user123",
       secret: "secret123",
       expire: "2023-01-08T00:00:00Z",
       phrase: "verification",
@@ -143,7 +143,7 @@ describe("AuthService", () => {
           id: mockUser.$id,
           email: mockUser.email,
           emailVerification: mockUser.emailVerification,
-          $createdAt: mockUser.$createdAt,
+          $created_at: mockUser.$created_at,
         },
         verificationEmailSent: false,
         requiresFrontendVerification: true,
@@ -172,7 +172,7 @@ describe("AuthService", () => {
           id: mockUser.$id,
           email: mockUser.email,
           emailVerification: mockUser.emailVerification,
-          $createdAt: mockUser.$createdAt,
+          $created_at: mockUser.$created_at,
         },
         verificationEmailSent: true,
         requiresFrontendVerification: false,
@@ -194,7 +194,7 @@ describe("AuthService", () => {
 
   describe("verifyEmail", () => {
     const token = "verification-token";
-    const userId = "user123";
+    const user_id = "user123";
     const mockUser = {
       $id: "user123",
       email: "test@example.com",
@@ -208,7 +208,7 @@ describe("AuthService", () => {
         listDocuments: jest.fn().mockResolvedValue({
           documents: [{
             $id: 'doc123',
-            userId: userId,
+            user_id: user_id,
             token: token,
             used: false,
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -225,7 +225,7 @@ describe("AuthService", () => {
       
       mockEmailService.sendWelcomeEmail.mockResolvedValue(true);
 
-      const result = await service.verifyEmail(token, userId);
+      const result = await service.verifyEmail(token, user_id);
 
       expect(result).toEqual({
         message: "Email verified successfully! Welcome email sent.",
@@ -247,7 +247,7 @@ describe("AuthService", () => {
         })
       } as any);
 
-      await expect(service.verifyEmail(token, userId)).rejects.toThrow(BadRequestException);
+      await expect(service.verifyEmail(token, user_id)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -255,8 +255,8 @@ describe("AuthService", () => {
     const email = "test@example.com";
     const mockRecovery = {
       $id: "recovery123",
-      $createdAt: "2023-01-01T00:00:00Z",
-      userId: "user123",
+      $created_at: "2023-01-01T00:00:00Z",
+      user_id: "user123",
       secret: "secret123",
       expire: "2023-01-08T00:00:00Z",
       phrase: "recovery",
@@ -291,7 +291,7 @@ describe("AuthService", () => {
     const password = "password123";
     const mockVerification = {
       $id: "verification123",
-      userId: "user123",
+      user_id: "user123",
     } as any;
 
     it("should send verification email successfully", async () => {
@@ -338,7 +338,7 @@ describe("AuthService", () => {
       expect(result).toEqual({
         email: mockUser.email,
         emailVerified: mockUser.emailVerification,
-        userId: mockUser.$id,
+        user_id: mockUser.$id,
         message: "Email is not verified. Please check your inbox for verification email.",
       });
     });
@@ -356,7 +356,7 @@ describe("AuthService", () => {
         listDocuments: jest.fn().mockResolvedValue({
           documents: [{
             $id: 'doc123',
-            userId: verifiedUser.$id,
+            user_id: verifiedUser.$id,
             used: true
           }]
         })
@@ -367,7 +367,7 @@ describe("AuthService", () => {
       expect(result).toEqual({
         email: verifiedUser.email,
         emailVerified: true,
-        userId: verifiedUser.$id,
+        user_id: verifiedUser.$id,
         message: "Email is verified. You can now log in.",
       });
     });
@@ -390,10 +390,10 @@ describe("AuthService", () => {
     };
 
     const mockSession = {
-      userId: "user123",
+      user_id: "user123",
       $id: "session123",
-      $createdAt: "2023-01-01T00:00:00Z",
-      $updatedAt: "2023-01-01T00:00:00Z",
+      $created_at: "2023-01-01T00:00:00Z",
+      $updated_at: "2023-01-01T00:00:00Z",
       expire: "2023-01-08T00:00:00Z",
       provider: "email",
       providerUid: "test@example.com",
@@ -435,7 +435,7 @@ describe("AuthService", () => {
         listDocuments: jest.fn().mockResolvedValue({
           documents: [{
             $id: 'doc123',
-            userId: mockUser.$id,
+            user_id: mockUser.$id,
             used: true
           }]
         })
@@ -450,7 +450,7 @@ describe("AuthService", () => {
       expect(result).toHaveProperty("access_token");
       expect(result).toHaveProperty("refresh_token");
       expect(result.user).toEqual({
-        id: mockSession.userId,
+        id: mockSession.user_id,
         email: signInDto.email,
         emailVerified: true,
       });
@@ -474,8 +474,8 @@ describe("AuthService", () => {
       $id: "user123",
       email: "test@example.com",
       emailVerification: true,
-      $createdAt: "2023-01-01T00:00:00Z",
-      $updatedAt: "2023-01-01T00:00:00Z",
+      $created_at: "2023-01-01T00:00:00Z",
+      $updated_at: "2023-01-01T00:00:00Z",
       name: "Test User",
       registration: "2023-01-01T00:00:00Z",
       status: 1,
@@ -525,7 +525,7 @@ describe("AuthService", () => {
         sub: "user123",
         email: "test@example.com",
         type: "refresh",
-        sessionId: "session123",
+        session_id: "session123",
       };
 
       jest.spyOn(jwt, "verify").mockReturnValue(mockDecoded as any);
@@ -568,7 +568,7 @@ describe("AuthService", () => {
       const mockDecoded = {
         sub: "user123",
         email: "test@example.com",
-        sessionId: "session123",
+        session_id: "session123",
       };
 
       jest.spyOn(jwt, "verify").mockReturnValue(mockDecoded as any);
@@ -576,7 +576,7 @@ describe("AuthService", () => {
 
       const result = await service.signOut(accessToken);
 
-      expect(appwriteService.deleteSession).toHaveBeenCalledWith(mockDecoded.sessionId);
+      expect(appwriteService.deleteSession).toHaveBeenCalledWith(mockDecoded.session_id);
       expect(result).toEqual({ message: "Successfully signed out" });
     });
 
@@ -584,7 +584,7 @@ describe("AuthService", () => {
       const mockDecoded = {
         sub: "user123",
         email: "test@example.com",
-        sessionId: "session123",
+        session_id: "session123",
       };
 
       jest.spyOn(jwt, "verify").mockReturnValue(mockDecoded as any);
@@ -605,13 +605,13 @@ describe("AuthService", () => {
   });
 
   describe("getMe", () => {
-    const userId = "user123";
+    const user_id = "user123";
 
     it("should return user profile information", async () => {
-      const result = await service.getMe(userId);
+      const result = await service.getMe(user_id);
 
       expect(result).toEqual({
-        id: userId,
+        id: user_id,
         message: "User profile endpoint. Implement additional profile fetching as needed.",
       });
     });
@@ -620,13 +620,13 @@ describe("AuthService", () => {
   describe("buildVerificationUrl", () => {
     it("should build correct verification URL", async () => {
       const mockVerification = { $id: "verification123" };
-      const userId = "user123";
+      const user_id = "user123";
 
       // Use reflection to access private method for testing
       const buildVerificationUrl = (service as any).buildVerificationUrl.bind(service);
-      const result = buildVerificationUrl(mockVerification, userId);
+      const result = buildVerificationUrl(mockVerification, user_id);
 
-      expect(result).toBe("https://arzansite.com/verify-email?token=verification123&userId=user123");
+      expect(result).toBe("https://arzansite.com/verify-email?token=verification123&user_id=user123");
     });
   });
 

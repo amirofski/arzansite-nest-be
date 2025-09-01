@@ -77,7 +77,7 @@ export class AuthController {
               example: false,
               description: 'Email verification status'
             },
-            $createdAt: { 
+            $created_at: { 
               type: 'string', 
               example: '2024-01-01T00:00:00.000Z',
               description: 'Account creation timestamp'
@@ -140,7 +140,7 @@ export class AuthController {
           description: 'Verification token from email link',
           example: '64f8a1b2c3d4e5f6a7b8c9d0'
         },
-        userId: { 
+        user_id: { 
           type: 'string', 
           description: 'User ID to verify (optional, will be extracted from token if not provided)',
           example: '64f8a1b2c3d4e5f6a7b8c9d0'
@@ -211,9 +211,9 @@ export class AuthController {
     },
   })
   async verifyEmail(
-    @Body() body: { token: string; userId?: string },
+    @Body() body: { token: string; user_id?: string },
   ) {
-    return this.authService.verifyEmail(body.token, body.userId);
+    return this.authService.verifyEmail(body.token, body.user_id);
   }
 
   @Post('password-reset')
@@ -375,7 +375,7 @@ export class AuthController {
       properties: {
         email: { type: 'string', example: 'user@example.com' },
         emailVerified: { type: 'boolean', example: false },
-        userId: { type: 'string', example: 'user_id' },
+        user_id: { type: 'string', example: 'user_id' },
         message: { type: 'string', example: 'Email is not verified. Please check your inbox for verification email.' },
       },
     },
@@ -442,7 +442,7 @@ export class AuthController {
               example: '64f8a1b2c3d4e5f6a7b8c9d0',
               description: 'Appwrite session ID'
             },
-            userId: { 
+            user_id: { 
               type: 'string', 
               example: '64f8a1b2c3d4e5f6a7b8c9d0',
               description: 'User ID associated with session'
@@ -783,7 +783,7 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        userId: { 
+        user_id: { 
           type: 'string', 
           description: 'User ID from Appwrite OAuth session',
           example: '64f8a1b2c3d4e5f6a7b8c9d0'
@@ -794,7 +794,7 @@ export class AuthController {
           example: 'session_secret_here'
         },
       },
-      required: ['userId', 'secret'],
+      required: ['user_id', 'secret'],
     },
   })
   @ApiResponse({
@@ -803,13 +803,13 @@ export class AuthController {
   })
   @ApiResponse({
     status: 400,
-    description: '❌ Bad request - missing userId or secret',
+    description: '❌ Bad request - missing user_id or secret',
   })
   async handleGitHubOAuthCallback(
-    @Body() body: { userId: string; secret: string },
+    @Body() body: { user_id: string; secret: string },
     @Res() res: Response,
   ) {
-    return this.authService.handleOAuthCallback(body.userId, body.secret, res);
+    return this.authService.handleOAuthCallback(body.user_id, body.secret, res);
   }
 
   // Generic OAuth callback to support multiple providers
@@ -823,19 +823,19 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        userId: { type: 'string', description: 'User ID from Appwrite OAuth session' },
+        user_id: { type: 'string', description: 'User ID from Appwrite OAuth session' },
         secret: { type: 'string', description: 'Session secret from Appwrite OAuth session' }
       },
-      required: ['userId', 'secret']
+      required: ['user_id', 'secret']
     }
   })
   async handleOAuthCallbackGeneric(
     @Param('provider') _provider: string,
-    @Body() body: { userId: string; secret: string },
+    @Body() body: { user_id: string; secret: string },
     @Res() res: Response,
   ) {
-    // Provider is not used server-side because Appwrite returns userId/secret; we complete session with those
-    return this.authService.handleOAuthCallback(body.userId, body.secret, res);
+    // Provider is not used server-side because Appwrite returns user_id/secret; we complete session with those
+    return this.authService.handleOAuthCallback(body.user_id, body.secret, res);
   }
 
   @Get('oauth/providers')
@@ -886,8 +886,8 @@ export class AuthController {
         email: { type: 'string', example: 'user@example.com' },
         name: { type: 'string', example: 'John Doe' },
         emailVerification: { type: 'boolean', example: true },
-        $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
-        $updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+        $created_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+        $updated_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
         prefs: { type: 'object', example: {} },
         message: { type: 'string', example: 'User information retrieved from OAuth session' },
       },
@@ -975,8 +975,8 @@ export class AuthController {
             email: { type: 'string', example: 'user@example.com' },
             name: { type: 'string', example: 'John Doe' },
             emailVerification: { type: 'boolean', example: true },
-            $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
-            $updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            $created_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            $updated_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
             prefs: { type: 'object', example: {} }
           }
         },
@@ -1052,8 +1052,8 @@ export class AuthController {
             email: { type: 'string', example: 'user@example.com' },
             name: { type: 'string', example: 'John Doe' },
             emailVerification: { type: 'boolean', example: true },
-            $createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
-            $updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            $created_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+            $updated_at: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
             prefs: { type: 'object', example: {} }
           }
         }
@@ -1142,7 +1142,7 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        sessionId: {
+        session_id: {
           type: 'string',
           description: 'Appwrite session ID from account.createEmailPasswordSession()',
           example: '68a230dc276cc04a4ea9'
@@ -1154,7 +1154,7 @@ export class AuthController {
         },
         password: {
           type: 'string',
-          description: 'User password (optional alternative to sessionId)',
+          description: 'User password (optional alternative to session_id)',
           example: 'password123'
         }
       },
@@ -1202,14 +1202,14 @@ export class AuthController {
     status: 401,
     description: '❌ Unauthorized - Invalid session or credentials',
   })
-  async authenticateSession(@Body() body: { sessionId?: string; email?: string; password?: string }) {
-    if (body.sessionId && body.email) {
-      return this.authService.authenticateWithSession(body.sessionId, body.email);
+  async authenticateSession(@Body() body: { session_id?: string; email?: string; password?: string }) {
+    if (body.session_id && body.email) {
+      return this.authService.authenticateWithSession(body.session_id, body.email);
     }
     if (body.email && body.password) {
       return this.authService.authenticateWithEmailPassword(body.email, body.password);
     }
-    throw new BadRequestException('Provide either sessionId+email or email+password');
+    throw new BadRequestException('Provide either session_id+email or email+password');
   }
 
   @Post('session-logout')
@@ -1222,13 +1222,13 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        sessionId: {
+        session_id: {
           type: 'string',
           description: 'Appwrite session ID to logout',
           example: '68a230dc276cc04a4ea9'
         }
       },
-      required: ['sessionId']
+      required: ['session_id']
     }
   })
   @ApiResponse({
@@ -1239,18 +1239,18 @@ export class AuthController {
     status: 401,
     description: '❌ Unauthorized - Invalid session',
   })
-  async logoutSession(@Body() body: { sessionId: string }) {
-    return this.authService.logoutSession(body.sessionId);
+  async logoutSession(@Body() body: { session_id: string }) {
+    return this.authService.logoutSession(body.session_id);
   }
 
-  @Get('session-info/:sessionId')
+  @Get('session-info/:session_id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'ℹ️ Get session information and user details',
     description: 'Retrieve information about a specific session and its associated user.',
   })
   @ApiParam({
-    name: 'sessionId',
+    name: 'session_id',
     description: 'Appwrite session ID',
     example: '68a230dc276cc04a4ea9'
   })
@@ -1258,8 +1258,8 @@ export class AuthController {
     status: 200,
     description: '✅ Session information retrieved',
   })
-  async getSessionInfo(@Param('sessionId') sessionId: string) {
-    return this.authService.getSessionInfo(sessionId);
+  async getSessionInfo(@Param('session_id') session_id: string) {
+    return this.authService.getSessionInfo(session_id);
   }
 
   @Post('session-validate')
@@ -1272,13 +1272,13 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        sessionId: {
+        session_id: {
           type: 'string',
           description: 'Appwrite session ID to validate',
           example: '68a230dc276cc04a4ea9'
         }
       },
-      required: ['sessionId']
+      required: ['session_id']
     }
   })
   @ApiResponse({
@@ -1288,12 +1288,12 @@ export class AuthController {
       type: 'object',
       properties: {
         valid: { type: 'boolean', example: true },
-        sessionId: { type: 'string', example: '68a230dc276cc04a4ea9' }
+        session_id: { type: 'string', example: '68a230dc276cc04a4ea9' }
       }
     }
   })
-  async validateSession(@Body() body: { sessionId: string }) {
-    const isValid = await this.authService.validateSession(body.sessionId);
-    return { valid: isValid, sessionId: body.sessionId };
+  async validateSession(@Body() body: { session_id: string }) {
+    const isValid = await this.authService.validateSession(body.session_id);
+    return { valid: isValid, session_id: body.session_id };
   }
 }

@@ -76,7 +76,7 @@ export class AdminService {
   }
 
   async adjustWalletBalance(
-    walletId: string,
+    wallet_id: string,
     adminId: string,
     adjustmentDto: WalletAdjustmentDto
   ): Promise<WalletAdjustmentResponseDto> {
@@ -86,7 +86,7 @@ export class AdminService {
     const adjustmentsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLET_ADJUSTMENTS');
 
     // Get current wallet
-    const wallet = await databases.getDocument(databaseId, walletsCollection, walletId);
+    const wallet = await databases.getDocument(databaseId, walletsCollection, wallet_id);
     if (!wallet) {
       throw new NotFoundException('Wallet not found');
     }
@@ -111,14 +111,14 @@ export class AdminService {
     }
 
     // Update wallet balance
-    await databases.updateDocument(databaseId, walletsCollection, walletId, {
+    await databases.updateDocument(databaseId, walletsCollection, wallet_id, {
       balance: balanceAfter,
       updated_at: new Date().toISOString(),
     });
 
     // Create adjustment record
     const adjustment = await databases.createDocument(databaseId, adjustmentsCollection, 'unique()', {
-      wallet_id: walletId,
+      wallet_id: wallet_id,
       admin_id: adminId,
       amount: adjustmentDto.amount,
       type: adjustmentDto.type,
@@ -137,7 +137,7 @@ export class AdminService {
     page: number = 1,
     limit: number = 50,
     status?: string,
-    userId?: string
+    user_id?: string
   ): Promise<any[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -148,8 +148,8 @@ export class AdminService {
     if (status) {
       queries.push(Query.equal('status', status));
     }
-    if (userId) {
-      queries.push(Query.equal('user_id', userId));
+    if (user_id) {
+      queries.push(Query.equal('user_id', user_id));
     }
 
     const invoices = await databases.listDocuments(databaseId, invoicesCollection, queries);
@@ -180,7 +180,7 @@ export class AdminService {
     page: number = 1,
     limit: number = 50,
     status?: string,
-    userId?: string
+    user_id?: string
   ): Promise<any[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -191,8 +191,8 @@ export class AdminService {
     if (status) {
       queries.push(Query.equal('status', status));
     }
-    if (userId) {
-      queries.push(Query.equal('user_id', userId));
+    if (user_id) {
+      queries.push(Query.equal('user_id', user_id));
     }
 
     const payments = await databases.listDocuments(databaseId, transactionsCollection, queries);
@@ -268,7 +268,7 @@ export class AdminService {
   private mapToAdjustmentResponseDto(adjustment: any): WalletAdjustmentResponseDto {
     return {
       id: adjustment.$id,
-      walletId: adjustment.wallet_id,
+      wallet_id: adjustment.wallet_id,
       adminId: adjustment.admin_id,
       amount: adjustment.amount,
       type: adjustment.type,
@@ -276,13 +276,13 @@ export class AdminService {
       notes: adjustment.notes,
       balanceBefore: adjustment.balance_before,
       balanceAfter: adjustment.balance_after,
-      createdAt: adjustment.created_at,
+      created_at: adjustment.created_at,
     };
   }
 
   // New methods for additional admin endpoints
 
-  async deleteUser(userId: string): Promise<DeleteUserResponseDto> {
+  async deleteUser(user_id: string): Promise<DeleteUserResponseDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const usersCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS');
@@ -292,7 +292,7 @@ export class AdminService {
 
     // Check if user has active orders
     const activeOrders = await databases.listDocuments(databaseId, ordersCollection, [
-      Query.equal('user_id', userId),
+      Query.equal('user_id', user_id),
       Query.equal('status', 'pending'),
       Query.limit(1),
     ]);
@@ -305,7 +305,7 @@ export class AdminService {
     try {
       // Delete wallet
       const wallets = await databases.listDocuments(databaseId, walletsCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
       if (wallets.documents.length > 0) {
@@ -314,7 +314,7 @@ export class AdminService {
 
       // Delete profile
       const profiles = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
       if (profiles.documents.length > 0) {
@@ -323,13 +323,13 @@ export class AdminService {
 
       // Delete user from Appwrite
       const users = this.appwriteService.getUsers();
-      await users.delete(userId);
+      await users.delete(user_id);
 
       return {
         success: true,
         message: 'User deleted successfully',
         data: {
-          deletedUserId: userId,
+          deletedUserId: user_id,
           deletedAt: new Date().toISOString(),
         },
       };
@@ -355,8 +355,8 @@ export class AdminService {
         available: ext.available,
         description: ext.description,
         isDefault: ext.isDefault || false,
-        createdAt: ext.created_at,
-        updatedAt: ext.updated_at,
+        created_at: ext.created_at,
+        updated_at: ext.updated_at,
       }));
     } catch (error) {
       // Return default extensions if collection doesn't exist
@@ -368,8 +368,8 @@ export class AdminService {
           available: true,
           description: 'Iranian domain extension',
           isDefault: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
         {
           id: 'ext_2',
@@ -378,8 +378,8 @@ export class AdminService {
           available: true,
           description: 'International domain extension',
           isDefault: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ];
     }
@@ -408,8 +408,8 @@ export class AdminService {
         available: updatedExtension.available,
         description: updatedExtension.description,
         isDefault: updatedExtension.isDefault || false,
-        createdAt: updatedExtension.created_at,
-        updatedAt: updatedExtension.updated_at,
+        created_at: updatedExtension.created_at,
+        updated_at: updatedExtension.updated_at,
       };
     } catch (error) {
       throw new NotFoundException('Domain extension not found');
@@ -440,8 +440,8 @@ export class AdminService {
         available: newExtension.available,
         description: newExtension.description,
         isDefault: false,
-        createdAt: newExtension.created_at,
-        updatedAt: newExtension.updated_at,
+        created_at: newExtension.created_at,
+        updated_at: newExtension.updated_at,
       };
     } catch (error) {
       throw new BadRequestException(`Failed to create domain extension: ${error.message}`);
@@ -539,7 +539,7 @@ export class AdminService {
   }
 
   async getWalletAdjustmentHistory(
-    walletId: string,
+    wallet_id: string,
     page: number = 1,
     limit: number = 20
   ): Promise<WalletAdjustmentHistoryResponseDto> {
@@ -554,7 +554,7 @@ export class AdminService {
         databaseId,
         adjustmentsCollection,
         [
-          Query.equal('wallet_id', walletId),
+          Query.equal('wallet_id', wallet_id),
           Query.orderDesc('created_at'),
           Query.offset(offset),
           Query.limit(limit),
@@ -568,7 +568,7 @@ export class AdminService {
             const admin = await databases.getDocument(databaseId, usersCollection, adjustment.admin_id);
             return {
               id: adjustment.$id,
-              walletId: adjustment.wallet_id,
+              wallet_id: adjustment.wallet_id,
               adminId: adjustment.admin_id,
               adminName: admin.name || admin.email || 'Unknown Admin',
               type: adjustment.type,
@@ -577,12 +577,12 @@ export class AdminService {
               notes: adjustment.notes,
               balanceBefore: adjustment.balance_before,
               balanceAfter: adjustment.balance_after,
-              createdAt: adjustment.created_at,
+              created_at: adjustment.created_at,
             };
           } catch (error) {
             return {
               id: adjustment.$id,
-              walletId: adjustment.wallet_id,
+              wallet_id: adjustment.wallet_id,
               adminId: adjustment.admin_id,
               adminName: 'Unknown Admin',
               type: adjustment.type,
@@ -591,7 +591,7 @@ export class AdminService {
               notes: adjustment.notes,
               balanceBefore: adjustment.balance_before,
               balanceAfter: adjustment.balance_after,
-              createdAt: adjustment.created_at,
+              created_at: adjustment.created_at,
             };
           }
         })
@@ -601,7 +601,7 @@ export class AdminService {
       const totalAdjustments = await databases.listDocuments(
         databaseId,
         adjustmentsCollection,
-        [Query.equal('wallet_id', walletId)]
+        [Query.equal('wallet_id', wallet_id)]
       );
 
       const total = totalAdjustments.total;

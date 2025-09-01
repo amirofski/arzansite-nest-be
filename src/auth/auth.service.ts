@@ -43,12 +43,9 @@ export class AuthService {
           const now = new Date().toISOString();
           await databases.createDocument(databaseId, rolesCollection, ID.unique(), {
             user_id: created.$id,
-            userId: created.$id,
             role: 'user',
             created_at: now,
             updated_at: now,
-            createdAt: now,
-            updatedAt: now,
           } as any);
         }
       } catch (roleErr) {
@@ -63,7 +60,7 @@ export class AuthService {
         console.log('Creating custom verification email...');
         
         const verificationToken = this.generateVerificationToken();
-        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&userId=${created.$id}`;
+        const verificationUrl = `${this.configService.get('FRONTEND_URL', 'https://arzansite.com')}/verify-email?token=${verificationToken}&user_id=${created.$id}`;
         
         console.log('Verification URL built:', verificationUrl);
         
@@ -83,7 +80,7 @@ export class AuthService {
               id: created.$id,
               email: created.email,
               emailVerification: created.emailVerification,
-              $createdAt: created.$createdAt
+              $created_at: created.$createdAt
             },
             verificationEmailSent: true,
             requiresFrontendVerification: false
@@ -103,7 +100,7 @@ export class AuthService {
           id: created.$id,
           email: created.email,
           emailVerification: created.emailVerification,
-          $createdAt: created.$createdAt
+          $created_at: created.$createdAt
         },
         verificationEmailSent: false,
         requiresFrontendVerification: true
@@ -119,7 +116,7 @@ export class AuthService {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  private async storeVerificationToken(userId: string, token: string): Promise<void> {
+  private async storeVerificationToken(user_id: string, token: string): Promise<void> {
     try {
       // Store the verification token in Appwrite database
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -131,12 +128,12 @@ export class AuthService {
       }
 
       await this.appwriteService.createDocument(collectionId, {
-        userId,
+        user_id,
         token,
         type: 'verification', // Add the required type attribute
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
         used: false,
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       });
       
       console.log('✅ Verification token stored in database');
@@ -156,7 +153,7 @@ export class AuthService {
         return null;
       }
 
-      // Query for the token to find the userId
+      // Query for the token to find the user_id
       const { Query } = await import('node-appwrite');
       const documents = await this.appwriteService.getDatabases().listDocuments(
         databaseId,
@@ -179,17 +176,17 @@ export class AuthService {
           return null; // Token expired
         }
 
-        return tokenDoc.userId;
+        return tokenDoc.user_id;
       }
       
       return null;
     } catch (error) {
-      console.error('❌ Failed to find userId by token:', error);
+      console.error('❌ Failed to find user_id by token:', error);
       return null;
     }
   }
 
-  private async validateVerificationToken(userId: string, token: string): Promise<{ isValid: boolean; reason?: string }> {
+  private async validateVerificationToken(user_id: string, token: string): Promise<{ isValid: boolean; reason?: string }> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
@@ -205,7 +202,7 @@ export class AuthService {
         databaseId,
         collectionId,
         [
-          Query.equal('user_id', userId),
+          Query.equal('user_id', user_id),
           Query.equal('token', token)
         ]
       );
@@ -235,7 +232,7 @@ export class AuthService {
 
 
 
-  private async markVerificationTokenAsUsed(userId: string, token: string): Promise<void> {
+  private async markVerificationTokenAsUsed(user_id: string, token: string): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
@@ -251,7 +248,7 @@ export class AuthService {
         databaseId,
         collectionId,
         [
-          Query.equal('user_id', userId),
+          Query.equal('user_id', user_id),
           Query.equal('token', token)
         ]
       );
@@ -272,20 +269,20 @@ export class AuthService {
     }
   }
 
-  private buildVerificationUrl(verification: any, userId: string): string {
+  private buildVerificationUrl(verification: any, user_id: string): string {
     // Appwrite returns a verification object, we need to construct the full URL
     const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
     const token = verification.$id; // This is the verification token
     
     // Return the frontend URL with token and user ID as query parameters
-    return `${frontendUrl}/verify-email?token=${token}&userId=${userId}`;
+    return `${frontendUrl}/verify-email?token=${token}&user_id=${user_id}`;
   }
 
-  async verifyEmail(token: string, userId?: string) {
+  async verifyEmail(token: string, user_id?: string) {
     try {
-      let targetUserId = userId;
+      let targetUserId = user_id;
       
-      // If userId is not provided, try to find it from the token
+      // If user_id is not provided, try to find it from the token
       if (!targetUserId) {
         targetUserId = await this.findUserIdByToken(token);
         if (!targetUserId) {
@@ -401,14 +398,14 @@ export class AuthService {
         };
       }
 
-      const userId = user.users[0].$id;
+      const user_id = user.users[0].$id;
       
       // Generate a secure reset token
       const resetToken = this.generateSecureToken();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
       
       // Store reset token in database
-      await this.storePasswordResetToken(userId, email, resetToken, expiresAt);
+      await this.storePasswordResetToken(user_id, email, resetToken, expiresAt);
       
       // Build reset URL
       const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
@@ -440,7 +437,7 @@ export class AuthService {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  private async storePasswordResetToken(userId: string, email: string, token: string, expiresAt: Date): Promise<void> {
+  private async storePasswordResetToken(user_id: string, email: string, token: string, expiresAt: Date): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
@@ -458,12 +455,12 @@ export class AuthService {
         collectionId,
         ID.unique(),
         {
-          userId,
+          user_id,
           email,
           token,
           used: false,
           expiresAt: expiresAt.toISOString(),
-          createdAt: new Date().toISOString()
+          created_at: new Date().toISOString()
         }
       );
     } catch (error) {
@@ -505,13 +502,13 @@ export class AuthService {
       console.log('Token validated successfully');
 
       // Get user ID from the reset record
-      const userId = resetRecord.userId;
-      if (!userId) {
+      const user_id = resetRecord.user_id;
+      if (!user_id) {
         console.log('Missing user ID in reset record');
         throw new BadRequestException('Invalid reset token: missing user ID');
       }
 
-      console.log('User ID found:', userId);
+      console.log('User ID found:', user_id);
 
       // Update user password in Appwrite using the Users API
       try {
@@ -571,7 +568,7 @@ export class AuthService {
       }
       
       const user = users.users[0];
-              console.log('User found:', { userId: user.$id, email: user.email });
+              console.log('User found:', { user_id: user.$id, email: user.email });
       
               console.log('Attempting to update password...');
       
@@ -690,7 +687,7 @@ export class AuthService {
     }
   }
 
-  private async checkUserVerificationStatusInDatabase(userId: string): Promise<boolean> {
+  private async checkUserVerificationStatusInDatabase(user_id: string): Promise<boolean> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS');
@@ -707,18 +704,18 @@ export class AuthService {
           databaseId,
           collectionId,
                   [
-          Query.equal('user_id', userId),
+          Query.equal('user_id', user_id),
           Query.equal('used', true)
         ]
         );
 
         const hasTokens = tokenDocs.documents.length > 0;
         if (hasTokens) {
-          console.log(`✅ User ${userId} verified via database tokens`);
+          console.log(`✅ User ${user_id} verified via database tokens`);
         }
         return hasTokens;
       } catch (dbError) {
-        console.warn(`⚠️ Database verification check failed for user ${userId}:`, dbError.message);
+        console.warn(`⚠️ Database verification check failed for user ${user_id}:`, dbError.message);
         return false;
       }
     } catch (error) {
@@ -803,7 +800,7 @@ export class AuthService {
       return {
         email: user.email,
         emailVerified: finalResult,
-        userId: user.$id,
+        user_id: user.$id,
         message: finalResult 
           ? 'Email is verified. You can now log in.'
           : 'Email is not verified. Please check your inbox for verification email.'
@@ -864,7 +861,7 @@ export class AuthService {
       const payload = { 
         sub: session.userId, 
         email: signInDto.email,
-        sessionId: session.$id,
+        session_id: session.$id,
         emailVerified: user.emailVerification
       };
       const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
@@ -931,7 +928,7 @@ export class AuthService {
       }
 
       // Issue new access token
-      const payload = { sub: decoded.sub, email: decoded.email, sessionId: decoded.sessionId };
+      const payload = { sub: decoded.sub, email: decoded.email, session_id: decoded.session_id };
       const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
       const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '7d') });
 
@@ -953,9 +950,9 @@ export class AuthService {
       const decoded = jwt.verify(accessToken, this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks')) as any;
       
       // If we have a session ID, delete the Appwrite session
-      if (decoded.sessionId) {
+      if (decoded.session_id) {
         try {
-          await this.appwriteService.deleteSession(decoded.sessionId);
+          await this.appwriteService.deleteSession(decoded.session_id);
         } catch (sessionError) {
           // Log error but don't fail the signout
           console.warn('Failed to delete Appwrite session:', sessionError);
@@ -968,14 +965,14 @@ export class AuthService {
     }
   }
 
-  private async getUserRole(userId: string): Promise<string> {
+  private async getUserRole(user_id: string): Promise<string> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
       const { Query } = await import('node-appwrite');
       const databases = this.appwriteService.getDatabases();
       const docs = await databases.listDocuments(databaseId, rolesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
       return docs.documents?.[0]?.role || 'user';
@@ -984,20 +981,20 @@ export class AuthService {
     }
   }
 
-  async getMe(userId: string) {
+  async getMe(user_id: string) {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
       const { Query } = await import('node-appwrite');
       const databases = this.appwriteService.getDatabases();
       const docs = await databases.listDocuments(databaseId, rolesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
       const role = docs.documents?.[0]?.role || 'user';
-      return { id: userId, role };
+      return { id: user_id, role };
     } catch (_) {
-      return { id: userId, role: 'user' };
+      return { id: user_id, role: 'user' };
     }
   }
 
@@ -1037,18 +1034,18 @@ export class AuthService {
     }
   }
 
-  async handleOAuthCallback(userId: string, secret: string, res: Response) {
+  async handleOAuthCallback(user_id: string, secret: string, res: Response) {
     try {
-      console.log(`🔄 Handling OAuth callback for user: ${userId}`);
+      console.log(`🔄 Handling OAuth callback for user: ${user_id}`);
       
-      if (!userId || !secret) {
-        console.error('❌ Missing userId or secret in OAuth callback');
+      if (!user_id || !secret) {
+        console.error('❌ Missing user_id or secret in OAuth callback');
         const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
         return res.redirect(`${frontendUrl}/auth/login?error=oauth_callback_failed`);
       }
 
       // Create session using Appwrite service
-      const session = await this.appwriteService.createSessionFromOAuth(userId, secret);
+      const session = await this.appwriteService.createSessionFromOAuth(user_id, secret);
       
       // Get user information using the session secret
       const user = await this.appwriteService.getOAuthUser(session.secret);
@@ -1158,8 +1155,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         emailVerification: user.emailVerification,
-        $createdAt: user.$createdAt,
-        $updatedAt: user.$updatedAt,
+        $created_at: user.$createdAt,
+        $updated_at: user.$updatedAt,
         prefs: user.prefs,
         message: 'User information retrieved from OAuth session'
       };
@@ -1256,9 +1253,9 @@ export class AuthService {
     }
   }
 
-  async authenticateWithSession(sessionId: string, email: string) {
+  async authenticateWithSession(session_id: string, email: string) {
     try {
-      if (!sessionId || !email) {
+      if (!session_id || !email) {
         throw new BadRequestException('Session ID and email are required');
       }
 
@@ -1266,7 +1263,7 @@ export class AuthService {
       // This bypasses the JWT permission issues
       let user;
       try {
-        user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+        user = await this.appwriteService.getCurrentUserFromSession(session_id);
         console.log('✅ Session validation successful');
       } catch (sessionError) {
         // If session validation fails, we should NOT create a fallback user
@@ -1283,7 +1280,7 @@ export class AuthService {
       const actualUserId = user.$id;
       
       // Verify that the user ID is different from session ID for security
-      if (actualUserId === sessionId) {
+      if (actualUserId === session_id) {
         console.warn('⚠️ Security warning: User ID matches session ID');
         throw new UnauthorizedException('Session validation failed. Please login again.');
       }
@@ -1300,7 +1297,7 @@ export class AuthService {
           emailVerified: user.emailVerification,
           type: 'access',
           auth_method: 'session',
-          session_id: sessionId // Keep session ID separate for tracking
+          session_id: session_id // Keep session ID separate for tracking
         },
         secret,
         { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') }
@@ -1313,7 +1310,7 @@ export class AuthService {
           email: user.email,
           type: 'refresh',
           auth_method: 'session',
-          session_id: sessionId // Keep session ID separate for tracking
+          session_id: session_id // Keep session ID separate for tracking
         },
         secret,
         { expiresIn: '7d' }
@@ -1338,7 +1335,7 @@ export class AuthService {
         },
         message: 'Session authentication successful. Use the access_token for API requests.',
         auth_method: 'session',
-        session_id: sessionId,
+        session_id: session_id,
         session_expires_in: '7d', // Appwrite session expiry
         user_id: actualUserId // ✅ Explicitly show user ID for verification
       };
@@ -1369,25 +1366,25 @@ export class AuthService {
     }
   }
 
-  async validateSession(sessionId: string): Promise<boolean> {
+  async validateSession(session_id: string): Promise<boolean> {
     try {
       // Try to get user info from the session
-      const user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+      const user = await this.appwriteService.getCurrentUserFromSession(session_id);
       const isValid = !!user && !!user.$id;
-      console.log(`Session validation for ${sessionId}: ${isValid ? 'VALID' : 'INVALID'}`);
+      console.log(`Session validation for ${session_id}: ${isValid ? 'VALID' : 'INVALID'}`);
       return isValid;
     } catch (error) {
-      console.warn(`Session validation failed for ${sessionId}: ${error.message}`);
+      console.warn(`Session validation failed for ${session_id}: ${error.message}`);
       return false;
     }
   }
 
-  async logoutSession(sessionId: string) {
+  async logoutSession(session_id: string) {
     try {
       // First, try to validate if the session is still valid
       let sessionWasValid = false;
       try {
-        const user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+        const user = await this.appwriteService.getCurrentUserFromSession(session_id);
         sessionWasValid = !!user && !!user.$id;
       } catch (validationError) {
         console.log(`Session validation failed during logout: ${validationError.message}`);
@@ -1396,7 +1393,7 @@ export class AuthService {
 
       // Try to delete the Appwrite session (this might fail if already invalid)
       try {
-        await this.appwriteService.deleteSession(sessionId);
+        await this.appwriteService.deleteSession(session_id);
         console.log('✅ Appwrite session deleted successfully');
       } catch (deleteError) {
         console.log(`⚠️ Could not delete Appwrite session: ${deleteError.message}`);
@@ -1420,11 +1417,11 @@ export class AuthService {
     }
   }
 
-  async getSessionInfo(sessionId: string) {
+  async getSessionInfo(session_id: string) {
     try {
-      const user = await this.appwriteService.getCurrentUserFromSession(sessionId);
+      const user = await this.appwriteService.getCurrentUserFromSession(session_id);
       return {
-        sessionId,
+        session_id,
         user: {
           id: user.$id,
           email: user.email,
@@ -1436,7 +1433,7 @@ export class AuthService {
       };
     } catch (error) {
       return {
-        sessionId,
+        session_id,
         user: null,
         valid: false,
         error: error.message

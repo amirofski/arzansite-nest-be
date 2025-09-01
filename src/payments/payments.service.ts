@@ -23,35 +23,35 @@ export class PaymentsService {
   ) {}
 
   async requestPayment(
-    userId: string,
+    user_id: string,
     paymentRequestDto: PaymentRequestDto,
   ): Promise<{ success: boolean; authority: string; paymentUrl: string; invoiceId?: string }> {
-    // Check if this is a wallet deposit (orderId starts with 'deposit_')
-    const isWalletDeposit = paymentRequestDto.orderId.startsWith('deposit_');
+    // Check if this is a wallet deposit (order_id starts with 'deposit_')
+    const isWalletDeposit = paymentRequestDto.order_id.startsWith('deposit_');
     
     if (!isWalletDeposit) {
       // Verify order ownership for regular orders
-      const order = await this.ordersService.getOrder(paymentRequestDto.orderId, userId);
+      const order = await this.ordersService.getOrder(paymentRequestDto.order_id, user_id);
     }
 
     try {
       // Get user profile for payment details
-      const userProfile = await this.getUserProfile(userId);
+      const userProfile = await this.getUserProfile(user_id);
       
       // Create payment request using ZarinPal service
       const paymentResponse = await this.zarinPalService.createPayment({
         amount: paymentRequestDto.amount,
         description: paymentRequestDto.description,
-        callbackUrl: paymentRequestDto.callbackUrl || `${this.configService.get('FRONTEND_URL')}/payment/callback`,
+        callback_url: paymentRequestDto.callback_url || `${this.configService.get('FRONTEND_URL')}/payment/callback`,
         mobile: paymentRequestDto.mobile || userProfile.phone || '',
         email: paymentRequestDto.email || userProfile.email,
-        orderId: paymentRequestDto.orderId,
+        order_id: paymentRequestDto.order_id,
       });
 
       // Log payment transaction
       await this.logPaymentTransaction({
-        order_id: paymentRequestDto.orderId,
-        user_id: userId,
+        order_id: paymentRequestDto.order_id,
+        user_id: user_id,
         transaction_type: 'payment_request',
         zarinpal_authority: paymentResponse.data.authority,
         amount: paymentRequestDto.amount,
@@ -71,17 +71,17 @@ export class PaymentsService {
   }
 
   async verifyPayment(
-    userId: string,
+    user_id: string,
     paymentVerifyDto: PaymentVerifyDto,
   ): Promise<{ success: boolean; refId: string; amount: number }> {
     // Check if this is a wallet deposit
-    const isWalletDeposit = paymentVerifyDto.orderId.startsWith('deposit_');
+    const isWalletDeposit = paymentVerifyDto.order_id.startsWith('deposit_');
     
     let orderAmount = 0;
     
     if (!isWalletDeposit) {
       // Verify order ownership for regular orders
-      const order = await this.ordersService.getOrder(paymentVerifyDto.orderId, userId);
+      const order = await this.ordersService.getOrder(paymentVerifyDto.order_id, user_id);
 
       if (order.payment_status === 'paid') {
         throw new BadRequestException('Payment already verified');
@@ -89,9 +89,9 @@ export class PaymentsService {
       
       orderAmount = order.price;
     } else {
-      // For wallet deposits, extract amount from orderId
+      // For wallet deposits, extract amount from order_id
       // Format: deposit_userId_timestamp_amount
-      const parts = paymentVerifyDto.orderId.split('_');
+      const parts = paymentVerifyDto.order_id.split('_');
       if (parts.length >= 4) {
         orderAmount = parseInt(parts[3]);
       } else {
@@ -108,8 +108,8 @@ export class PaymentsService {
 
         // Update order payment status (only for regular orders)
         if (!isWalletDeposit) {
-          await this.ordersService.updateOrderPaymentStatus(
-            paymentVerifyDto.orderId,
+          await this.ordersService.updateOrderPayment(
+            paymentVerifyDto.order_id,
             'paid',
             paymentVerifyDto.authority,
             refId,
@@ -117,12 +117,12 @@ export class PaymentsService {
           // Notify user for successful order payment
           try {
             await this.appwriteService.sendUserPush(
-              userId,
+              user_id,
               'پرداخت سفارش موفق بود',
               `پرداخت سفارش شما با موفقیت انجام شد. کد رهگیری: ${refId}`,
               {
                 type: 'order_payment_success',
-                orderId: paymentVerifyDto.orderId,
+                order_id: paymentVerifyDto.order_id,
                 refId,
                 amount: orderAmount,
               },
@@ -130,11 +130,11 @@ export class PaymentsService {
           } catch (_) {}
         } else {
           // For wallet deposits, top up the wallet
-          await this.walletsService.topUpWallet(userId, orderAmount, refId);
+          await this.walletsService.topUpWallet(user_id, orderAmount, refId);
           // Notify user for successful wallet deposit
           try {
             await this.appwriteService.sendUserPush(
-              userId,
+              user_id,
               'شارژ کیف پول موفق بود',
               `کیف پول شما به مبلغ ${orderAmount} ریال شارژ شد. کد رهگیری: ${refId}`,
               {
@@ -148,8 +148,8 @@ export class PaymentsService {
 
         // Log payment transaction
         await this.logPaymentTransaction({
-          order_id: paymentVerifyDto.orderId,
-          user_id: userId,
+          order_id: paymentVerifyDto.order_id,
+          user_id: user_id,
           transaction_type: 'payment_verification',
           zarinpal_authority: paymentVerifyDto.authority,
           zarinpal_ref_id: refId,
@@ -172,11 +172,11 @@ export class PaymentsService {
   }
 
   async refundPayment(
-    userId: string,
+    user_id: string,
     paymentRefundDto: PaymentRefundDto,
   ): Promise<{ success: boolean }> {
     // Verify order ownership
-    const order = await this.ordersService.getOrder(paymentRefundDto.orderId, userId);
+    const order = await this.ordersService.getOrder(paymentRefundDto.order_id, user_id);
 
     if (order.payment_status !== 'paid') {
       throw new BadRequestException('Order is not paid');
@@ -185,8 +185,8 @@ export class PaymentsService {
     try {
       // Log refund transaction (ZarinPal refund API not implemented yet)
       await this.logPaymentTransaction({
-        order_id: paymentRefundDto.orderId,
-        user_id: userId,
+        order_id: paymentRefundDto.order_id,
+        user_id: user_id,
         transaction_type: 'refund',
         zarinpal_ref_id: order.zarinpal_ref_id,
         amount: paymentRefundDto.amount || order.price,
@@ -196,8 +196,8 @@ export class PaymentsService {
       });
 
       // Update order status
-      await this.ordersService.updateOrderPaymentStatus(
-        paymentRefundDto.orderId,
+      await this.ordersService.updateOrderPayment(
+        paymentRefundDto.order_id,
         'refunded',
       );
 
@@ -208,16 +208,16 @@ export class PaymentsService {
   }
 
   async cancelPayment(
-    userId: string,
+    user_id: string,
     paymentCancelDto: PaymentCancelDto,
   ): Promise<{ success: boolean }> {
     // Verify order ownership
-    const order = await this.ordersService.getOrder(paymentCancelDto.orderId, userId);
+    const order = await this.ordersService.getOrder(paymentCancelDto.order_id, user_id);
 
     // Log cancellation transaction
     await this.logPaymentTransaction({
-      order_id: paymentCancelDto.orderId,
-      user_id: userId,
+      order_id: paymentCancelDto.order_id,
+      user_id: user_id,
       transaction_type: 'cancellation',
       zarinpal_authority: order.zarinpal_authority,
       amount: order.price,
@@ -226,24 +226,24 @@ export class PaymentsService {
     });
 
     // Update order status
-    await this.ordersService.updateOrderPaymentStatus(
-      paymentCancelDto.orderId,
+    await this.ordersService.updateOrderPayment(
+      paymentCancelDto.order_id,
       'cancelled',
     );
 
     return { success: true };
   }
 
-  async getOrderPayments(orderId: string, userId: string): Promise<PaymentTransaction[]> {
+  async getOrderPayments(order_id: string, user_id: string): Promise<PaymentTransaction[]> {
     // Verify order ownership
-    await this.ordersService.getOrder(orderId, userId);
+    await this.ordersService.getOrder(order_id, user_id);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
     const { Query } = await import('node-appwrite');
     const res = await databases.listDocuments(databaseId, collectionId, [
-      Query.equal('order_id', orderId),
+      Query.equal('order_id', order_id),
       Query.orderDesc('created_at'),
     ]);
     return (res.documents as any) || [];
@@ -253,11 +253,11 @@ export class PaymentsService {
    * Create wallet deposit payment request
    */
   async createWalletDeposit(
-    userId: string,
+    user_id: string,
     amount: number,
     description: string,
     callbackUrlOverride?: string,
-  ): Promise<{ success: boolean; authority: string; paymentUrl: string; invoiceId: string; orderId: string; message: string }> {
+  ): Promise<{ success: boolean; authority: string; paymentUrl: string; invoiceId: string; order_id: string; message: string }> {
     // Validate minimum amount (1,000,000 Rials = 1,000,000)
     if (amount < 1000000) {
       throw new BadRequestException('Minimum deposit amount is 1,000,000 Rials');
@@ -265,29 +265,29 @@ export class PaymentsService {
 
     // Create unique order ID for wallet deposit
     const timestamp = Date.now();
-    const orderId = `deposit_${userId}_${timestamp}_${amount}`;
+    const order_id = `deposit_${user_id}_${timestamp}_${amount}`;
 
     // Get user profile
-    const userProfile = await this.getUserProfile(userId);
+    const userProfile = await this.getUserProfile(user_id);
 
     try {
       // Create payment request using the updated ZarinPal service
       const fallbackCallback = `${this.configService.get('FRONTEND_URL')}/wallet/deposit/callback`;
-      const callbackUrl = callbackUrlOverride || fallbackCallback;
+      const callback_url = callbackUrlOverride || fallbackCallback;
       const paymentResponse = await this.zarinPalService.createPayment({
         amount: amount,
         description: description,
-        callbackUrl,
+        callback_url,
         mobile: userProfile.phone || '',
         email: userProfile.email,
-        orderId: orderId,
+        order_id: order_id,
         currency: 'IRR', // Use Rials as default
       });
 
       // Log payment transaction
       await this.logPaymentTransaction({
-        order_id: orderId,
-        user_id: userId,
+        order_id: order_id,
+        user_id: user_id,
         transaction_type: 'wallet_deposit_request',
         zarinpal_authority: paymentResponse.data.authority,
         amount: amount,
@@ -300,7 +300,7 @@ export class PaymentsService {
         paymentUrl: this.zarinPalService.getPaymentUrl(paymentResponse.data.authority),
         authority: paymentResponse.data.authority,
         invoiceId: paymentResponse.data.authority, // Use authority as invoice ID for compatibility
-        orderId: orderId,
+        order_id: order_id,
         message: 'Payment request created successfully. Redirect to payment gateway.',
       };
     } catch (error) {
@@ -312,7 +312,7 @@ export class PaymentsService {
    * Verify wallet deposit payment
    */
   async verifyWalletDeposit(
-    userId: string,
+    user_id: string,
     authority: string,
   ): Promise<{ success: boolean; refId: string; amount: number }> {
     try {
@@ -329,12 +329,12 @@ export class PaymentsService {
         const refId = paymentResponse.data.ref_id.toString();
 
         // Top up the wallet
-        await this.walletsService.topUpWallet(userId, transaction.amount, refId);
+        await this.walletsService.topUpWallet(user_id, transaction.amount, refId);
 
         // Log payment transaction
         await this.logPaymentTransaction({
-          order_id: `deposit_${userId}_${Date.now()}_${transaction.amount}`,
-          user_id: userId,
+          order_id: `deposit_${user_id}_${Date.now()}_${transaction.amount}`,
+          user_id: user_id,
           transaction_type: 'wallet_deposit_verification',
           zarinpal_authority: authority,
           zarinpal_ref_id: refId,
@@ -356,7 +356,7 @@ export class PaymentsService {
     }
   }
 
-  private async getUserProfile(userId: string): Promise<any> {
+  private async getUserProfile(user_id: string): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
@@ -364,7 +364,7 @@ export class PaymentsService {
     
     try {
       const res = await databases.listDocuments(databaseId, collectionId, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
       return res.documents[0] || {};

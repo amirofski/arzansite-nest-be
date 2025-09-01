@@ -42,7 +42,7 @@ export class PaymentsController {
   ) {
     this.logger.log(`Payment request from user ${user.id}: ${JSON.stringify({
       amount: paymentRequestDto.amount,
-      orderId: paymentRequestDto.orderId || 'N/A'
+      order_id: paymentRequestDto.order_id || 'N/A'
     })}`);
 
     // Validate ZarinPal configuration
@@ -77,8 +77,8 @@ export class PaymentsController {
     const result = await this.zarinPalService.createSimplePaymentRequest({
       amount: paymentRequestDto.amount,
       description: paymentRequestDto.description,
-      callbackUrl: paymentRequestDto.callbackUrl || `${process.env.ZARINPAL_CALLBACK_URL || 'https://example.com/callback'}?order_id=${encodeURIComponent(paymentRequestDto.orderId || '')}`,
-      orderId: paymentRequestDto.orderId,
+      callback_url: paymentRequestDto.callback_url || `${process.env.ZARINPAL_CALLBACK_URL || 'https://example.com/callback'}?order_id=${encodeURIComponent(paymentRequestDto.order_id || '')}`,
+      order_id: paymentRequestDto.order_id,
       mobile: paymentRequestDto.mobile,
       email: paymentRequestDto.email,
     });
@@ -97,7 +97,7 @@ export class PaymentsController {
         paymentUrl: result.paymentUrl,
         amount: paymentRequestDto.amount,
         description: paymentRequestDto.description,
-        orderId: paymentRequestDto.orderId,
+        order_id: paymentRequestDto.order_id,
         details: result.details,
       };
 
@@ -178,7 +178,7 @@ export class PaymentsController {
     @Body() paymentRefundDto: PaymentRefundDto,
   ) {
     this.logger.log(`Payment refund request from user ${user.id}: ${JSON.stringify({
-      orderId: paymentRefundDto.orderId,
+      order_id: paymentRefundDto.order_id,
       amount: paymentRefundDto.amount
     })}`);
 
@@ -193,7 +193,7 @@ export class PaymentsController {
     @Body() paymentCancelDto: PaymentCancelDto,
   ) {
     this.logger.log(`Payment cancellation request from user ${user.id}: ${JSON.stringify({
-      orderId: paymentCancelDto.orderId
+      order_id: paymentCancelDto.order_id
     })}`);
 
     // For now, delegate to the existing payments service
@@ -201,13 +201,13 @@ export class PaymentsController {
     return this.paymentsService.cancelPayment(user.id, paymentCancelDto);
   }
 
-  @Get('orders/:orderId')
+  @Get('orders/:order_id')
   async getOrderPayments(
     @User() user: UserPayload,
-    @Param('orderId') orderId: string,
+    @Param('order_id') order_id: string,
   ) {
-    this.logger.log(`Getting payments for order ${orderId} by user ${user.id}`);
-    return this.paymentsService.getOrderPayments(orderId, user.id);
+    this.logger.log(`Getting payments for order ${order_id} by user ${user.id}`);
+    return this.paymentsService.getOrderPayments(order_id, user.id);
   }
 
   @Get('status')

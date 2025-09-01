@@ -86,8 +86,8 @@ export class AnalyticsService {
 
       const ordersQuery = [
         Query.equal('user_id', user_id),
-        Query.greaterThanEqual('createdAt', startDate.toISOString()),
-        Query.lessThanEqual('createdAt', endDate.toISOString()),
+        Query.greaterThanEqual('created_at', startDate.toISOString()),
+        Query.lessThanEqual('created_at', endDate.toISOString()),
       ];
 
       const orders = await databases.listDocuments(databaseId, ordersCollection, ordersQuery);
@@ -257,8 +257,8 @@ export class AnalyticsService {
       const ordersQuery = [
         Query.equal('user_id', user_id),
         Query.equal('status', 'completed'),
-        Query.greaterThanEqual('createdAt', startDate.toISOString()),
-        Query.lessThanEqual('createdAt', endDate.toISOString()),
+        Query.greaterThanEqual('created_at', startDate.toISOString()),
+        Query.lessThanEqual('created_at', endDate.toISOString()),
       ];
 
       const orders = await databases.listDocuments(databaseId, ordersCollection, ordersQuery);
@@ -314,8 +314,8 @@ export class AnalyticsService {
     // Simple processing for now
     return {
       totalOrders: documents.length,
-      totalSpent: documents.reduce((sum, doc) => sum + (doc.totalAmount || 0), 0),
-      averageOrderValue: documents.length > 0 ? documents.reduce((sum, doc) => sum + (doc.totalAmount || 0), 0) / documents.length : 0,
+      totalSpent: documents.reduce((sum, doc) => sum + (doc.total_amount || 0), 0),
+      averageOrderValue: documents.length > 0 ? documents.reduce((sum, doc) => sum + (doc.total_amount || 0), 0) / documents.length : 0,
       orderStatusDistribution: {},
       paymentMethodDistribution: {},
       monthlyTrends: {},
@@ -348,13 +348,13 @@ export class AnalyticsService {
 
   private processRevenueData(documents: any[]): RevenueAnalytics {
     return {
-      totalRevenue: documents.reduce((sum, doc) => sum + (doc.totalAmount || 0), 0),
+      totalRevenue: documents.reduce((sum, doc) => sum + (doc.total_amount || 0), 0),
       monthlyRevenue: {},
       revenueGrowth: 0,
       topRevenueSources: {},
       revenueByService: {},
-      averageOrderValue: documents.length > 0 ? documents.reduce((sum, doc) => sum + (doc.totalAmount || 0), 0) / documents.length : 0,
-      customerLifetimeValue: documents.reduce((sum, doc) => sum + (doc.totalAmount || 0), 0),
+      averageOrderValue: documents.length > 0 ? documents.reduce((sum, doc) => sum + (doc.total_amount || 0), 0) / documents.length : 0,
+      customerLifetimeValue: documents.reduce((sum, doc) => sum + (doc.total_amount || 0), 0),
     };
   }
 }

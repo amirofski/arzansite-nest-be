@@ -161,7 +161,7 @@ export class AdminController {
     schema: {
       example: {
         id: 'adjustment_789',
-        walletId: 'wallet_123',
+        wallet_id: 'wallet_123',
         adminId: 'admin_456',
         amount: 1000000,
         type: 'credit',
@@ -169,7 +169,7 @@ export class AdminController {
         notes: 'Resolved billing dispute',
         balanceBefore: 1500000,
         balanceAfter: 2500000,
-        createdAt: '2024-12-01T10:00:00.000Z'
+        created_at: '2024-12-01T10:00:00.000Z'
       }
     }
   })
@@ -186,11 +186,11 @@ export class AdminController {
     description: 'User not authenticated'
   })
   async adjustWalletBalance(
-    @Param('id') walletId: string,
+    @Param('id') wallet_id: string,
     @Body() adjustmentDto: WalletAdjustmentDto,
     @Body('adminId') adminId: string
   ): Promise<WalletAdjustmentResponseDto> {
-    return this.adminService.adjustWalletBalance(walletId, adminId, adjustmentDto);
+    return this.adminService.adjustWalletBalance(wallet_id, adminId, adjustmentDto);
   }
 
   @Get('invoices')
@@ -220,7 +220,7 @@ export class AdminController {
     example: 'pending'
   })
   @ApiQuery({
-    name: 'userId',
+    name: 'user_id',
     required: false,
     type: String,
     description: 'Filter by user ID',
@@ -258,9 +258,9 @@ export class AdminController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('status') status?: string,
-    @Query('userId') userId?: string
+    @Query('user_id') user_id?: string
   ): Promise<any[]> {
-    return this.adminService.getAllInvoices(page, limit, status, userId);
+    return this.adminService.getAllInvoices(page, limit, status, user_id);
   }
 
   @Get('payments')
@@ -290,7 +290,7 @@ export class AdminController {
     example: 'completed'
   })
   @ApiQuery({
-    name: 'userId',
+    name: 'user_id',
     required: false,
     type: String,
     description: 'Filter by user ID',
@@ -328,9 +328,9 @@ export class AdminController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('status') status?: string,
-    @Query('userId') userId?: string
+    @Query('user_id') user_id?: string
   ): Promise<any[]> {
-    return this.adminService.getAllPayments(page, limit, status, userId);
+    return this.adminService.getAllPayments(page, limit, status, user_id);
   }
 
   @Get('dashboard/stats')
@@ -362,13 +362,13 @@ export class AdminController {
   }
 
   // User Management Endpoint
-  @Delete('users/:userId')
+  @Delete('users/:user_id')
   @ApiOperation({
     summary: 'Delete user account',
     description: 'Deletes a user account from the system. Requires admin role.'
   })
   @ApiParam({
-    name: 'userId',
+    name: 'user_id',
     description: 'ID of the user to delete',
     example: 'user_123'
   })
@@ -382,8 +382,8 @@ export class AdminController {
   @ApiBadRequestResponse({
     description: 'Cannot delete user with active orders'
   })
-  async deleteUser(@Param('userId') userId: string): Promise<DeleteUserResponseDto> {
-    return this.adminService.deleteUser(userId);
+  async deleteUser(@Param('user_id') user_id: string): Promise<DeleteUserResponseDto> {
+    return this.adminService.deleteUser(user_id);
   }
 
   // Domain Management Endpoints
@@ -469,13 +469,13 @@ export class AdminController {
   }
 
   // Wallet Adjustment History Endpoint
-  @Get('wallets/:walletId/adjustments')
+  @Get('wallets/:wallet_id/adjustments')
   @ApiOperation({
     summary: 'Get wallet adjustment history',
     description: 'Retrieves the history of wallet adjustments for a specific wallet. Requires admin role.'
   })
   @ApiParam({
-    name: 'walletId',
+    name: 'wallet_id',
     description: 'ID of the wallet',
     example: 'wallet_123'
   })
@@ -498,11 +498,11 @@ export class AdminController {
     type: WalletAdjustmentHistoryResponseDto
   })
   async getWalletAdjustmentHistory(
-    @Param('walletId') walletId: string,
+    @Param('wallet_id') wallet_id: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number
   ): Promise<WalletAdjustmentHistoryResponseDto> {
-    return this.adminService.getWalletAdjustmentHistory(walletId, page, limit);
+    return this.adminService.getWalletAdjustmentHistory(wallet_id, page, limit);
   }
 
   // Enhanced Email Service Test Endpoint

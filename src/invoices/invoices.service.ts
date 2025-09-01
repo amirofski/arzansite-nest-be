@@ -24,49 +24,49 @@ export class InvoicesService {
     private configService: ConfigService,
   ) {}
 
-  async createInvoice(userId: string, createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
+  async createInvoice(user_id: string, createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
     // Verify order exists and belongs to user
-    const order = await this.ordersService.getOrder(createInvoiceDto.orderId, userId);
+    const order = await this.ordersService.getOrder(createInvoiceDto.order_id, user_id);
     if (!order) {
       throw new NotFoundException('Order not found');
     }
 
     const invoice = await databases.createDocument(databaseId, invoicesCollection, ID.unique(), {
-      user_id: userId,
-      order_id: createInvoiceDto.orderId,
+      user_id: user_id,
+      order_id: createInvoiceDto.order_id,
       amount: createInvoiceDto.amount,
       due_date: createInvoiceDto.dueDate,
       status: InvoiceStatus.PENDING,
-      description: createInvoiceDto.description || `Invoice for order ${createInvoiceDto.orderId}`,
+      description: createInvoiceDto.description || `Invoice for order ${createInvoiceDto.order_id}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
 
     // Send email notification
-    await this.emailService.sendInvoiceCreatedEmail(userId, invoice.$id, createInvoiceDto.amount);
+    await this.emailService.sendInvoiceCreatedEmail(user_id, invoice.$id, createInvoiceDto.amount);
 
     return this.mapToResponseDto(invoice);
   }
 
-  async getInvoices(userId: string, isAdmin: boolean = false): Promise<InvoiceResponseDto[]> {
+  async getInvoices(user_id: string, isAdmin: boolean = false): Promise<InvoiceResponseDto[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
     const queries = [Query.orderDesc('created_at')];
     if (!isAdmin) {
-      queries.push(Query.equal('user_id', userId));
+      queries.push(Query.equal('user_id', user_id));
     }
 
     const result = await databases.listDocuments(databaseId, invoicesCollection, queries);
     return result.documents.map(doc => this.mapToResponseDto(doc));
   }
 
-  async getInvoice(invoiceId: string, userId: string, isAdmin: boolean = false): Promise<InvoiceResponseDto> {
+  async getInvoice(invoiceId: string, user_id: string, isAdmin: boolean = false): Promise<InvoiceResponseDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
@@ -77,28 +77,28 @@ export class InvoicesService {
     }
 
     // Check access rights
-    if (!isAdmin && invoice.user_id !== userId) {
+    if (!isAdmin && invoice.user_id !== user_id) {
       throw new BadRequestException('Access denied');
     }
 
     return this.mapToResponseDto(invoice);
   }
 
-  async payInvoice(invoiceId: string, userId: string, payInvoiceDto: PayInvoiceDto): Promise<{ success: boolean; message: string }> {
-    const invoice = await this.getInvoice(invoiceId, userId);
+  async payInvoice(invoiceId: string, user_id: string, payInvoiceDto: PayInvoiceDto): Promise<{ success: boolean; message: string }> {
+    const invoice = await this.getInvoice(invoiceId, user_id);
     
     if (invoice.status !== InvoiceStatus.PENDING) {
       throw new BadRequestException('Invoice cannot be paid in current status');
     }
 
     // Check wallet balance
-    const wallet = await this.walletsService.getWallet(userId);
+    const wallet = await this.walletsService.getWallet(user_id);
     if (wallet.balance < invoice.amount) {
       throw new BadRequestException('Insufficient wallet balance');
     }
 
     // Process payment from wallet
-    await this.walletsService.createTransaction(userId, {
+    await this.walletsService.createTransaction(user_id, {
       type: TransactionType.DEBIT,
       amount: invoice.amount,
       description: `Payment for invoice ${invoiceId}`,
@@ -116,7 +116,7 @@ export class InvoicesService {
     await this.generateReceipt(invoiceId, payInvoiceDto.refId, invoice.amount);
 
     // Send success email
-    await this.emailService.sendInvoicePaidEmail(userId, invoiceId, invoice.amount);
+    await this.emailService.sendInvoicePaidEmail(user_id, invoiceId, invoice.amount);
 
     return { success: true, message: 'Invoice paid successfully' };
   }
@@ -196,14 +196,14 @@ export class InvoicesService {
   private mapToResponseDto(invoice: any): InvoiceResponseDto {
     return {
       id: invoice.$id,
-      userId: invoice.user_id,
-      orderId: invoice.order_id,
+      user_id: invoice.user_id,
+      order_id: invoice.order_id,
       amount: invoice.amount,
       dueDate: invoice.due_date,
       status: invoice.status,
       description: invoice.description,
-      createdAt: invoice.created_at,
-      updatedAt: invoice.updated_at,
+      created_at: invoice.created_at,
+      updated_at: invoice.updated_at,
     };
   }
 }

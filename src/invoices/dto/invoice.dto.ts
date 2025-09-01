@@ -10,7 +10,7 @@ export enum InvoiceStatus {
 
 export class CreateInvoiceDto {
   @IsString()
-  orderId: string;
+  order_id: string;
 
   @IsNumber()
   @Type(() => Number)
@@ -60,12 +60,12 @@ export class PayInvoiceDto {
 
 export class InvoiceResponseDto {
   id: string;
-  userId: string;
-  orderId: string;
+  user_id: string;
+  order_id: string;
   amount: number;
   dueDate: string;
   status: InvoiceStatus;
   description?: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }

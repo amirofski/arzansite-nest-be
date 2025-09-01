@@ -94,27 +94,27 @@ export class UploadsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all uploaded files' })
-  @ApiQuery({ name: 'userId', required: false, description: 'Filter by user ID' })
-  @ApiQuery({ name: 'orderId', required: false, description: 'Filter by order ID' })
+  @ApiQuery({ name: 'user_id', required: false, description: 'Filter by user ID' })
+  @ApiQuery({ name: 'order_id', required: false, description: 'Filter by order ID' })
   @ApiResponse({ status: 200, description: 'Files retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getAllUploads(
-    @Query('userId') userId?: string,
-    @Query('orderId') orderId?: string,
+    @Query('user_id') user_id?: string,
+    @Query('order_id') order_id?: string,
     @Request() req?: any,
   ) {
-    // If no userId provided, use the authenticated user's ID
-    const currentUserId = userId || req.user?.userId || req.user?.id;
-    return this.uploadsService.getAllUploads(currentUserId, orderId);
+    // If no user_id provided, use the authenticated user's ID
+    const currentUserId = user_id || req.user?.user_id || req.user?.id;
+    return this.uploadsService.getAllUploads(currentUserId, order_id);
   }
 
-  @Get('order/:orderId')
+  @Get('order/:order_id')
   @ApiOperation({ summary: 'Get all files for a specific order' })
-  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'order_id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Order files retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Order not found' })
-  async getFilesByOrder(@Param('orderId') orderId: string) {
-    return this.uploadsService.getFilesByOrder(orderId);
+  async getFilesByOrder(@Param('order_id') order_id: string) {
+    return this.uploadsService.getFilesByOrder(order_id);
   }
 
   @Get(':id')
@@ -142,7 +142,7 @@ export class UploadsController {
           format: 'binary',
           description: 'File to upload',
         },
-        orderId: {
+        order_id: {
           type: 'string',
           description: 'Order ID (optional)',
         },
@@ -176,16 +176,16 @@ export class UploadsController {
       }),
     )
     file: Express.Multer.File,
-    @Body('orderId') orderId?: string,
+    @Body('order_id') order_id?: string,
     @Body('fileType') fileType: 'document' | 'design' | 'avatar' = 'document',
     @Request() req?: any,
   ) {
-    const userId = req.user?.userId || req.user?.id;
-    if (!userId) {
+    const user_id = req.user?.user_id || req.user?.id;
+    if (!user_id) {
       throw new Error('User ID not found in request');
     }
 
-    return this.uploadsService.uploadFile(file, userId, orderId, fileType);
+    return this.uploadsService.uploadFile(file, user_id, order_id, fileType);
   }
 
   @Post('bulk')
@@ -203,7 +203,7 @@ export class UploadsController {
           },
           description: 'Multiple files to upload',
         },
-        orderId: {
+        order_id: {
           type: 'string',
           description: 'Order ID (optional)',
         },
@@ -238,12 +238,12 @@ export class UploadsController {
       }),
     )
     files: Express.Multer.File[],
-    @Body('orderId') orderId?: string,
+    @Body('order_id') order_id?: string,
     @Body('fileType') fileType?: string,
     @Body('description') description?: string,
     @User() user?: UserPayload,
   ) {
-    const userId = user?.id;
+    const user_id = user?.id;
 
     if (!files || files.length === 0) {
       throw new Error('No files provided');
@@ -252,7 +252,7 @@ export class UploadsController {
     // Map external categories to internal bucket types
     const bucketType = this.uploadsService.resolveBucketType(fileType);
     const uploadPromises = files.map(file =>
-      this.uploadsService.uploadFile(file, userId!, orderId, bucketType, description)
+      this.uploadsService.uploadFile(file, user_id!, order_id, bucketType, description)
     );
 
     const results = await Promise.allSettled(uploadPromises);
@@ -272,7 +272,7 @@ export class UploadsController {
         url: item.data.url,
         name: item.data.name,
         size: item.data.size,
-        type: item.data.mimeType,
+        type: item.data.mime_type,
       })),
       uploaded: successful.length,
       failed: failed.length,

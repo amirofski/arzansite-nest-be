@@ -34,10 +34,10 @@ export class EnhancedPaymentsController {
   @ApiBody({
     schema: {
       example: {
-        orderId: 'order_123',
+        order_id: 'order_123',
         amount: 5000000,
         description: 'Payment for website design order',
-        callbackUrl: 'https://example.com/callback',
+        callback_url: 'https://example.com/callback',
         userData: {
           email: 'user@example.com',
           mobile: '09123456789',
@@ -58,7 +58,7 @@ export class EnhancedPaymentsController {
       example: {
         paymentUrl: 'https://payment.zarinpal.com/pg/StartPay/authority_123',
         authority: 'authority_123',
-        orderId: 'order_123',
+        order_id: 'order_123',
         expiresAt: '2024-01-02T00:00:00.000Z',
         qrCode: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...',
       },
@@ -69,10 +69,10 @@ export class EnhancedPaymentsController {
   async requestEnhancedZarinPalPayment(
     @User() user: UserPayload,
     @Body() body: {
-      orderId: string;
+      order_id: string;
       amount: number;
       description: string;
-      callbackUrl: string;
+      callback_url: string;
       userData: {
         email: string;
         mobile: string;
@@ -85,8 +85,8 @@ export class EnhancedPaymentsController {
       };
     },
   ) {
-    if (!body.orderId || !body.amount || !body.description || !body.callbackUrl) {
-      throw new BadRequestException('orderId, amount, description, and callbackUrl are required');
+    if (!body.order_id || !body.amount || !body.description || !body.callback_url) {
+      throw new BadRequestException('order_id, amount, description, and callback_url are required');
     }
 
     if (body.amount <= 0) {
@@ -112,7 +112,7 @@ export class EnhancedPaymentsController {
     schema: {
       example: {
         authority: 'authority_123',
-        orderId: 'order_123',
+        order_id: 'order_123',
         amount: 5000000,
         userIp: '192.168.1.1',
         userAgent: 'Mozilla/5.0...',
@@ -126,7 +126,7 @@ export class EnhancedPaymentsController {
       example: {
         success: true,
         refId: 'ref_123',
-        orderId: 'order_123',
+        order_id: 'order_123',
         amount: 5000000,
         description: 'Payment verified successfully',
         error: null,
@@ -143,14 +143,14 @@ export class EnhancedPaymentsController {
     @User() user: UserPayload,
     @Body() body: {
       authority: string;
-      orderId: string;
+      order_id: string;
       amount: number;
       userIp?: string;
       userAgent?: string;
     },
   ) {
-    if (!body.authority || !body.orderId || !body.amount) {
-      throw new BadRequestException('authority, orderId, and amount are required');
+    if (!body.authority || !body.order_id || !body.amount) {
+      throw new BadRequestException('authority, order_id, and amount are required');
     }
 
     if (body.amount <= 0) {
@@ -171,7 +171,7 @@ export class EnhancedPaymentsController {
   @ApiBody({
     schema: {
       example: {
-        orderId: 'deposit_user_123_1704067200000_10000000',
+        order_id: 'deposit_user_123_1704067200000_10000000',
         authority: 'authority_123',
         userIp: '192.168.1.1',
         userAgent: 'Mozilla/5.0...',
@@ -185,7 +185,7 @@ export class EnhancedPaymentsController {
       example: {
         success: true,
         refId: 'ref_123',
-        orderId: 'deposit_user_123_1704067200000_10000000',
+        order_id: 'deposit_user_123_1704067200000_10000000',
         amount: 10000000,
         description: 'Wallet deposit verified successfully',
         error: null,
@@ -201,14 +201,14 @@ export class EnhancedPaymentsController {
   async verifyEnhancedWalletDeposit(
     @User() user: UserPayload,
     @Body() body: {
-      orderId: string;
+      order_id: string;
       authority: string;
       userIp?: string;
       userAgent?: string;
     },
   ) {
-    if (!body.orderId || !body.authority) {
-      throw new BadRequestException('orderId and authority are required');
+    if (!body.order_id || !body.authority) {
+      throw new BadRequestException('order_id and authority are required');
     }
 
     return this.enhancedPaymentsService.verifyEnhancedWalletDeposit(
@@ -225,7 +225,7 @@ export class EnhancedPaymentsController {
   @ApiBody({
     schema: {
       example: {
-        orderId: 'order_123',
+        order_id: 'order_123',
         transactionId: 'txn_123',
         amount: 5000000,
         reason: 'Customer requested cancellation',
@@ -244,7 +244,7 @@ export class EnhancedPaymentsController {
       example: {
         success: true,
         refundId: 'refund_123',
-        orderId: 'order_123',
+        order_id: 'order_123',
         amount: 5000000,
         status: 'pending',
         estimatedProcessingTime: '3-5 business days',
@@ -261,7 +261,7 @@ export class EnhancedPaymentsController {
   async requestEnhancedRefund(
     @User() user: UserPayload,
     @Body() body: {
-      orderId: string;
+      order_id: string;
       transactionId: string;
       amount: number;
       reason: string;
@@ -272,8 +272,8 @@ export class EnhancedPaymentsController {
       };
     },
   ) {
-    if (!body.orderId || !body.transactionId || !body.amount || !body.reason || !body.description) {
-      throw new BadRequestException('orderId, transactionId, amount, reason, and description are required');
+    if (!body.order_id || !body.transactionId || !body.amount || !body.reason || !body.description) {
+      throw new BadRequestException('order_id, transactionId, amount, reason, and description are required');
     }
 
     if (body.amount <= 0) {
@@ -294,7 +294,7 @@ export class EnhancedPaymentsController {
   @ApiBody({
     schema: {
       example: {
-        orderId: 'order_123',
+        order_id: 'order_123',
         transactionId: 'txn_123',
         reason: 'Order cancelled by customer',
         description: 'Payment cancelled for cancelled order',
@@ -312,7 +312,7 @@ export class EnhancedPaymentsController {
       example: {
         success: true,
         cancellationId: 'cancel_123',
-        orderId: 'order_123',
+        order_id: 'order_123',
         status: 'cancelled',
         cancelledAt: '2024-01-01T00:00:00.000Z',
         cancellationDetails: {
@@ -328,7 +328,7 @@ export class EnhancedPaymentsController {
   async cancelEnhancedPayment(
     @User() user: UserPayload,
     @Body() body: {
-      orderId: string;
+      order_id: string;
       transactionId: string;
       reason: string;
       description: string;
@@ -338,8 +338,8 @@ export class EnhancedPaymentsController {
       };
     },
   ) {
-    if (!body.orderId || !body.transactionId || !body.reason || !body.description) {
-      throw new BadRequestException('orderId, transactionId, reason, and description are required');
+    if (!body.order_id || !body.transactionId || !body.reason || !body.description) {
+      throw new BadRequestException('order_id, transactionId, reason, and description are required');
     }
 
     return this.enhancedPaymentsService.cancelEnhancedPayment(
@@ -359,7 +359,7 @@ export class EnhancedPaymentsController {
         authority: 'authority_123',
         refId: 'ref_123',
         amount: 5000000,
-        orderId: 'order_123',
+        order_id: 'order_123',
         status: 'success',
         timestamp: '2024-01-01T00:00:00.000Z',
         signature: 'webhook_signature_hash',
@@ -373,7 +373,7 @@ export class EnhancedPaymentsController {
       example: {
         success: true,
         message: 'Webhook processed successfully',
-        orderId: 'order_123',
+        order_id: 'order_123',
         refId: 'ref_123',
         processedAt: '2024-01-01T00:00:00.000Z',
       },
@@ -385,13 +385,13 @@ export class EnhancedPaymentsController {
       authority: string;
       refId: string;
       amount: number;
-      orderId: string;
+      order_id: string;
       status: string;
       timestamp: string;
       signature?: string;
     },
   ) {
-    if (!body.authority || !body.refId || !body.amount || !body.orderId || !body.status) {
+    if (!body.authority || !body.refId || !body.amount || !body.order_id || !body.status) {
       throw new BadRequestException('Missing required webhook fields');
     }
 
@@ -407,7 +407,7 @@ export class EnhancedPaymentsController {
     schema: {
       example: {
         transactionId: 'txn_123',
-        orderId: 'deposit_user_123_1704067200000_10000000',
+        order_id: 'deposit_user_123_1704067200000_10000000',
         amount: 10000000,
         status: 'completed',
         refId: 'ref_123',
@@ -423,7 +423,7 @@ export class EnhancedPaymentsController {
       example: {
         success: true,
         message: 'Wallet webhook processed successfully',
-        orderId: 'deposit_user_123_1704067200000_10000000',
+        order_id: 'deposit_user_123_1704067200000_10000000',
         transactionId: 'txn_123',
         processedAt: '2024-01-01T00:00:00.000Z',
       },
@@ -433,7 +433,7 @@ export class EnhancedPaymentsController {
   async handleEnhancedWalletWebhook(
     @Body() body: {
       transactionId: string;
-      orderId: string;
+      order_id: string;
       amount: number;
       status: string;
       refId: string;
@@ -441,7 +441,7 @@ export class EnhancedPaymentsController {
       signature?: string;
     },
   ) {
-    if (!body.transactionId || !body.orderId || !body.amount || !body.status || !body.refId) {
+    if (!body.transactionId || !body.order_id || !body.amount || !body.status || !body.refId) {
       throw new BadRequestException('Missing required webhook fields');
     }
 

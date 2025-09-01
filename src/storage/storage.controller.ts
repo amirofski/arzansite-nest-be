@@ -9,46 +9,46 @@ export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
   @Post('upload-url')
-  async createUploadUrl(@Body() body: { bucketId: string; fileName: string }) {
-    return this.storageService.createUploadUrl(body.bucketId, body.fileName);
+  async createUploadUrl(@Body() body: { bucket_id: string; file_name: string }) {
+    return this.storageService.createUploadUrl(body.bucket_id, body.file_name);
   }
 
   @Get('file-url')
-  async getFileUrl(@Query('bucketId') bucketId: string, @Query('fileId') fileId: string) {
-    return this.storageService.getFileViewUrl(bucketId, fileId);
+  async getFileUrl(@Query('bucket_id') bucket_id: string, @Query('file_id') file_id: string) {
+    return this.storageService.getFileViewUrl(bucket_id, file_id);
   }
 
   // Alias required endpoints
   @UseInterceptors(FileInterceptor('file'))
   @Post('/uploads')
-  async uploadMultipart(@Query('bucketId') bucketId: string, @UploadedFile() file: any) {
-    return this.storageService.uploadMultipart(bucketId, file);
+  async uploadMultipart(@Query('bucket_id') bucket_id: string, @UploadedFile() file: any) {
+    return this.storageService.uploadMultipart(bucket_id, file);
   }
 
   @Get('/uploads')
-  async listUploads(@Query('bucketId') bucketId: string) {
-    return this.storageService.listFiles(bucketId);
+  async listUploads(@Query('bucket_id') bucket_id: string) {
+    return this.storageService.listFiles(bucket_id);
   }
 
   @Delete('/uploads/:id')
-  async deleteUpload(@Query('bucketId') bucketId: string, @Param('id') id: string) {
-    return this.storageService.deleteFile(bucketId, id);
+  async deleteUpload(@Query('bucket_id') bucket_id: string, @Param('id') id: string) {
+    return this.storageService.deleteFile(bucket_id, id);
   }
 
   @Get('/uploads/signed-url')
   async signedUrl(
     @Query('path') path?: string,
-    @Query('bucketId') bucketId?: string,
-    @Query('fileId') fileId?: string,
+    @Query('bucket_id') bucket_id?: string,
+    @Query('file_id') file_id?: string,
   ) {
-    if (path && !bucketId && !fileId) {
+    if (path && !bucket_id && !file_id) {
       const parts = path.split('/').filter(Boolean);
       if (parts.length >= 2) {
-        bucketId = parts[0];
-        fileId = parts.slice(1).join('/');
+        bucket_id = parts[0];
+        file_id = parts.slice(1).join('/');
       }
     }
-    return this.storageService.getFileViewUrl(bucketId as string, fileId as string);
+    return this.storageService.getFileViewUrl(bucket_id as string, file_id as string);
   }
 }
 

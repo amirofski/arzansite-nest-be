@@ -58,12 +58,12 @@ import {
       return this.enhancedOrdersService.createEnhancedOrder(user.id, createOrderDto);
     }
   
-    @Get(':orderId/enhanced')
+    @Get(':order_id/enhanced')
     @ApiOperation({
       summary: 'Get Enhanced Order Details',
       description: 'Retrieves comprehensive order details including progress and wallet information',
     })
-    @ApiParam({ name: 'orderId', description: 'Order ID' })
+    @ApiParam({ name: 'order_id', description: 'Order ID' })
     @ApiResponse({
       status: 200,
       description: 'Order details retrieved successfully',
@@ -80,7 +80,7 @@ import {
           created_at: '2024-01-01T00:00:00.000Z',
           updated_at: '2024-01-01T00:00:00.000Z',
           progress: {
-            orderId: 'order_123',
+            order_id: 'order_123',
             currentStep: 'pending',
             completedSteps: [],
             remainingSteps: ['confirmed', 'in_progress', 'completed'],
@@ -98,18 +98,18 @@ import {
     @ApiResponse({ status: 404, description: 'Order not found' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     async getEnhancedOrder(
-      @Param('orderId') orderId: string,
+      @Param('order_id') order_id: string,
       @User() user: UserPayload,
     ): Promise<EnhancedOrderDetails> {
-      return this.enhancedOrdersService.getEnhancedOrder(orderId, user.id);
+      return this.enhancedOrdersService.getEnhancedOrder(order_id, user.id);
     }
   
-    @Patch(':orderId')
+    @Patch(':order_id')
     @ApiOperation({
       summary: 'Update Enhanced Order',
       description: 'Updates order details, payment status, and related information',
     })
-    @ApiParam({ name: 'orderId', description: 'Order ID' })
+    @ApiParam({ name: 'order_id', description: 'Order ID' })
     @ApiBody({ type: UpdateEnhancedOrderDto })
     @ApiResponse({
       status: 200,
@@ -119,11 +119,11 @@ import {
     @ApiResponse({ status: 404, description: 'Order not found' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     async updateEnhancedOrder(
-      @Param('orderId') orderId: string,
+      @Param('order_id') order_id: string,
       @User() user: UserPayload,
       @Body() updateOrderDto: UpdateEnhancedOrderDto,
     ): Promise<EnhancedOrderResponseDto> {
-      return this.enhancedOrdersService.updateEnhancedOrder(orderId, user.id, updateOrderDto);
+      return this.enhancedOrdersService.updateEnhancedOrder(order_id, user.id, updateOrderDto);
     }
   
     @Get('users/me/orders')
@@ -181,12 +181,12 @@ import {
       });
     }
   
-    @Post(':orderId/wallet-payment')
+    @Post(':order_id/wallet-payment')
     @ApiOperation({
       summary: 'Process Wallet Payment for Order',
       description: 'Processes payment for an order using wallet balance',
     })
-    @ApiParam({ name: 'orderId', description: 'Order ID' })
+    @ApiParam({ name: 'order_id', description: 'Order ID' })
     @ApiBody({
       schema: {
         example: {
@@ -221,7 +221,7 @@ import {
     @ApiResponse({ status: 404, description: 'Order not found' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     async processWalletPayment(
-      @Param('orderId') orderId: string,
+      @Param('order_id') order_id: string,
       @User() user: UserPayload,
       @Body() body: { amount: number; description?: string },
     ) {
@@ -229,21 +229,21 @@ import {
         throw new BadRequestException('Valid amount is required');
       }
   
-      return this.enhancedOrdersService.processWalletPayment(orderId, user.id, body.amount);
+      return this.enhancedOrdersService.processWalletPayment(order_id, user.id, body.amount);
     }
   
-    @Get(':orderId/progress')
+    @Get(':order_id/progress')
     @ApiOperation({
       summary: 'Get Order Progress',
       description: 'Retrieves comprehensive order progress information and timeline',
     })
-    @ApiParam({ name: 'orderId', description: 'Order ID' })
+    @ApiParam({ name: 'order_id', description: 'Order ID' })
     @ApiResponse({
       status: 200,
       description: 'Order progress retrieved successfully',
       schema: {
         example: {
-          orderId: 'order_123',
+          order_id: 'order_123',
           currentStep: 'payment_confirmation',
           completedSteps: ['order_created'],
           remainingSteps: ['design_start', 'design_review', 'development', 'testing', 'deployment'],
@@ -255,7 +255,7 @@ import {
             {
               step: 'order_created',
               status: 'completed',
-              completedAt: '2024-01-01T00:00:00.000Z',
+              completed_at: '2024-01-01T00:00:00.000Z',
               estimatedDuration: '1 day',
               description: 'Order has been created and is awaiting payment confirmation',
             },
@@ -265,16 +265,16 @@ import {
     })
     @ApiResponse({ status: 404, description: 'Order not found' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    async getOrderProgress(@Param('orderId') orderId: string, @User() user: UserPayload) {
-      return this.enhancedOrdersService.getOrderProgress(orderId);
+    async getOrderProgress(@Param('order_id') order_id: string, @User() user: UserPayload) {
+      return this.enhancedOrdersService.getOrderProgress(order_id);
     }
   
-    @Patch(':orderId/progress')
+    @Patch(':order_id/progress')
     @ApiOperation({
       summary: 'Update Order Progress',
       description: 'Updates order progress step with notes and attachments',
     })
-    @ApiParam({ name: 'orderId', description: 'Order ID' })
+    @ApiParam({ name: 'order_id', description: 'Order ID' })
     @ApiBody({
       schema: {
         example: {
@@ -306,7 +306,7 @@ import {
     @ApiResponse({ status: 404, description: 'Order not found' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     async updateOrderProgress(
-      @Param('orderId') orderId: string,
+      @Param('order_id') order_id: string,
       @User() user: UserPayload,
       @Body() body: {
         step: string;
@@ -317,7 +317,7 @@ import {
     ) {
       // This endpoint would typically be used by admin users or the system
       // For now, we'll just return the current progress
-      return this.enhancedOrdersService.getOrderProgress(orderId);
+      return this.enhancedOrdersService.getOrderProgress(order_id);
     }
   
     @Get('admin/all')

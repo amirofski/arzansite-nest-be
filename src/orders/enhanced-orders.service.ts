@@ -34,17 +34,17 @@ export class EnhancedOrdersService {
   ) {}
 
   async createEnhancedOrder(
-    userId: string,
+    user_id: string,
     createOrderDto: CreateEnhancedOrderDto
   ): Promise<EnhancedOrderResponseDto> {
-    this.logger.log(`Creating enhanced order for user ${userId}`);
+    this.logger.log(`Creating enhanced order for user ${user_id}`);
 
     // Validate order data
     await this.validateOrderData(createOrderDto);
 
     // Calculate pricing if not provided
     if (!createOrderDto.price || createOrderDto.price <= 0) {
-      createOrderDto.price = await this.calculateOrderPrice(createOrderDto.wizardData);
+      createOrderDto.price = await this.calculateOrderPrice(createOrderDto.wizard_data);
     }
 
     const databases = this.appwriteService.getDatabases();
@@ -58,15 +58,15 @@ export class EnhancedOrdersService {
         ordersCollectionId,
         ID.unique(),
         {
-          user_id: userId,
+          user_id: user_id,
           title: createOrderDto.title,
           description: createOrderDto.description,
           price: createOrderDto.price,
           status: createOrderDto.status || OrderStatus.PENDING,
           payment_status: createOrderDto.payment_status || PaymentStatus.PENDING,
-          site_type: createOrderDto.siteType,
-          wizard_data: createOrderDto.wizardData,
-          session_id: createOrderDto.sessionId,
+          site_type: createOrderDto.site_type,
+          wizard_data: createOrderDto.wizard_data,
+          session_id: createOrderDto.session_id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }
@@ -76,7 +76,7 @@ export class EnhancedOrdersService {
       await this.initializeOrderProgress(orderDocument.$id);
 
       // Send order confirmation email
-      await this.sendOrderConfirmationEmail(userId, orderDocument);
+      await this.sendOrderConfirmationEmail(user_id, orderDocument);
 
       this.logger.log(`Enhanced order created successfully: ${orderDocument.$id}`);
 
@@ -88,22 +88,22 @@ export class EnhancedOrdersService {
   }
 
   async getEnhancedOrder(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     isAdmin: boolean = false
   ): Promise<EnhancedOrderDetails> {
-    this.logger.log(`Getting enhanced order ${orderId} for user ${userId}`);
+    this.logger.log(`Getting enhanced order ${order_id} for user ${user_id}`);
 
-    const order = await this.getOrderById(orderId, userId, isAdmin);
+    const order = await this.getOrderById(order_id, user_id, isAdmin);
     if (!order) {
       throw new NotFoundException('Order not found');
     }
 
     // Get order progress
-    const progress = await this.getOrderProgress(orderId);
+    const progress = await this.getOrderProgress(order_id);
 
     // Get wallet balance
-    const walletBalance = await this.walletsService.getBalance(userId);
+    const walletBalance = await this.walletsService.getBalance(user_id);
     const canPayWithWallet = walletBalance.balance >= order.price;
 
     return {
@@ -115,15 +115,15 @@ export class EnhancedOrdersService {
   }
 
   async updateEnhancedOrder(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     updateOrderDto: UpdateEnhancedOrderDto,
     isAdmin: boolean = false
   ): Promise<EnhancedOrderResponseDto> {
-    this.logger.log(`Updating enhanced order ${orderId} for user ${userId}`);
+    this.logger.log(`Updating enhanced order ${order_id} for user ${user_id}`);
 
     // Verify order ownership or admin access
-    const existingOrder = await this.getOrderById(orderId, userId, isAdmin);
+    const existingOrder = await this.getOrderById(order_id, user_id, isAdmin);
     if (!existingOrder) {
       throw new NotFoundException('Order not found');
     }
@@ -146,27 +146,27 @@ export class EnhancedOrdersService {
       if (updateOrderDto.payment_method !== undefined) updateData.payment_method = updateOrderDto.payment_method;
       if (updateOrderDto.transaction_id !== undefined) updateData.transaction_id = updateOrderDto.transaction_id;
               if (updateOrderDto.payment_metadata !== undefined) updateData.payment_metadata = updateOrderDto.payment_metadata;
-      if (updateOrderDto.wizardData !== undefined) updateData.wizard_data = updateOrderDto.wizardData;
+      if (updateOrderDto.wizard_data !== undefined) updateData.wizard_data = updateOrderDto.wizard_data;
 
       // Update order
       const updatedOrder = await databases.updateDocument(
         databaseId,
         ordersCollectionId,
-        orderId,
+        order_id,
         updateData
       );
 
       // Update progress if status changed
       if (updateOrderDto.status && updateOrderDto.status !== existingOrder.status) {
-        await this.updateOrderProgress(orderId, updateOrderDto.status);
+        await this.updateOrderProgress(order_id, updateOrderDto.status);
       }
 
       // Send notification if payment status changed
       if (updateOrderDto.payment_status && updateOrderDto.payment_status !== existingOrder.payment_status) {
-        await this.sendPaymentStatusNotification(userId, updatedOrder);
+        await this.sendPaymentStatusNotification(user_id, updatedOrder);
       }
 
-      this.logger.log(`Enhanced order ${orderId} updated successfully`);
+      this.logger.log(`Enhanced order ${order_id} updated successfully`);
 
       return this.mapToEnhancedOrderResponse(updatedOrder);
     } catch (error) {
@@ -176,7 +176,7 @@ export class EnhancedOrdersService {
   }
 
   async getUserOrders(
-    userId: string,
+    user_id: string,
     filters: {
       status?: string;
       payment_status?: string;
@@ -194,7 +194,7 @@ export class EnhancedOrdersService {
       totalPages: number;
     };
   }> {
-    this.logger.log(`Getting orders for user ${userId} with filters: ${JSON.stringify(filters)}`);
+    this.logger.log(`Getting orders for user ${user_id} with filters: ${JSON.stringify(filters)}`);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -203,7 +203,7 @@ export class EnhancedOrdersService {
 
     try {
       // Build query filters
-      const queryFilters = [Query.equal('user_id', userId)];
+      const queryFilters = [Query.equal('user_id', user_id)];
       
       if (filters.status) {
         queryFilters.push(Query.equal('status', filters.status));
@@ -235,7 +235,7 @@ export class EnhancedOrdersService {
 
       // Get total count for pagination
       const totalResult = await databases.listDocuments(databaseId, ordersCollectionId, [
-        Query.equal('user_id', userId)
+        Query.equal('user_id', user_id)
       ]);
 
       const orders = result.documents.map(doc => this.mapToEnhancedOrderResponse(doc));
@@ -258,8 +258,8 @@ export class EnhancedOrdersService {
   }
 
   async processWalletPayment(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     amount: number
   ): Promise<{
     success: boolean;
@@ -272,10 +272,10 @@ export class EnhancedOrdersService {
       referenceId: string;
     };
   }> {
-    this.logger.log(`Processing wallet payment for order ${orderId}, user ${userId}, amount ${amount}`);
+    this.logger.log(`Processing wallet payment for order ${order_id}, user ${user_id}, amount ${amount}`);
 
     // Verify order exists and belongs to user
-    const order = await this.getOrderById(orderId, userId);
+    const order = await this.getOrderById(order_id, user_id);
     if (!order) {
       throw new NotFoundException('Order not found');
     }
@@ -286,37 +286,37 @@ export class EnhancedOrdersService {
     }
 
     // Check wallet balance
-    const walletBalance = await this.walletsService.getBalance(userId);
+    const walletBalance = await this.walletsService.getBalance(user_id);
     if (walletBalance.balance < amount) {
       throw new BadRequestException('Insufficient wallet balance');
     }
 
     try {
       // Process wallet payment
-      const paymentResult = await this.walletsService.createTransaction(userId, {
+      const paymentResult = await this.walletsService.createTransaction(user_id, {
         type: TransactionType.PAYMENT,
         amount: amount,
-        description: `Payment for order ${orderId}`,
-        referenceId: orderId,
+        description: `Payment for order ${order_id}`,
+        referenceId: order_id,
         referenceType: 'order',
       });
 
       // Update order payment status
-      await this.updateEnhancedOrder(orderId, userId, {
+      await this.updateEnhancedOrder(order_id, user_id, {
         payment_status: PaymentStatus.SUCCEEDED,
         payment_method: PaymentMethod.WALLET,
         transaction_id: paymentResult.transactionId,
       });
 
       // Update order status to confirmed
-      await this.updateEnhancedOrder(orderId, userId, {
+      await this.updateEnhancedOrder(order_id, user_id, {
         status: OrderStatus.CONFIRMED,
       });
 
       // Send payment success notification
-      await this.sendPaymentSuccessNotification(userId, order, amount);
+      await this.sendPaymentSuccessNotification(user_id, order, amount);
 
-      this.logger.log(`Wallet payment processed successfully for order ${orderId}`);
+      this.logger.log(`Wallet payment processed successfully for order ${order_id}`);
 
       return {
         success: true,
@@ -324,9 +324,9 @@ export class EnhancedOrdersService {
         newBalance: paymentResult.balanceAfter,
         paymentDetails: {
           amount,
-          description: `Payment for order ${orderId}`,
+          description: `Payment for order ${order_id}`,
           timestamp: new Date().toISOString(),
-          referenceId: orderId,
+          referenceId: order_id,
         },
       };
     } catch (error) {
@@ -335,25 +335,25 @@ export class EnhancedOrdersService {
     }
   }
 
-  async getOrderProgress(orderId: string): Promise<OrderProgress> {
+  async getOrderProgress(order_id: string): Promise<OrderProgress> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const progressCollectionId = this.configService.get<string>('APPWRITE_COLLECTION_ORDER_PROGRESS');
 
     try {
       const progressDoc = await databases.listDocuments(databaseId, progressCollectionId, [
-        Query.equal('order_id', orderId),
+        Query.equal('order_id', order_id),
         Query.limit(1),
       ]);
 
       if (progressDoc.documents.length === 0) {
         // Return default progress if none exists
-        return this.getDefaultOrderProgress(orderId);
+        return this.getDefaultOrderProgress(order_id);
       }
 
       const progress = progressDoc.documents[0];
       return {
-        orderId: progress.order_id,
+        order_id: progress.order_id,
         currentStep: progress.current_step,
         completedSteps: progress.completed_steps || [],
         remainingSteps: progress.remaining_steps || [],
@@ -365,12 +365,12 @@ export class EnhancedOrdersService {
       };
     } catch (error) {
       this.logger.warn(`Failed to get order progress, returning default: ${error.message}`);
-      return this.getDefaultOrderProgress(orderId);
+      return this.getDefaultOrderProgress(order_id);
     }
   }
 
   async updateOrderProgress(
-    orderId: string,
+    order_id: string,
     newStatus: OrderStatus,
     notes?: string,
     attachments?: Array<{ filename: string; url: string; type: string }>
@@ -386,7 +386,7 @@ export class EnhancedOrdersService {
 
     try {
       // Get current progress
-      const currentProgress = await this.getOrderProgress(orderId);
+      const currentProgress = await this.getOrderProgress(order_id);
       
       // Calculate new progress
       const stepMapping = this.getStepMapping(newStatus);
@@ -411,7 +411,7 @@ export class EnhancedOrdersService {
 
       // Update or create progress document
       const existingProgress = await databases.listDocuments(databaseId, progressCollectionId, [
-        Query.equal('order_id', orderId),
+        Query.equal('order_id', order_id),
         Query.limit(1),
       ]);
 
@@ -428,7 +428,7 @@ export class EnhancedOrdersService {
           progressCollectionId,
           ID.unique(),
           {
-            order_id: orderId,
+            order_id: order_id,
             ...progressData,
             created_at: new Date().toISOString(),
           }
@@ -448,15 +448,15 @@ export class EnhancedOrdersService {
   }
 
   private async validateOrderData(createOrderDto: CreateEnhancedOrderDto): Promise<void> {
-    if (!createOrderDto.wizardData) {
+    if (!createOrderDto.wizard_data) {
       throw new BadRequestException('Wizard data is required');
     }
 
-    if (!createOrderDto.wizardData.websiteFramework) {
+    if (!createOrderDto.wizard_data.website_framework) {
       throw new BadRequestException('Website framework is required');
     }
 
-    if (!createOrderDto.wizardData.pricing) {
+    if (!createOrderDto.wizard_data.pricing) {
       throw new BadRequestException('Pricing information is required');
     }
 
@@ -465,17 +465,17 @@ export class EnhancedOrdersService {
     }
   }
 
-  private async calculateOrderPrice(wizardData: any): Promise<number> {
+  private async calculateOrderPrice(wizard_data: any): Promise<number> {
     // This is a simplified calculation - you can implement more complex pricing logic
-    let totalPrice = wizardData.pricing?.basePrice || 0;
+    let totalPrice = wizard_data.pricing?.basePrice || 0;
     
-    if (wizardData.wizardData?.websiteFramework?.dynamicDesign?.pages) {
-      const pagesCount = wizardData.wizardData.websiteFramework.dynamicDesign.pages.length;
-      totalPrice += (pagesCount * (wizardData.pricing?.pagesCost || 0));
+    if (wizard_data.wizard_data?.website_framework?.dynamicDesign?.pages) {
+      const pagesCount = wizard_data.wizard_data.website_framework.dynamicDesign.pages.length;
+      totalPrice += (pagesCount * (wizard_data.pricing?.pagesCost || 0));
     }
 
-    if (wizardData.wizardData?.additionalServices) {
-      const services = wizardData.wizardData.additionalServices;
+    if (wizard_data.wizard_data?.additional_services) {
+      const services = wizard_data.wizard_data.additional_services;
       if (services.seoOptimization) totalPrice += 500000; // 500,000 Rials
       if (services.socialMediaIntegration) totalPrice += 300000; // 300,000 Rials
       if (services.analyticsSetup) totalPrice += 200000; // 200,000 Rials
@@ -487,20 +487,20 @@ export class EnhancedOrdersService {
     return totalPrice;
   }
 
-  private async initializeOrderProgress(orderId: string): Promise<void> {
+  private async initializeOrderProgress(order_id: string): Promise<void> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const progressCollectionId = this.configService.get<string>('APPWRITE_COLLECTION_ORDER_PROGRESS');
 
     try {
-      const defaultProgress = this.getDefaultOrderProgress(orderId);
+      const defaultProgress = this.getDefaultOrderProgress(order_id);
       
       await databases.createDocument(
         databaseId,
         progressCollectionId,
         ID.unique(),
         {
-          order_id: orderId,
+          order_id: order_id,
           current_step: defaultProgress.currentStep,
           completed_steps: defaultProgress.completedSteps,
           remaining_steps: defaultProgress.remainingSteps,
@@ -517,12 +517,12 @@ export class EnhancedOrdersService {
     }
   }
 
-  private getDefaultOrderProgress(orderId: string): OrderProgress {
+  private getDefaultOrderProgress(order_id: string): OrderProgress {
     const now = new Date();
     const estimatedDelivery = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
 
     return {
-      orderId,
+      order_id,
       currentStep: 'order_created',
       completedSteps: ['order_created'],
       remainingSteps: ['payment_confirmation', 'design_start', 'design_review', 'development', 'testing', 'deployment'],
@@ -534,7 +534,7 @@ export class EnhancedOrdersService {
         {
           step: 'order_created',
           status: 'completed',
-          completedAt: now.toISOString(),
+          completed_at: now.toISOString(),
           estimatedDuration: '1 day',
           description: 'Order has been created and is awaiting payment confirmation',
         },
@@ -615,8 +615,8 @@ export class EnhancedOrdersService {
   }
 
   private async getOrderById(
-    orderId: string,
-    userId: string,
+    order_id: string,
+    user_id: string,
     isAdmin: boolean = false
   ): Promise<any> {
     const databases = this.appwriteService.getDatabases();
@@ -626,11 +626,11 @@ export class EnhancedOrdersService {
 
     try {
       if (isAdmin) {
-        return await databases.getDocument(databaseId, ordersCollectionId, orderId);
+        return await databases.getDocument(databaseId, ordersCollectionId, order_id);
       } else {
         const result = await databases.listDocuments(databaseId, ordersCollectionId, [
-          Query.equal('$id', orderId),
-          Query.equal('user_id', userId),
+          Query.equal('$id', order_id),
+          Query.equal('user_id', user_id),
           Query.limit(1),
         ]);
         return result.documents[0] || null;
@@ -659,7 +659,7 @@ export class EnhancedOrdersService {
     };
   }
 
-  private async sendOrderConfirmationEmail(userId: string, order: any): Promise<void> {
+  private async sendOrderConfirmationEmail(user_id: string, order: any): Promise<void> {
     try {
       // Get user profile for email
       const databases = this.appwriteService.getDatabases();
@@ -668,7 +668,7 @@ export class EnhancedOrdersService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -687,7 +687,7 @@ export class EnhancedOrdersService {
     }
   }
 
-  private async sendPaymentStatusNotification(userId: string, order: any): Promise<void> {
+  private async sendPaymentStatusNotification(user_id: string, order: any): Promise<void> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -695,7 +695,7 @@ export class EnhancedOrdersService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
@@ -714,7 +714,7 @@ export class EnhancedOrdersService {
     }
   }
 
-  private async sendPaymentSuccessNotification(userId: string, order: any, amount: number): Promise<void> {
+  private async sendPaymentSuccessNotification(user_id: string, order: any, amount: number): Promise<void> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -722,7 +722,7 @@ export class EnhancedOrdersService {
       const { Query } = await import('node-appwrite');
 
       const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', userId),
+        Query.equal('user_id', user_id),
         Query.limit(1),
       ]);
 
