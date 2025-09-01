@@ -391,3 +391,4 @@ if (require.main === module) {
 }
 
 module.exports = { main, standardizeFieldNames, removeDuplicateCode, mergeSimilarFiles, cleanupImports, removeUnusedFiles };
+

@@ -29,28 +29,8 @@ export class AuthService {
       // Create profile for the new user
       await this.profilesService.createProfileIfNotExists(created.$id, signUpDto.email);
 
-      // Ensure default role exists (user)
-      try {
-        const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-        const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
-        const { Query, ID } = await import('node-appwrite');
-        const databases = this.appwriteService.getDatabases();
-        const existing = await databases.listDocuments(databaseId, rolesCollection, [
-          Query.equal('user_id', created.$id),
-          Query.limit(1),
-        ]);
-        if ((existing.documents || []).length === 0) {
-          const now = new Date().toISOString();
-          await databases.createDocument(databaseId, rolesCollection, ID.unique(), {
-            user_id: created.$id,
-            role: 'user',
-            created_at: now,
-            updated_at: now,
-          } as any);
-        }
-      } catch (roleErr) {
-        console.warn('Failed to upsert default role for new user:', (roleErr as any)?.message || roleErr);
-      }
+      // Note: User roles are now handled by Appwrite labels instead of custom collection
+      // New users get 'user' role by default in Appwrite
 
       // Try to send verification email immediately after user creation
       try {
@@ -967,33 +947,39 @@ export class AuthService {
 
   private async getUserRole(user_id: string): Promise<string> {
     try {
-      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
-      const { Query } = await import('node-appwrite');
-      const databases = this.appwriteService.getDatabases();
-      const docs = await databases.listDocuments(databaseId, rolesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
-      return docs.documents?.[0]?.role || 'user';
-    } catch (_) {
+      // Get user information directly from Appwrite to access labels
+      const { Users } = await import('node-appwrite');
+      const users = new Users(this.appwriteService.getClient());
+      
+      // Get user details including labels
+      const user = await users.get(user_id);
+      
+      // Check if user has admin label
+      const hasAdminLabel = user.labels && user.labels.includes('admin');
+      return hasAdminLabel ? 'admin' : 'user';
+    } catch (error) {
+      console.warn(`Failed to get user labels for ${user_id}:`, error.message);
+      // Fallback to user role if we can't get labels
       return 'user';
     }
   }
 
   async getMe(user_id: string) {
     try {
-      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const rolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES', 'user_roles');
-      const { Query } = await import('node-appwrite');
-      const databases = this.appwriteService.getDatabases();
-      const docs = await databases.listDocuments(databaseId, rolesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
-      const role = docs.documents?.[0]?.role || 'user';
+      // Get user information directly from Appwrite to access labels
+      const users = this.appwriteService.getUsers();
+      
+      // Get user details including labels
+      const user = await users.get(user_id);
+      
+      // Check if user has admin label
+      const hasAdminLabel = user.labels && user.labels.includes('admin');
+      const role = hasAdminLabel ? 'admin' : 'user';
+      
       return { id: user_id, role };
-    } catch (_) {
+    } catch (error) {
+      console.warn(`Failed to get user labels for ${user_id}:`, error.message);
+      // Fallback to user role if we can't get labels
       return { id: user_id, role: 'user' };
     }
   }

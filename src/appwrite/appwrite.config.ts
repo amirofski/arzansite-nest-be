@@ -34,7 +34,7 @@ export class AppwriteConfig {
       transactions: this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS'),
       paymentTransactions: this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS'),
       profiles: this.configService.get<string>('APPWRITE_COLLECTION_PROFILES'),
-      userRoles: this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES'),
+      // userRoles: this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES'), // No longer needed - using Appwrite labels
       emailLogs: this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS'),
       siteConfig: this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG'),
       emailVerifications: this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS'),

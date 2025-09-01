@@ -56,23 +56,15 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // Get user role from Appwrite database
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const userRolesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES');
-
-    const { Query } = await import('node-appwrite');
-    const docs = await databases.listDocuments(databaseId, userRolesCollection, [
-      Query.equal('user_id', user.id),
-      Query.limit(1),
-    ]);
-
-    const roleDoc: any = docs.documents?.[0];
-    if (!roleDoc) {
-      throw new ForbiddenException('User role not found');
-    }
-
-    const hasRole = requiredRoles.includes(roleDoc.role);
+    // Get user role from Appwrite labels
+    const users = this.appwriteService.getUsers();
+    const appwriteUser = await users.get(user.id);
+    
+    // Check if user has admin label
+    const hasAdminLabel = appwriteUser.labels && appwriteUser.labels.includes('admin');
+    const userRole = hasAdminLabel ? 'admin' : 'user';
+    
+    const hasRole = requiredRoles.includes(userRole);
     if (!hasRole) {
       throw new ForbiddenException(
         `User does not have required role: ${requiredRoles.join(', ')}`,
