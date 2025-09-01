@@ -170,27 +170,23 @@ export class WizardService {
         mapped_user_id: mapped_user_id
       });
 
-      // Create orderData with ONLY allowed attributes for the Appwrite orders collection
-      // Based on the schema, the collection expects snake_case fields
+      // Create orderData with ONLY fields that exist in the orders collection
+      // Based on the actual schema, only include fields that are defined
       const orderData = {
-        user_id: mapped_user_id, // Required field - database expects user_id (snake_case)
-        orderNumber: this.generateOrderNumber(), // Required field - database expects orderNumber
-        title: completeOrderDto.order.title, // Required field
-        description: completeOrderDto.order.description, // Required field
-        total_amount: priceRials, // Required field - database expects total_amount (camelCase)
-        currency: 'IRR', // Required field - database expects currency
-        status: 'pending', // Required field - database expects status
-        payment_status: 'pending', // Required field - database expects payment_status
-        comments: completeOrderDto.order.comments, // Optional field
-        session_id: completeOrderDto.session_id, // Optional field
-        site_type: completeOrderDto.order.site_type, // Optional field
-        branding: JSON.stringify(design_snapshot.branding || {}), // Optional field
-        payment_gateway: 'zarinpal', // Optional field
-        zarinpal_authority: '', // Optional field
-        zarinpal_ref_id: '', // Optional field
-        wizard_data: JSON.stringify(design_snapshot), // Optional field
-        created_at: new Date().toISOString(), // Required field - database expects created_at (camelCase)
-        updated_at: new Date().toISOString(), // Required field - database expects updated_at (camelCase)
+        user_id: mapped_user_id, // Required field - exists in schema
+        title: completeOrderDto.order.title, // Required field - exists in schema
+        description: completeOrderDto.order.description, // Required field - exists in schema
+        total_amount: priceRials, // Required field - exists in schema
+        status: 'pending', // Required field - exists in schema
+        payment_status: 'pending', // Required field - exists in schema
+        comments: completeOrderDto.order.comments, // Optional field - exists in schema
+        session_id: completeOrderDto.session_id, // Optional field - exists in schema
+        site_type: completeOrderDto.order.site_type, // Optional field - exists in schema
+        wizard_data: JSON.stringify(design_snapshot), // Optional field - exists in schema
+        website_framework: JSON.stringify(design_snapshot.websiteFramework || {}), // Optional field - exists in schema
+        additional_services: JSON.stringify(design_snapshot.additionalServices || {}), // Optional field - exists in schema
+        created_at: new Date().toISOString(), // Required field - exists in schema
+        updated_at: new Date().toISOString(), // Required field - exists in schema
       };
 
       console.log('Debug - orderData being sent to Appwrite:', orderData);
