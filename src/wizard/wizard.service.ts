@@ -155,17 +155,11 @@ export class WizardService {
       const priceRials = pricing.totalPrice || 0;
 
       // 2. Create the order with pending status
-      // Map user_id from order.user_id, order.user_id, or top-level user_id
-      const mapped_user_id = completeOrderDto.order?.user_id || 
-                            completeOrderDto.order?.user_id || 
-                            completeOrderDto.user_id || 
-                            user_id;
+      // Use the authenticated user's ID from the JWT token
+      const mapped_user_id = user_id;
       
       // Debug logging to see what we're getting
       console.log('Debug - completeOrderDto:', {
-        order_user_id: completeOrderDto.order?.user_id,
-        order_userId: completeOrderDto.order?.user_id,
-        top_level_userId: completeOrderDto.user_id,
         session_id: completeOrderDto.session_id,
         mapped_user_id: mapped_user_id
       });
@@ -182,9 +176,7 @@ export class WizardService {
         comments: completeOrderDto.order.comments, // Optional field - exists in schema
         session_id: completeOrderDto.session_id, // Optional field - exists in schema
         site_type: completeOrderDto.order.site_type, // Optional field - exists in schema
-        wizard_data: JSON.stringify(design_snapshot), // Optional field - exists in schema
-        website_framework: JSON.stringify(design_snapshot.websiteFramework || {}), // Optional field - exists in schema
-        additional_services: JSON.stringify(design_snapshot.additionalServices || {}), // Optional field - exists in schema
+        wizard_data: JSON.stringify(design_snapshot), // Optional field - exists in schema (large JSON field)
         created_at: new Date().toISOString(), // Required field - exists in schema
         updated_at: new Date().toISOString(), // Required field - exists in schema
       };
@@ -698,11 +690,8 @@ export class WizardService {
 
   private async sendOrderConfirmationEmails(orderDoc: any, invoiceDoc: any, completeOrderDto: CompleteOrderDto): Promise<void> {
     try {
-      // Map user_id from multiple possible sources (same logic as in completeOrder)
-      const mapped_user_id = completeOrderDto.order?.user_id || 
-                            completeOrderDto.order?.user_id || 
-                            completeOrderDto.user_id || 
-                            completeOrderDto.session_id;
+      // Use the user_id from the created order document
+      const mapped_user_id = orderDoc.user_id;
 
       // Send order confirmation to user
       await this.emailService.sendOrderNotification(
