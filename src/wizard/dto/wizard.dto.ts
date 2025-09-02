@@ -307,7 +307,7 @@ export class OrderDto {
   description: string;
 
   @IsNumber()
-  priceTomans: number;
+  total_amount: number;
 
   @IsOptional()
   @IsString()
@@ -470,26 +470,24 @@ export class GetDesignDto {
 export class OrderResponseDto {
   success: boolean;
   order_id: string;
-  invoiceId: string;
+  paymentId: string;
   message: string;
   order: {
     id: string;
     title: string;
     description: string;
-    price: number;
+    total_amount: number;
     status: string;
     user_id: string;
     created_at: string;
     updated_at: string;
   };
-  invoice: {
+  payment: {
     id: string;
     order_id: string;
     user_id: string;
     amount: number;
-    dueDate: string;
     status: string;
-    description: string;
     created_at: string;
     updated_at: string;
   };

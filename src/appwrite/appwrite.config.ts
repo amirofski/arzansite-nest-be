@@ -25,28 +25,37 @@ export class AppwriteConfig {
     return this.configService.get<string>('APPWRITE_WEBHOOK_SECRET');
   }
 
-  // Collection IDs
+  // NEW OPTIMIZED COLLECTIONS
   get collections() {
     return {
+      users: this.configService.get<string>('APPWRITE_COLLECTION_USERS'),
       orders: this.configService.get<string>('APPWRITE_COLLECTION_ORDERS'),
-      designs: this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS'),
+      payments: this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS'),
+      wizardSessions: this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS'),
+      projectFiles: this.configService.get<string>('APPWRITE_COLLECTION_PROJECT_FILES'),
+      notifications: this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS'),
+      userProfiles: this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES'),
+      supportTickets: this.configService.get<string>('APPWRITE_COLLECTION_SUPPORT_TICKETS'),
+      auditLogs: this.configService.get<string>('APPWRITE_COLLECTION_AUDIT_LOGS'),
+      systemSettings: this.configService.get<string>('APPWRITE_COLLECTION_SYSTEM_SETTINGS'),
+      authTokens: this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS'),
+      // Additional collections for compatibility
       wallets: this.configService.get<string>('APPWRITE_COLLECTION_WALLETS'),
       transactions: this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS'),
-      paymentTransactions: this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS'),
-      profiles: this.configService.get<string>('APPWRITE_COLLECTION_PROFILES'),
-      // userRoles: this.configService.get<string>('APPWRITE_COLLECTION_USER_ROLES'), // No longer needed - using Appwrite labels
-      emailLogs: this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_LOGS'),
-      siteConfig: this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG'),
-      emailVerifications: this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS'),
-      passwordResets: this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS'),
-      // New collections for Wallet & Invoice Management System
-      invoices: this.configService.get<string>('APPWRITE_COLLECTION_INVOICES'),
-      receipts: this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS'),
-      walletAdjustments: this.configService.get<string>('APPWRITE_COLLECTION_WALLET_ADJUSTMENTS'),
+      designs: this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS'),
     };
   }
 
-  // Bucket IDs
+  // NEW STORAGE BUCKETS
+  get storage() {
+    return {
+      projectFiles: this.configService.get<string>('APPWRITE_STORAGE_PROJECT_FILES'),
+      userAvatars: this.configService.get<string>('APPWRITE_STORAGE_USER_AVATARS'),
+      designAssets: this.configService.get<string>('APPWRITE_STORAGE_DESIGN_ASSETS'),
+    };
+  }
+
+  // Legacy buckets (keeping for backward compatibility during transition)
   get buckets() {
     return {
       designs: this.configService.get<string>('APPWRITE_BUCKET_DESIGNS') || 'designs',

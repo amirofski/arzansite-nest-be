@@ -1,5 +1,5 @@
 import { IsString, IsNumber, IsOptional, IsUUID, IsEnum } from 'class-validator';
-import { PaymentStatus, OrderStatus } from '../entities/order.entity';
+import { PaymentStatus, OrderStatus } from './order.dto';
 
 export class UpdateOrderDto {
   @IsOptional()
@@ -12,7 +12,7 @@ export class UpdateOrderDto {
 
   @IsOptional()
   @IsNumber()
-  price?: number;
+  total_amount?: number;
 
   @IsOptional()
   @IsEnum(PaymentStatus)

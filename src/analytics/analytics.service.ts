@@ -114,7 +114,7 @@ export class AnalyticsService {
       
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLET_TRANSACTIONS');
+      const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
       const { Query } = await import('node-appwrite');
       
       // Calculate date range

@@ -65,10 +65,10 @@ export class WizardService {
   async saveProgress(saveProgressDto: SaveProgressDto): Promise<WizardOrderDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
     // Check if progress already exists
-    const existingProgress = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+    const existingProgress = await databases.listDocuments(databaseId, wizardSessionsCollection, [
       Query.equal('session_id', saveProgressDto.session_id),
       Query.limit(1),
     ]);
@@ -78,7 +78,7 @@ export class WizardService {
       const existingDoc = existingProgress.documents[0];
       const updated = await databases.updateDocument(
         databaseId,
-        wizardOrdersCollection,
+        wizardSessionsCollection,
         existingDoc.$id,
         {
           ...saveProgressDto,
@@ -90,7 +90,7 @@ export class WizardService {
       // Create new progress
       const newDoc = await databases.createDocument(
         databaseId,
-        wizardOrdersCollection,
+        wizardSessionsCollection,
         ID.unique(),
         {
           ...saveProgressDto,
@@ -131,9 +131,9 @@ export class WizardService {
   async getUserProgress(user_id: string): Promise<WizardOrderDto[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
-    const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+    const result = await databases.listDocuments(databaseId, wizardSessionsCollection, [
       Query.equal('user_id', user_id),
       Query.orderDesc('updated_at'),
     ]);
@@ -145,7 +145,7 @@ export class WizardService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    const paymentsCollection = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
     const { ID } = await import('node-appwrite');
 
     try {
@@ -192,76 +192,73 @@ export class WizardService {
         orderData
       );
 
-      // 3. Create invoice for the order
-      const invoiceData = {
+      // 3. Create payment record for the order
+      const paymentData = {
         order_id: orderDoc.$id,
         user_id: mapped_user_id, // Use the same mapped user_id
         amount: priceRials,
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        currency: 'IRR',
         status: 'pending',
-        description: `Invoice for ${completeOrderDto.order.title}`,
+        payment_gateway: 'pending',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      const invoiceDoc = await databases.createDocument(
+      const paymentDoc = await databases.createDocument(
         databaseId,
-        invoicesCollection,
+        paymentsCollection,
         ID.unique(),
-        invoiceData
+        paymentData
       );
 
-      // 4. Update wizard order with completed status
-      const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+      // 4. Update wizard session with completed status
+      const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
       const { Query } = await import('node-appwrite');
       
-      const existingWizardOrder = await databases.listDocuments(databaseId, wizardOrdersCollection, [
+      const existingWizardSession = await databases.listDocuments(databaseId, wizardSessionsCollection, [
         Query.equal('session_id', completeOrderDto.session_id),
         Query.limit(1),
       ]);
 
-      if (existingWizardOrder.documents.length > 0) {
+      if (existingWizardSession.documents.length > 0) {
         const updated = await databases.updateDocument(
           databaseId,
-          wizardOrdersCollection,
-          existingWizardOrder.documents[0].$id,
+          wizardSessionsCollection,
+          existingWizardSession.documents[0].$id,
           {
-            status: 'completed',
-            completed_at: new Date().toISOString(),
+            is_completed: true,
             updated_at: new Date().toISOString(),
           }
         );
       }
 
       // 5. Send confirmation emails
-      await this.sendOrderConfirmationEmails(orderDoc, invoiceDoc, completeOrderDto);
+      await this.sendOrderConfirmationEmails(orderDoc, paymentDoc, completeOrderDto);
 
       // 6. Return success response
       return {
         success: true,
         order_id: orderDoc.$id,
-        invoiceId: invoiceDoc.$id,
+        paymentId: paymentDoc.$id,
         message: 'Order completed successfully',
         order: {
           id: orderDoc.$id,
           title: orderDoc.title,
           description: orderDoc.description,
-          price: orderDoc.total_amount,
+          total_amount: orderDoc.total_amount,
           status: orderDoc.status,
           user_id: orderDoc.user_id,
           created_at: orderDoc.created_at,
           updated_at: orderDoc.updated_at,
         },
-        invoice: {
-          id: invoiceDoc.$id,
-          order_id: invoiceDoc.order_id,
-          user_id: invoiceDoc.user_id,
-          amount: invoiceDoc.amount,
-          dueDate: invoiceDoc.due_date,
-          status: invoiceDoc.status,
-          description: invoiceDoc.description,
-          created_at: invoiceDoc.created_at,
-          updated_at: invoiceDoc.updated_at,
+        payment: {
+          id: paymentDoc.$id,
+          order_id: paymentDoc.order_id,
+          user_id: paymentDoc.user_id,
+          amount: paymentDoc.amount,
+          status: paymentDoc.status,
+          created_at: paymentDoc.created_at,
+          updated_at: paymentDoc.updated_at,
         },
       };
 
@@ -282,11 +279,11 @@ export class WizardService {
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
     const updated = await databases.updateDocument(
       databaseId,
-      wizardOrdersCollection,
+      wizardSessionsCollection,
       order_id,
       {
         ...updateOrderDto,
@@ -300,9 +297,9 @@ export class WizardService {
   async getOrder(order_id: string, user_id: string, isAdmin: boolean = false): Promise<WizardOrderDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
-    const data = await databases.getDocument(databaseId, wizardOrdersCollection, order_id).catch(() => null);
+    const data = await databases.getDocument(databaseId, wizardSessionsCollection, order_id).catch(() => null);
 
     if (!data) {
       throw new NotFoundException('Order not found');
@@ -328,7 +325,7 @@ export class WizardService {
   ): Promise<{ orders: WizardOrderDto[]; total: number; page: number; totalPages: number }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
     const queries: string[] = [Query.orderDesc('updated_at')];
 
@@ -344,7 +341,7 @@ export class WizardService {
     queries.push(Query.offset(offset));
     queries.push(Query.limit(limit));
 
-    const result = await databases.listDocuments(databaseId, wizardOrdersCollection, queries);
+    const result = await databases.listDocuments(databaseId, wizardSessionsCollection, queries);
     const total = result.total;
 
     return {
@@ -375,7 +372,7 @@ export class WizardService {
         }
 
         // Upload to storage
-        const bucket_id = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
+        const bucket_id = this.configService.get<string>('APPWRITE_STORAGE_PROJECT_FILES');
         const uploadResult = await this.storageService.uploadMultipart(bucket_id, file);
 
         if (uploadResult.file_id === 'placeholder-file-id') {
@@ -432,7 +429,7 @@ export class WizardService {
 
     // Delete from storage
     try {
-      const bucket_id = this.configService.get<string>('APPWRITE_BUCKET_PROJECT_FILES');
+      const bucket_id = this.configService.get<string>('APPWRITE_STORAGE_PROJECT_FILES');
       await this.storageService.deleteFile(bucket_id, file_id);
     } catch (error) {
       console.error('Failed to delete file from storage:', error);
@@ -445,25 +442,14 @@ export class WizardService {
   }
 
   async getAvailableDomainExtensions(): Promise<any[]> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
-
-    try {
-      const result = await databases.listDocuments(databaseId, domainExtensionsCollection, [
-        Query.equal('available', true),
-        Query.orderAsc('price'),
-      ]);
-      return (result.documents as any) || [];
-    } catch (error) {
-      // Return default extensions if collection doesn't exist
-      return [
-        { extension: '.ir', name: 'Iran', price: 50000, available: true, category: 'country' },
-        { extension: '.com', name: 'Commercial', price: 80000, available: true, category: 'international' },
-        { extension: '.net', name: 'Network', price: 75000, available: true, category: 'international' },
-        { extension: '.org', name: 'Organization', price: 70000, available: true, category: 'international' },
-      ];
-    }
+    // Domain extensions collection not available in new structure
+    // Return default extensions
+    return [
+      { extension: '.ir', name: 'Iran', price: 50000, available: true, category: 'country' },
+      { extension: '.com', name: 'Commercial', price: 80000, available: true, category: 'international' },
+      { extension: '.net', name: 'Network', price: 75000, available: true, category: 'international' },
+      { extension: '.org', name: 'Organization', price: 70000, available: true, category: 'international' },
+    ];
   }
 
   async checkDomainAvailability(domain: string, extension: string): Promise<{ available: boolean; domain: string; reason?: string }> {
@@ -475,22 +461,9 @@ export class WizardService {
   }
 
   async updateDomainPrices(extensionId: string, price: number, available: boolean): Promise<any> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
-
-    const updated = await databases.updateDocument(
-      databaseId,
-      domainExtensionsCollection,
-      extensionId,
-      {
-        price,
-        available,
-        updated_at: new Date().toISOString(),
-      }
-    );
-
-    return updated;
+    // Domain extensions collection not available in new structure
+    // This method is not functional in the new database structure
+    throw new Error('Domain price updates not supported in new database structure');
   }
 
   async calculatePricing(calculatePriceDto: CalculatePriceDto): Promise<any> {

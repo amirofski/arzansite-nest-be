@@ -4,14 +4,14 @@ export interface Order {
   title: string;
   description?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  price?: number;
+  total_amount?: number;
   comments?: string;
   payment_status?: string;
   zarinpal_authority?: string;
   zarinpal_ref_id?: string;
-  design_data?: any;
-  design_options?: any;
-  design_preview_url?: string;
+  wizard_data?: any;
+  site_type?: string;
+  session_id?: string;
   total_pages?: number;
   total_sections?: number;
   created_at: string;

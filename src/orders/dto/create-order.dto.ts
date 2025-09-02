@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsUUID, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsUUID, IsEnum, IsObject } from 'class-validator';
 
 export enum PaymentStatus {
   PENDING = 'pending',
@@ -16,7 +16,7 @@ export class CreateOrderDto {
   description: string;
 
   @IsNumber()
-  price: number;
+  total_amount: number;
 
   @IsOptional()
   @IsEnum(PaymentStatus)
@@ -31,7 +31,7 @@ export class CreateOrderDto {
   total_pages?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsString()
   total_sections?: number;
 
   @IsOptional()
@@ -47,7 +47,8 @@ export class CreateOrderDto {
   site_type?: string;
 
   @IsOptional()
-  wizard_data?: any; // Consolidated wizard data
+  @IsObject()
+  wizard_data?: Record<string, unknown>; // Consolidated wizard data
 
   @IsOptional()
   @IsString()

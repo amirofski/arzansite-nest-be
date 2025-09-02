@@ -37,7 +37,7 @@ export class AdminService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
 
     const queries = [Query.orderDesc('updated_at')];
     if (search) {
@@ -142,7 +142,7 @@ export class AdminService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
 
     const queries = [Query.orderDesc('created_at')];
     if (status) {
@@ -185,7 +185,7 @@ export class AdminService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
 
     const queries = [Query.orderDesc('created_at')];
     if (status) {

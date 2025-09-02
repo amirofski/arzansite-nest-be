@@ -1,10 +1,34 @@
-import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsObject } from 'class-validator';
 
 export enum OrderStatus {
   PENDING = 'pending',
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled'
+}
+
+export enum SiteType {
+  PERSONAL = 'personal',
+  BUSINESS = 'business'
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  SUCCEEDED = 'succeeded',
+  FAILED = 'failed',
+  REFUNDED = 'refunded',
+  CANCELLED = 'cancelled'
+}
+
+export enum PaymentMethod {
+  WALLET = 'wallet',
+  ZARINPAL = 'zarinpal'
+}
+
+export enum PaymentCycle {
+  MONTHLY = 'monthly',
+  ANNUAL = 'annual'
 }
 
 export class CreateOrderDto {
@@ -17,11 +41,11 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsNumber()
-  price?: number;
+  total_amount?: number;
 
   @IsOptional()
-  @IsString()
-  payment_status?: string;
+  @IsEnum(PaymentStatus)
+  payment_status?: PaymentStatus;
 
   @IsOptional()
   @IsString()
@@ -34,6 +58,34 @@ export class CreateOrderDto {
   @IsOptional()
   @IsNumber()
   total_sections?: number;
+
+  @IsOptional()
+  @IsString()
+  user_id?: string;
+
+  @IsOptional()
+  @IsString()
+  session_id?: string;
+
+  @IsOptional()
+  @IsEnum(SiteType)
+  site_type?: SiteType;
+
+  @IsOptional()
+  @IsObject()
+  wizard_data?: Record<string, unknown>; // Consolidated wizard data
+
+  @IsOptional()
+  @IsString()
+  payment_gateway?: string;
+
+  @IsOptional()
+  @IsString()
+  callback_url?: string;
+
+  @IsOptional()
+  @IsString()
+  return_url?: string;
 }
 
 export class UpdateOrderDto {
@@ -47,7 +99,7 @@ export class UpdateOrderDto {
 
   @IsOptional()
   @IsNumber()
-  price?: number;
+  total_amount?: number;
 
   @IsOptional()
   @IsString()
@@ -58,8 +110,8 @@ export class UpdateOrderDto {
   status?: OrderStatus;
 
   @IsOptional()
-  @IsString()
-  payment_status?: string;
+  @IsEnum(PaymentStatus)
+  payment_status?: PaymentStatus;
 
   @IsOptional()
   @IsString()
@@ -76,4 +128,28 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsNumber()
   total_sections?: number;
+
+  @IsOptional()
+  @IsString()
+  session_id?: string;
+
+  @IsOptional()
+  @IsEnum(SiteType)
+  site_type?: SiteType;
+
+  @IsOptional()
+  @IsObject()
+  wizard_data?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  payment_gateway?: string;
+
+  @IsOptional()
+  @IsString()
+  callback_url?: string;
+
+  @IsOptional()
+  @IsString()
+  return_url?: string;
 }

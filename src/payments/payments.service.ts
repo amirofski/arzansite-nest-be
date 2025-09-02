@@ -38,11 +38,24 @@ export class PaymentsService {
       // Get user profile for payment details
       const userProfile = await this.getUserProfile(user_id);
       
+      // Validate callback URL
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+      const requestedCallback = paymentRequestDto.callback_url || `${frontendUrl}/payment/callback`;
+      try {
+        const url = new URL(requestedCallback);
+        const allowed = [new URL(frontendUrl).host];
+        if (!allowed.includes(url.host)) {
+          throw new Error('Callback URL host not allowed');
+        }
+      } catch (_) {
+        throw new BadRequestException('Invalid callback URL');
+      }
+
       // Create payment request using ZarinPal service
       const paymentResponse = await this.zarinPalService.createPayment({
         amount: paymentRequestDto.amount,
         description: paymentRequestDto.description,
-        callback_url: paymentRequestDto.callback_url || `${this.configService.get('FRONTEND_URL')}/payment/callback`,
+        callback_url: requestedCallback,
         mobile: paymentRequestDto.mobile || userProfile.phone || '',
         email: paymentRequestDto.email || userProfile.email,
         order_id: paymentRequestDto.order_id,
@@ -87,7 +100,7 @@ export class PaymentsService {
         throw new BadRequestException('Payment already verified');
       }
       
-      orderAmount = order.price;
+      orderAmount = order.total_amount;
     } else {
       // For wallet deposits, extract amount from order_id
       // Format: deposit_userId_timestamp_amount
@@ -100,6 +113,11 @@ export class PaymentsService {
     }
 
     try {
+      // Idempotency: if we already logged a completed verification for this authority, short-circuit
+      const existing = await this.getPaymentTransactionByAuthority(paymentVerifyDto.authority);
+      if (existing && existing.status === 'completed') {
+        return { success: true, refId: existing.zarinpal_ref_id, amount: existing.amount };
+      }
       // Verify payment with ZarinPal
       const paymentResponse = await this.zarinPalService.verifyPayment(paymentVerifyDto.authority, orderAmount);
 
@@ -189,7 +207,7 @@ export class PaymentsService {
         user_id: user_id,
         transaction_type: 'refund',
         zarinpal_ref_id: order.zarinpal_ref_id,
-        amount: paymentRefundDto.amount || order.price,
+        amount: paymentRefundDto.amount || order.total_amount,
         status: 'completed',
         gateway_response: { message: 'Refund logged - ZarinPal refund API not implemented' },
         metadata: { refund_reason: 'user_requested' },
@@ -220,7 +238,7 @@ export class PaymentsService {
       user_id: user_id,
       transaction_type: 'cancellation',
       zarinpal_authority: order.zarinpal_authority,
-      amount: order.price,
+              amount: order.total_amount,
       status: 'cancelled',
       metadata: { cancellation_reason: 'user_cancelled' },
     });
@@ -240,7 +258,7 @@ export class PaymentsService {
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
     const { Query } = await import('node-appwrite');
     const res = await databases.listDocuments(databaseId, collectionId, [
       Query.equal('order_id', order_id),
@@ -359,7 +377,7 @@ export class PaymentsService {
   private async getUserProfile(user_id: string): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
     const { Query } = await import('node-appwrite');
     
     try {
@@ -376,7 +394,7 @@ export class PaymentsService {
   private async logPaymentTransaction(transactionData: Partial<PaymentTransaction>): Promise<void> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
     const { ID } = await import('node-appwrite');
     
     // Stringify metadata and gateway_response for Appwrite storage
@@ -397,7 +415,7 @@ export class PaymentsService {
   private async getPaymentTransactionByAuthority(authority: string): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENT_TRANSACTIONS');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
     const { Query } = await import('node-appwrite');
     
     try {

@@ -32,10 +32,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
       success: false,
       error,
       message,
+      status,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-    };
+      requestId: request.headers['x-request-id'] || undefined,
+    } as any;
 
     // Don't log sensitive information
     console.error('Exception:', {

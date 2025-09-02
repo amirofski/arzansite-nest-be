@@ -7,6 +7,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -64,6 +66,9 @@ export class MessagingController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createTopic(@Body() body: { topicId?: string; name: string; subscribe?: string[] }) {
     try {
+      if (!body?.name || body.name.trim().length < 3) {
+        throw new BadRequestException('Topic name is required and must be at least 3 characters');
+      }
       const topicId = (body.topicId && body.topicId.trim().length > 0)
         ? body.topicId
         : (body.name || '').toLowerCase().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || ID.unique();
@@ -75,7 +80,7 @@ export class MessagingController {
       );
       return topic;
     } catch (error) {
-      throw new Error(`Failed to create topic: ${error.message}`);
+      throw new InternalServerErrorException(`Failed to create topic: ${error.message}`);
     }
   }
 
@@ -114,6 +119,12 @@ export class MessagingController {
     @Body() body: { message: string; data?: any },
   ) {
     try {
+      if (!topicId || topicId.trim().length === 0) {
+        throw new BadRequestException('topicId is required');
+      }
+      if (!body?.message || body.message.trim().length === 0) {
+        throw new BadRequestException('message is required');
+      }
       const response = await this.appwriteService.sendMessage(
         topicId,
         body.message,
@@ -121,7 +132,7 @@ export class MessagingController {
       );
       return response;
     } catch (error) {
-      throw new Error(`Failed to send message: ${error.message}`);
+      throw new InternalServerErrorException(`Failed to send message: ${error.message}`);
     }
   }
 }

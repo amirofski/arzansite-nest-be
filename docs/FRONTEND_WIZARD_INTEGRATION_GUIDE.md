@@ -1,882 +1,471 @@
-# Frontend Wizard Integration Guide
+# 🚀 Frontend Wizard Integration Guide
 
-## Overview
-This guide provides comprehensive instructions for integrating the Website Design Wizard system with your frontend application. The Wizard system allows users to create custom websites through a step-by-step process, with real-time pricing calculations and file upload capabilities.
+## 📋 Overview
 
-## Table of Contents
-1. [Authentication Setup](#authentication-setup)
-2. [Wizard Flow Implementation](#wizard-flow-implementation)
-3. [API Integration](#api-integration)
-4. [File Upload Implementation](#file-upload-implementation)
-5. [Real-time Updates](#real-time-updates)
-6. [Error Handling](#error-handling)
-7. [UI/UX Best Practices](#uiux-best-practices)
-8. [Testing](#testing)
+This guide explains how to integrate with the `/api/wizard/complete-order` endpoint to create website orders from the wizard interface.
 
-## Authentication Setup
+## 🔑 Authentication
 
-### JWT Token Management
+**Required**: JWT Bearer Token in Authorization header
 ```typescript
-// Store JWT token after login
-localStorage.setItem('jwt_token', response.data.token);
-
-// Add token to all API requests
 const headers = {
-  'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
+  'Authorization': `Bearer ${jwtToken}`,
   'Content-Type': 'application/json'
 };
 ```
 
-### Session Management for Guest Users
-```typescript
-// Generate unique session ID for guest users
-const generateSessionId = () => {
-  return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-};
+## 📤 API Endpoint
 
-// Store session ID
-const sessionId = generateSessionId();
-localStorage.setItem('wizard_session_id', sessionId);
+```http
+POST /api/wizard/complete-order
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
 ```
 
-## Wizard Flow Implementation
+## 📊 Request Structure
 
-### Step 1: Website Type Selection
+### Complete Request Body
 ```typescript
-interface WebsiteTypeStep {
-  siteType: 'personal' | 'business';
-}
-
-const handleWebsiteTypeSelection = async (siteType: WebsiteTypeStep['siteType']) => {
-  try {
-    const response = await saveWizardProgress({
-      sessionId,
-      siteType,
-    });
-    
-    // Navigate to next step
-    setCurrentStep(2);
-  } catch (error) {
-    console.error('Failed to save progress:', error);
-  }
-};
-```
-
-### Step 2: Design Method & Structure
-```typescript
-interface DesignMethodStep {
-  websiteFramework: {
-    designMethod: 'template' | 'dynamic';
-    dynamicDesign?: {
-      pages: Page[];
-      currentPageId: string;
+interface CompleteOrderRequest {
+  session_id: string;           // Wizard session identifier
+  order: {
+    title: string;              // Website title (e.g., "وب‌سایت شخصی - dsfsdfsd")
+    description: string;        // Website description (e.g., "پروژه ذخیره شده")
+    priceTomans: number;        // Price in Tomans (e.g., 4700000)
+    comments?: string;          // Optional comments (e.g., "پروژه ذخیره شده - دامنه: dsfsdfsd.ir")
+    site_type?: 'personal' | 'business'; // Optional site type
+  };
+  design_snapshot: {
+    websiteFramework: {
+      dynamicDesign: {
+        pages: Array<{
+          id: string;
+          name: string;
+          sections: Array<{
+            id: string;
+            section_type: string;
+            layout_id: string;
+            order: number;
+            custom_data: Record<string, any>;
+          }>;
+          canvas_dimensions: {
+            width: number;
+            height: number;
+          };
+        }>;
+        current_page_id: string;
+      };
     };
+    branding: {
+      primaryColor: string;
+      fontFamily: string;
+      logo?: string;
+    };
+    additionalServices: {
+      socialMediaIntegration: boolean;
+      seoOptimization: boolean;
+      analyticsSetup: boolean;
+      maintenancePlan: boolean;
+      rushDelivery: boolean;
+    };
+    domains: {
+      primary_domain: string;
+      additional_domains: string[];
+    };
+    pricing: {
+      additionalServices: Record<string, boolean>;
+      customizationLevel: number[];
+      rushDelivery: boolean;
+      totalPrice: number;
+    };
+    paymentOptions: Record<string, any>;
   };
 }
+```
 
-const handleDesignMethodSelection = async (designMethod: 'template' | 'dynamic') => {
-  try {
-    const response = await saveWizardProgress({
-      sessionId,
-      websiteFramework: {
-        designMethod,
-        dynamicDesign: designMethod === 'dynamic' ? {
-          pages: [],
-          currentPageId: ''
-        } : undefined
+### Example Request
+```typescript
+const requestBody = {
+  session_id: "wizard_1756742357515",
+  order: {
+    title: "وب‌سایت شخصی - dsfsdfsd",
+    description: "پروژه ذخیره شده",
+    priceTomans: 4700000,
+    comments: "پروژه ذخیره شده - دامنه: dsfsdfsd.ir",
+    site_type: "personal"
+  },
+  design_snapshot: {
+    websiteFramework: {
+      dynamicDesign: {
+        pages: [
+          {
+            id: "main",
+            name: "صفحه اصلی",
+            sections: [
+              {
+                id: "headers-1755528540637",
+                section_type: "headers",
+                layout_id: "headers-36",
+                order: 0,
+                custom_data: {}
+              },
+              {
+                id: "footer-1755528549407",
+                section_type: "footer",
+                layout_id: "footer-25",
+                order: 1,
+                custom_data: {}
+              }
+            ],
+            canvas_dimensions: {
+              width: 1200,
+              height: 800
+            }
+          }
+        ],
+        current_page_id: "main"
       }
-    });
-    
-    setCurrentStep(3);
-  } catch (error) {
-    console.error('Failed to save progress:', error);
+    },
+    branding: {
+      primaryColor: "#8B5CF6",
+      fontFamily: "vazir",
+      logo: ""
+    },
+    additionalServices: {
+      socialMediaIntegration: true,
+      seoOptimization: true,
+      analyticsSetup: true,
+      maintenancePlan: true,
+      rushDelivery: true
+    },
+    domains: {
+      primary_domain: "dsfsdfsd",
+      additional_domains: []
+    },
+    pricing: {
+      additionalServices: {
+        socialMediaIntegration: true,
+        seoOptimization: true,
+        analyticsSetup: true,
+        maintenancePlan: true,
+        rushDelivery: true
+      },
+      customizationLevel: [3],
+      rushDelivery: false,
+      totalPrice: 4700000
+    },
+    paymentOptions: {}
   }
 };
 ```
 
-### Step 3: Branding & Colors
+## 📥 Response Structure
+
+### Success Response (200)
 ```typescript
-interface BrandingStep {
-  branding: {
-    primaryColor: string;
-    customColors: string[];
-    fontFamily: string;
+interface CompleteOrderResponse {
+  success: true;
+  order_id: string;
+  invoiceId: string;
+  message: string;
+  order: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;              // Price in Rials (Tomans × 10)
+    status: 'pending';
+    user_id: string;
+    created_at: string;
+    updated_at: string;
+  };
+  invoice: {
+    id: string;
+    order_id: string;
+    user_id: string;
+    amount: number;             // Amount in Rials
+    dueDate: string;            // Due date (30 days from creation)
+    status: 'pending';
+    description: string;
+    created_at: string;
+    updated_at: string;
   };
 }
-
-const handleBrandingSubmit = async (branding: BrandingStep['branding']) => {
-  try {
-    const response = await saveWizardProgress({
-      sessionId,
-      branding
-    });
-    
-    setCurrentStep(4);
-  } catch (error) {
-    console.error('Failed to save progress:', error);
-  }
-};
 ```
 
-### Step 4: Additional Services
+### Error Response (400/500)
 ```typescript
-interface AdditionalServicesStep {
-  additionalServices: {
-    seoOptimization: boolean;
-    socialMediaIntegration: boolean;
-    analyticsSetup: boolean;
-    backupService: boolean;
-    maintenancePlan: boolean;
-    rushDelivery: boolean;
-  };
+interface ErrorResponse {
+  success: false;
+  error: string;
+  message: string;
+  timestamp: string;
+  path: string;
+  method: string;
 }
-
-const handleServicesSelection = async (services: AdditionalServicesStep['additionalServices']) => {
-  try {
-    const response = await saveWizardProgress({
-      sessionId,
-      additionalServices: services
-    });
-    
-    // Calculate pricing
-    const pricing = await calculatePricing({
-      additionalServices: services
-    });
-    
-    setPricing(pricing);
-    setCurrentStep(5);
-  } catch (error) {
-    console.error('Failed to save progress:', error);
-  }
-};
 ```
 
-### Step 5: Domain Selection
-```typescript
-interface DomainStep {
-  domains: {
-    primaryDomain: string;
-    additionalDomains: Domain[];
-  };
-}
+## 🎯 Frontend Implementation
 
-const handleDomainSelection = async (domains: DomainStep['domains']) => {
-  try {
-    // Check domain availability
-    const availability = await checkDomainAvailability(
-      domains.primaryDomain,
-      '.ir'
-    );
-    
-    if (availability.available) {
-      const response = await saveWizardProgress({
-        sessionId,
-        domains
-      });
-      
-      // Recalculate pricing with domain costs
-      const pricing = await calculatePricing({
-        domains
-      });
-      
-      setPricing(pricing);
-      setCurrentStep(6);
-    } else {
-      setDomainError('Domain not available');
+### 1. Basic Integration
+```typescript
+class WizardService {
+  private baseUrl = 'https://nest.arzansite.com/api';
+  private jwtToken: string;
+
+  constructor(jwtToken: string) {
+    this.jwtToken = jwtToken;
+  }
+
+  async completeOrder(request: CompleteOrderRequest): Promise<CompleteOrderResponse> {
+    const response = await fetch(`${this.baseUrl}/wizard/complete-order`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.jwtToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(request)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to complete order');
     }
-  } catch (error) {
-    console.error('Failed to save progress:', error);
+
+    return response.json();
   }
-};
+}
 ```
 
-## API Integration
-
-### Core API Functions
+### 2. React Hook Example
 ```typescript
-// API base configuration
-const API_BASE = 'https://your-api-domain.com/api/wizard';
+import { useState } from 'react';
 
-// Save wizard progress
-export const saveWizardProgress = async (data: SaveProgressDto): Promise<WizardOrderDto> => {
-  const response = await fetch(`${API_BASE}/save-progress`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
-// Get wizard progress
-export const getWizardProgress = async (sessionId: string, userId?: string): Promise<WizardOrderDto> => {
-  const url = userId 
-    ? `${API_BASE}/progress/user/${userId}`
-    : `${API_BASE}/progress/${sessionId}`;
-    
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
-// Complete wizard order
-export const completeWizardOrder = async (data: CompleteOrderDto): Promise<WizardOrderDto> => {
-  const response = await fetch(`${API_BASE}/complete-order`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
-    },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
-// Calculate pricing
-export const calculatePricing = async (data: CalculatePriceDto): Promise<PricingDto> => {
-  const response = await fetch(`${API_BASE}/calculate-price`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-```
-
-### Domain Management APIs
-```typescript
-// Get available domain extensions
-export const getAvailableDomainExtensions = async (): Promise<DomainExtension[]> => {
-  const response = await fetch(`${API_BASE}/domains/extensions`);
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
-// Check domain availability
-export const checkDomainAvailability = async (
-  domain: string, 
-  extension: string
-): Promise<DomainAvailability> => {
-  const response = await fetch(`${API_BASE}/domains/check-availability`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ domain, extension }),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
-// Get domain prices
-export const getDomainPrices = async (): Promise<DomainExtension[]> => {
-  const response = await fetch(`${API_BASE}/domains/prices`);
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-```
-
-### Order Management APIs
-```typescript
-// Get user orders
-export const getUserOrders = async (userId: string): Promise<WizardOrderDto[]> => {
-  const response = await fetch(`${API_BASE}/orders/user/${userId}`, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
-// Update order
-export const updateOrder = async (
-  orderId: string, 
-  data: UpdateOrderDto
-): Promise<WizardOrderDto> => {
-  const response = await fetch(`${API_BASE}/orders/${orderId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
-    },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-```
-
-## File Upload Implementation
-
-### File Upload Component
-```typescript
-import React, { useState, useRef } from 'react';
-
-interface FileUploadProps {
-  orderId: string;
-  sessionId: string;
-  onUploadComplete: (files: ProjectFile[]) => void;
+interface UseWizardOrder {
+  completeOrder: (request: CompleteOrderRequest) => Promise<void>;
+  loading: boolean;
+  error: string | null;
+  orderData: CompleteOrderResponse | null;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ orderId, sessionId, onUploadComplete }) => {
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export function useWizardOrder(jwtToken: string): UseWizardOrder {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [orderData, setOrderData] = useState<CompleteOrderResponse | null>(null);
 
-  const handleFileUpload = async (files: FileList) => {
-    if (files.length === 0) return;
-
-    setUploading(true);
-    setUploadProgress(0);
-
-    const formData = new FormData();
-    formData.append('orderId', orderId);
-    formData.append('sessionId', sessionId);
-    
-    Array.from(files).forEach((file) => {
-      formData.append('files', file);
-    });
+  const completeOrder = async (request: CompleteOrderRequest) => {
+    setLoading(true);
+    setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/upload-files`, {
+      const response = await fetch('/api/wizard/complete-order', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request)
       });
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to complete order');
       }
 
-      const result = await response.json();
-      
-      if (result.uploadedFiles.length > 0) {
-        onUploadComplete(result.uploadedFiles);
-      }
-      
-      if (result.errors.length > 0) {
-        console.warn('Some files failed to upload:', result.errors);
-      }
-    } catch (error) {
-      console.error('File upload error:', error);
+      const data = await response.json();
+      setOrderData(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
-      setUploading(false);
-      setUploadProgress(0);
+      setLoading(false);
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    handleFileUpload(files);
+  return { completeOrder, loading, error, orderData };
+}
+```
+
+### 3. React Component Example
+```typescript
+import React from 'react';
+import { useWizardOrder } from './useWizardOrder';
+
+interface WizardCompleteOrderProps {
+  jwtToken: string;
+  sessionId: string;
+  orderData: any;
+  designSnapshot: any;
+  onSuccess: (orderId: string) => void;
+  onError: (error: string) => void;
+}
+
+export function WizardCompleteOrder({
+  jwtToken,
+  sessionId,
+  orderData,
+  designSnapshot,
+  onSuccess,
+  onError
+}: WizardCompleteOrderProps) {
+  const { completeOrder, loading, error, orderData: responseData } = useWizardOrder(jwtToken);
+
+  const handleCompleteOrder = async () => {
+    try {
+      const request = {
+        session_id: sessionId,
+        order: {
+          title: orderData.title,
+          description: orderData.description,
+          priceTomans: orderData.priceTomans,
+          comments: orderData.comments,
+          site_type: orderData.site_type
+        },
+        design_snapshot: designSnapshot
+      };
+
+      await completeOrder(request);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Failed to complete order');
+    }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
+  // Handle successful order creation
+  React.useEffect(() => {
+    if (responseData?.success && responseData.order_id) {
+      onSuccess(responseData.order_id);
+    }
+  }, [responseData, onSuccess]);
+
+  // Handle errors
+  React.useEffect(() => {
+    if (error) {
+      onError(error);
+    }
+  }, [error, onError]);
 
   return (
-    <div
-      className="file-upload-zone"
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-    >
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept="image/*,application/pdf,text/*,.doc,.docx"
-        onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-        style={{ display: 'none' }}
-      />
+    <div>
+      <button 
+        onClick={handleCompleteOrder}
+        disabled={loading}
+        className="btn btn-primary"
+      >
+        {loading ? 'Creating Order...' : 'Complete Order'}
+      </button>
       
-      <div className="upload-content">
-        <p>Drag and drop files here or</p>
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-        >
-          Choose Files
-        </button>
-        
-        {uploading && (
-          <div className="upload-progress">
-            <div 
-              className="progress-bar" 
-              style={{ width: `${uploadProgress}%` }}
-            />
-            <span>Uploading... {uploadProgress}%</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-```
-
-### File Management
-```typescript
-// List order files
-export const listOrderFiles = async (orderId: string): Promise<ProjectFile[]> => {
-  const response = await fetch(`${API_BASE}/orders/${orderId}/files`, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
-// Delete file
-export const deleteFile = async (fileId: string, orderId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE}/files/${fileId}?orderId=${orderId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-};
-```
-
-## Real-time Updates
-
-### Progress Persistence
-```typescript
-// Auto-save progress every 30 seconds
-useEffect(() => {
-  const autoSaveInterval = setInterval(() => {
-    if (hasUnsavedChanges) {
-      saveWizardProgress(currentProgress);
-      setHasUnsavedChanges(false);
-    }
-  }, 30000);
-
-  return () => clearInterval(autoSaveInterval);
-}, [hasUnsavedChanges, currentProgress]);
-
-// Save progress on step change
-const handleStepChange = async (newStep: number) => {
-  if (hasUnsavedChanges) {
-    await saveWizardProgress(currentProgress);
-    setHasUnsavedChanges(false);
-  }
-  setCurrentStep(newStep);
-};
-```
-
-### Session Recovery
-```typescript
-// Recover progress on page load
-useEffect(() => {
-  const recoverProgress = async () => {
-    const sessionId = localStorage.getItem('wizard_session_id');
-    if (sessionId) {
-      try {
-        const progress = await getWizardProgress(sessionId);
-        setCurrentProgress(progress);
-        setCurrentStep(determineCurrentStep(progress));
-      } catch (error) {
-        console.error('Failed to recover progress:', error);
-        // Start fresh if recovery fails
-        localStorage.removeItem('wizard_session_id');
-      }
-    }
-  };
-
-  recoverProgress();
-}, []);
-
-const determineCurrentStep = (progress: WizardOrderDto): number => {
-  if (!progress.siteType) return 1;
-  if (!progress.websiteFramework) return 2;
-  if (!progress.branding) return 3;
-  if (!progress.additionalServices) return 4;
-  if (!progress.domains) return 5;
-  return 6;
-};
-```
-
-## Error Handling
-
-### Global Error Handler
-```typescript
-class WizardErrorHandler {
-  static handle(error: any, context: string) {
-    console.error(`Wizard Error in ${context}:`, error);
-    
-    if (error.response?.status === 401) {
-      // Handle authentication error
-      this.handleAuthError();
-    } else if (error.response?.status === 403) {
-      // Handle permission error
-      this.handlePermissionError();
-    } else if (error.response?.status === 404) {
-      // Handle not found error
-      this.handleNotFoundError();
-    } else if (error.response?.status >= 500) {
-      // Handle server error
-      this.handleServerError();
-    } else {
-      // Handle other errors
-      this.handleGenericError(error);
-    }
-  }
-
-  private static handleAuthError() {
-    // Redirect to login or refresh token
-    localStorage.removeItem('jwt_token');
-    window.location.href = '/login';
-  }
-
-  private static handlePermissionError() {
-    // Show permission denied message
-    this.showNotification('Access denied. Please check your permissions.', 'error');
-  }
-
-  private static handleNotFoundError() {
-    // Show not found message
-    this.showNotification('The requested resource was not found.', 'warning');
-  }
-
-  private static handleServerError() {
-    // Show server error message
-    this.showNotification('Server error. Please try again later.', 'error');
-  }
-
-  private static handleGenericError(error: any) {
-    // Show generic error message
-    const message = error.message || 'An unexpected error occurred.';
-    this.showNotification(message, 'error');
-  }
-
-  private static showNotification(message: string, type: 'success' | 'warning' | 'error') {
-    // Implement your notification system
-    console.log(`${type.toUpperCase()}: ${message}`);
-  }
-}
-```
-
-### API Error Handling
-```typescript
-// Wrapper for API calls with error handling
-export const apiCall = async <T>(
-  apiFunction: () => Promise<T>,
-  context: string
-): Promise<T> => {
-  try {
-    return await apiFunction();
-  } catch (error) {
-    WizardErrorHandler.handle(error, context);
-    throw error;
-  }
-};
-
-// Usage example
-const saveProgress = async (data: SaveProgressDto) => {
-  return apiCall(
-    () => saveWizardProgress(data),
-    'saveWizardProgress'
-  );
-};
-```
-
-## UI/UX Best Practices
-
-### Progress Indicator
-```typescript
-const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({
-  currentStep,
-  totalSteps
-}) => {
-  const steps = [
-    'Website Type',
-    'Design Method',
-    'Branding',
-    'Services',
-    'Domain',
-    'Review'
-  ];
-
-  return (
-    <div className="progress-indicator">
-      {steps.map((step, index) => (
-        <div
-          key={index}
-          className={`step ${index + 1 <= currentStep ? 'completed' : ''} ${
-            index + 1 === currentStep ? 'current' : ''
-          }`}
-        >
-          <div className="step-number">{index + 1}</div>
-          <div className="step-label">{step}</div>
+      {error && (
+        <div className="alert alert-danger mt-3">
+          Error: {error}
         </div>
-      ))}
+      )}
     </div>
   );
-};
-```
-
-### Responsive Design
-```css
-/* Mobile-first approach */
-.wizard-container {
-  padding: 1rem;
-  max-width: 100%;
-}
-
-@media (min-width: 768px) {
-  .wizard-container {
-    padding: 2rem;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-}
-
-@media (min-width: 1024px) {
-  .wizard-container {
-    max-width: 1000px;
-  }
 }
 ```
 
-### Loading States
+## ⚠️ Important Notes
+
+### 1. User ID Handling
+- **DO NOT** send `user_id` in the request body
+- The backend automatically uses the authenticated user's ID from the JWT token
+- This ensures security and prevents user impersonation
+
+### 2. Price Conversion
+- Send price in **Tomans** (`priceTomans`)
+- Backend automatically converts to **Rials** (×10) for storage
+- Response shows price in Rials
+
+### 3. Design Snapshot
+- The complete design data is stored in the `wizard_data` field
+- This field can handle large JSON objects
+- Individual components (website_framework, additional_services) are stored separately for easier querying
+
+### 4. Session Management
+- Each wizard session should have a unique `session_id`
+- Use timestamp-based IDs: `wizard_${Date.now()}`
+- Session ID is used to track progress and link orders
+
+## 🔍 Error Handling
+
+### Common Errors
+
+1. **Authentication Errors (401)**
+   ```typescript
+   if (response.status === 401) {
+     // Redirect to login or refresh token
+     handleAuthenticationError();
+   }
+   ```
+
+2. **Validation Errors (400)**
+   ```typescript
+   if (response.status === 400) {
+     const errorData = await response.json();
+     // Show validation errors to user
+     showValidationErrors(errorData.errors);
+   }
+   ```
+
+3. **Server Errors (500)**
+   ```typescript
+   if (response.status >= 500) {
+     // Show generic error message
+     showErrorMessage('Server error. Please try again later.');
+   }
+   ```
+
+## 🎉 Success Flow
+
+1. **Order Created**: Order appears in user's dashboard immediately
+2. **Invoice Generated**: Pending invoice created automatically
+3. **Email Sent**: Confirmation emails sent to user and admin
+4. **Status Tracking**: Order status can be tracked via order ID
+
+## 📱 Mobile Considerations
+
+- Ensure design snapshot data doesn't exceed reasonable size limits
+- Consider compressing large JSON data before sending
+- Implement retry logic for network failures
+- Show loading states during API calls
+
+## 🧪 Testing
+
+### Test Data
 ```typescript
-const LoadingSpinner: React.FC<{ loading: boolean; children: React.ReactNode }> = ({
-  loading,
-  children
-}) => {
-  if (loading) {
-    return (
-      <div className="loading-overlay">
-        <div className="spinner"></div>
-        <p>Loading...</p>
-      </div>
-    );
+const testRequest = {
+  session_id: `test_${Date.now()}`,
+  order: {
+    title: "Test Website",
+    description: "Test description",
+    priceTomans: 1000000,
+    comments: "Test comment",
+    site_type: "personal"
+  },
+  design_snapshot: {
+    // Minimal test data
+    websiteFramework: { test: true },
+    branding: { primaryColor: "#000000" },
+    additionalServices: { seoOptimization: true },
+    domains: { primary_domain: "test" },
+    pricing: { totalPrice: 1000000 },
+    paymentOptions: {}
   }
-
-  return <>{children}</>;
 };
 ```
 
-## Testing
+### Validation
+- Test with various design snapshot sizes
+- Verify price conversion (Tomans → Rials)
+- Check error handling for invalid data
+- Test authentication flow
 
-### Unit Tests
-```typescript
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { WizardStep } from './WizardStep';
+---
 
-describe('WizardStep', () => {
-  it('should render step content correctly', () => {
-    render(<WizardStep step={1} />);
-    expect(screen.getByText('Website Type')).toBeInTheDocument();
-  });
+## 📞 Support
 
-  it('should handle form submission', async () => {
-    const mockOnSubmit = jest.fn();
-    render(<WizardStep step={1} onSubmit={mockOnSubmit} />);
-    
-    fireEvent.click(screen.getByText('Personal'));
-    fireEvent.click(screen.getByText('Continue'));
-    
-    await waitFor(() => {
-      expect(mockOnSubmit).toHaveBeenCalledWith({ siteType: 'personal' });
-    });
-  });
-});
-```
+For questions or issues with this integration:
+1. Check the API response for specific error messages
+2. Verify JWT token is valid and not expired
+3. Ensure all required fields are provided
+4. Check network connectivity and CORS settings
 
-### Integration Tests
-```typescript
-describe('Wizard API Integration', () => {
-  it('should save progress successfully', async () => {
-    const mockData = { sessionId: 'test', siteType: 'personal' };
-    const response = await saveWizardProgress(mockData);
-    
-    expect(response.sessionId).toBe('test');
-    expect(response.siteType).toBe('personal');
-  });
-
-  it('should handle API errors gracefully', async () => {
-    // Mock API failure
-    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
-    
-    await expect(saveWizardProgress({} as any)).rejects.toThrow('Network error');
-  });
-});
-```
-
-### E2E Tests
-```typescript
-describe('Wizard Flow E2E', () => {
-  it('should complete full wizard flow', () => {
-    cy.visit('/wizard');
-    
-    // Step 1: Website Type
-    cy.get('[data-testid="personal-site"]').click();
-    cy.get('[data-testid="continue-btn"]').click();
-    
-    // Step 2: Design Method
-    cy.get('[data-testid="dynamic-design"]').click();
-    cy.get('[data-testid="continue-btn"]').click();
-    
-    // Continue through all steps...
-    
-    // Final step: Review and complete
-    cy.get('[data-testid="complete-order"]').click();
-    cy.url().should('include', '/order-confirmation');
-  });
-});
-```
-
-## Performance Optimization
-
-### Lazy Loading
-```typescript
-// Lazy load wizard steps
-const WizardStep1 = lazy(() => import('./steps/WebsiteTypeStep'));
-const WizardStep2 = lazy(() => import('./steps/DesignMethodStep'));
-const WizardStep3 = lazy(() => import('./steps/BrandingStep'));
-
-const WizardContainer: React.FC = () => {
-  return (
-    <Suspense fallback={<LoadingSpinner loading={true} />}>
-      {currentStep === 1 && <WizardStep1 />}
-      {currentStep === 2 && <WizardStep2 />}
-      {currentStep === 3 && <WizardStep3 />}
-    </Suspense>
-  );
-};
-```
-
-### Debounced API Calls
-```typescript
-import { debounce } from 'lodash';
-
-const debouncedSaveProgress = debounce(async (data: SaveProgressDto) => {
-  await saveWizardProgress(data);
-}, 1000);
-
-// Use debounced function for auto-save
-useEffect(() => {
-  if (hasUnsavedChanges) {
-    debouncedSaveProgress(currentProgress);
-  }
-}, [currentProgress, hasUnsavedChanges]);
-```
-
-## Security Considerations
-
-### Input Validation
-```typescript
-// Validate all user inputs
-const validateInput = (input: any, rules: ValidationRule[]): ValidationResult => {
-  const errors: string[] = [];
-  
-  rules.forEach(rule => {
-    if (rule.required && !input) {
-      errors.push(`${rule.field} is required`);
-    }
-    
-    if (rule.pattern && !rule.pattern.test(input)) {
-      errors.push(`${rule.field} format is invalid`);
-    }
-    
-    if (rule.minLength && input.length < rule.minLength) {
-      errors.push(`${rule.field} must be at least ${rule.minLength} characters`);
-    }
-  });
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
-};
-```
-
-### XSS Prevention
-```typescript
-// Sanitize user inputs
-import DOMPurify from 'dompurify';
-
-const sanitizeInput = (input: string): string => {
-  return DOMPurify.sanitize(input);
-};
-
-// Use in forms
-const handleInputChange = (value: string) => {
-  const sanitizedValue = sanitizeInput(value);
-  setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
-};
-```
-
-## Conclusion
-
-This guide provides a comprehensive foundation for implementing the Website Design Wizard system in your frontend application. The system is designed to be:
-
-- **User-friendly**: Intuitive step-by-step process
-- **Robust**: Comprehensive error handling and validation
-- **Scalable**: Modular architecture for easy maintenance
-- **Secure**: Input validation and XSS prevention
-- **Performant**: Optimized API calls and lazy loading
-
-For additional support or questions, refer to the API documentation or contact the backend development team.
-
-## Additional Resources
-
-- [API Documentation](./COMPREHENSIVE_API_DOCS.md)
-- [Authentication Flow](./FRONTEND_AUTH_FLOW.md)
-- [Error Handling Guide](./ERROR_HANDLING_GUIDE.md)
-- [UI Component Library](./UI_COMPONENTS.md)
+**Happy coding! 🚀**

@@ -98,25 +98,39 @@ export class AuthService {
 
   private async storeVerificationToken(user_id: string, token: string): Promise<void> {
     try {
-      // Store the verification token in Appwrite database
+      // Store the verification token in the new notifications collection
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
       
       if (!databaseId || !collectionId) {
         console.warn('Email verification storage skipped: Missing database configuration');
         return;
       }
 
-      await this.appwriteService.createDocument(collectionId, {
-        user_id,
-        token,
-        type: 'verification', // Add the required type attribute
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-        used: false,
-        created_at: new Date().toISOString()
-      });
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
+      const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h
+
+      await this.appwriteService.getDatabases().createDocument(
+        databaseId,
+        collectionId,
+        'unique()',
+        {
+          user_id,
+          title: 'Email Verification',
+          message: 'Email verification token',
+          type: 'verification',
+          priority: 'high',
+          is_read: false,
+          token_hash,
+          is_used: false,
+          expires_at,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      );
       
-      console.log('✅ Verification token stored in database');
+      console.log('✅ Verification token stored in notifications collection');
     } catch (error) {
       console.error('❌ Failed to store verification token:', error);
       // Don't throw error, just log it
@@ -126,40 +140,20 @@ export class AuthService {
   private async findUserIdByToken(token: string): Promise<string | null> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
-      
-      if (!databaseId || !collectionId) {
-        console.warn('Email verification lookup skipped: Missing database configuration');
-        return null;
-      }
-
-      // Query for the token to find the user_id
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      if (!databaseId || !collectionId) return null;
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      const documents = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [
-          Query.equal('token', token)
-        ]
-      );
-
-      if (documents.documents.length > 0) {
-        const tokenDoc = documents.documents[0];
-        
-        // Check if token is already used
-        if (tokenDoc.used === true) {
-          return null; // Token already used
-        }
-
-        // Check if token is expired
-        if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) <= new Date()) {
-          return null; // Token expired
-        }
-
-        return tokenDoc.user_id;
-      }
-      
-      return null;
+      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'verification'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('is_used', false),
+        Query.greaterThan('expires_at', new Date().toISOString()),
+        Query.limit(1),
+      ]);
+      const doc = res.documents[0];
+      return doc ? (doc as any).user_id : null;
     } catch (error) {
       console.error('❌ Failed to find user_id by token:', error);
       return null;
@@ -169,83 +163,51 @@ export class AuthService {
   private async validateVerificationToken(user_id: string, token: string): Promise<{ isValid: boolean; reason?: string }> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
-      
-      if (!databaseId || !collectionId) {
-        console.warn('Email verification validation skipped: Missing database configuration');
-        return { isValid: false, reason: 'Configuration error' };
-      }
-
-      // Query for the token
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      if (!databaseId || !collectionId) return { isValid: false, reason: 'Configuration error' };
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      const documents = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [
-          Query.equal('user_id', user_id),
-          Query.equal('token', token)
-        ]
-      );
-
-      if (documents.documents.length === 0) {
-        return { isValid: false, reason: 'Token not found' };
-      }
-
-      const tokenDoc = documents.documents[0];
-      
-      // Check if token is already used
-      if (tokenDoc.used === true) {
-        return { isValid: false, reason: 'Token already used' };
-      }
-
-      // Check if token is expired
-      if (tokenDoc.expiresAt && new Date(tokenDoc.expiresAt) <= new Date()) {
-        return { isValid: false, reason: 'Token expired' };
-      }
-
-      return { isValid: true };
+      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'verification'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('user_id', user_id),
+        Query.equal('is_used', false),
+        Query.greaterThan('expires_at', new Date().toISOString()),
+        Query.limit(1),
+      ]);
+      return { isValid: !!res.documents[0] };
     } catch (error) {
       console.error('❌ Failed to validate verification token:', error);
       return { isValid: false, reason: 'Validation error' };
     }
   }
 
-
-
   private async markVerificationTokenAsUsed(user_id: string, token: string): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS', 'email_verifications');
-      
-      if (!databaseId || !collectionId) {
-        console.warn('Email verification update skipped: Missing database configuration');
-        return;
-      }
-
-      // Find the document first
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      if (!databaseId || !collectionId) return;
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      const documents = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [
-          Query.equal('user_id', user_id),
-          Query.equal('token', token)
-        ]
-      );
-
-      if (documents.documents.length > 0) {
-        const documentId = documents.documents[0].$id;
-        await this.appwriteService.getDatabases().updateDocument(
-          databaseId,
-          collectionId,
-          documentId,
-          { used: true }
-        );
-        console.log('✅ Verification token marked as used');
+      const db = this.appwriteService.getDatabases();
+      const res = await db.listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'verification'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('user_id', user_id),
+        Query.equal('is_used', false),
+        Query.limit(1),
+      ]);
+      const doc = res.documents[0];
+      if (doc) {
+        await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
+          is_used: true,
+          updated_at: new Date().toISOString(),
+        } as any);
       }
     } catch (error) {
       console.error('❌ Failed to mark verification token as used:', error);
-      // Don't throw error, just log it
     }
   }
 
@@ -420,27 +382,32 @@ export class AuthService {
   private async storePasswordResetToken(user_id: string, email: string, token: string, expiresAt: Date): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
       
       if (!databaseId || !collectionId) {
-        throw new Error('Missing database configuration for password resets');
+        throw new Error('Missing database configuration for notifications');
       }
 
-      // Import ID from node-appwrite
-      const { ID } = await import('node-appwrite');
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
 
-      // Store the reset token
       await this.appwriteService.getDatabases().createDocument(
         databaseId,
         collectionId,
-        ID.unique(),
+        'unique()',
         {
           user_id,
+          title: 'Password Reset',
+          message: 'Password reset token',
+          type: 'password_reset',
+          priority: 'high',
+          is_read: false,
+          token_hash,
+          is_used: false,
           email,
-          token,
-          used: false,
-          expiresAt: expiresAt.toISOString(),
-          created_at: new Date().toISOString()
+          expires_at: expiresAt.toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }
       );
     } catch (error) {
@@ -566,26 +533,19 @@ export class AuthService {
   private async findPasswordResetRecordByToken(token: string): Promise<any> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
-      
-      if (!databaseId || !collectionId) {
-        return null;
-      }
-
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      if (!databaseId || !collectionId) return null;
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      
-      // Find the reset record by token only
-      const resetRecords = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [Query.equal('token', token)]
-      );
-
-      if (resetRecords.documents.length === 0) {
-        return null;
-      }
-
-      return resetRecords.documents[0];
+      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'password_reset'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('is_used', false),
+        Query.greaterThan('expires_at', new Date().toISOString()),
+        Query.limit(1),
+      ]);
+      return res.documents[0] || null;
     } catch (error) {
       console.error('Failed to find password reset record by token:', error);
       return null;
@@ -595,38 +555,20 @@ export class AuthService {
   private async validatePasswordResetToken(token: string, email: string): Promise<any> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
-      
-      if (!databaseId || !collectionId) {
-        throw new Error('Missing database configuration for password resets');
-      }
-
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      if (!databaseId || !collectionId) return null;
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      
-      // Find the reset token
-      const resetRecords = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [
-          Query.equal('token', token),
-          Query.equal('email', email),
-          Query.equal('used', false)
-        ]
-      );
-
-      if (resetRecords.documents.length === 0) {
-        return null;
-      }
-
-      const resetRecord = resetRecords.documents[0];
-      
-      // Check if token has expired
-      const expiresAt = new Date(resetRecord.expiresAt);
-      if (expiresAt < new Date()) {
-        return null;
-      }
-
-      return resetRecord;
+      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'password_reset'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('email', email),
+        Query.equal('is_used', false),
+        Query.greaterThan('expires_at', new Date().toISOString()),
+        Query.limit(1),
+      ]);
+      return res.documents[0] || null;
     } catch (error) {
       console.error('Failed to validate password reset token:', error);
       return null;
@@ -636,31 +578,24 @@ export class AuthService {
   private async markPasswordResetTokenAsUsed(token: string): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PASSWORD_RESETS');
-      
-      if (!databaseId || !collectionId) {
-        throw new Error('Missing database configuration for password resets');
-      }
-
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      if (!databaseId || !collectionId) return;
+      const crypto = require('crypto');
+      const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      
-      // Find the reset record
-      const resetRecords = await this.appwriteService.getDatabases().listDocuments(
-        databaseId,
-        collectionId,
-        [Query.equal('token', token)]
-      );
-
-      if (resetRecords.documents.length > 0) {
-        const resetRecord = resetRecords.documents[0];
-        
-        // Mark as used
-        await this.appwriteService.getDatabases().updateDocument(
-          databaseId,
-          collectionId,
-          resetRecord.$id,
-          { used: true }
-        );
+      const db = this.appwriteService.getDatabases();
+      const res = await db.listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'password_reset'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('is_used', false),
+        Query.limit(1),
+      ]);
+      const doc = res.documents[0];
+      if (doc) {
+        await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
+          is_used: true,
+          updated_at: new Date().toISOString(),
+        } as any);
       }
     } catch (error) {
       console.error('Failed to mark password reset token as used:', error);
@@ -669,35 +604,10 @@ export class AuthService {
 
   private async checkUserVerificationStatusInDatabase(user_id: string): Promise<boolean> {
     try {
-      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_EMAIL_VERIFICATIONS');
-      
-      if (!databaseId || !collectionId) {
-        console.warn('Email verification check skipped: Missing database configuration');
-        return false;
-      }
-
-      const { Query } = await import('node-appwrite');
-      
-      try {
-        const tokenDocs = await this.appwriteService.getDatabases().listDocuments(
-          databaseId,
-          collectionId,
-                  [
-          Query.equal('user_id', user_id),
-          Query.equal('used', true)
-        ]
-        );
-
-        const hasTokens = tokenDocs.documents.length > 0;
-        if (hasTokens) {
-          console.log(`✅ User ${user_id} verified via database tokens`);
-        }
-        return hasTokens;
-      } catch (dbError) {
-        console.warn(`⚠️ Database verification check failed for user ${user_id}:`, dbError.message);
-        return false;
-      }
+      // For now, we'll use a simplified approach without storing tokens
+      // This method will need to be updated based on your new verification strategy
+      console.warn('User verification status check not implemented in new structure - using simplified approach');
+      return false;
     } catch (error) {
       console.error('❌ Failed to check user verification status in database:', error);
       return false;
@@ -844,7 +754,10 @@ export class AuthService {
         session_id: session.$id,
         emailVerified: user.emailVerification
       };
-      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) {
+        throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
+      }
       const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '7d') });
       const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, secret, { expiresIn: '7d' });
 
@@ -881,7 +794,10 @@ export class AuthService {
 
       // Issue backend JWT (stateless) with basic claims
       const payload = { sub: user.$id, email: user.email };
-      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) {
+        throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
+      }
       const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '7d') });
       const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, secret, { expiresIn: '7d' });
 
@@ -901,7 +817,11 @@ export class AuthService {
 
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
     try {
-      const decoded = jwt.verify(refreshTokenDto.refresh_token, this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks')) as any;
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) {
+        throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
+      }
+      const decoded = jwt.verify(refreshTokenDto.refresh_token, secret) as any;
       
       if (decoded.type !== 'refresh') {
         throw new UnauthorizedException('Invalid refresh token type');
@@ -909,7 +829,7 @@ export class AuthService {
 
       // Issue new access token
       const payload = { sub: decoded.sub, email: decoded.email, session_id: decoded.session_id };
-      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks');
+      // secret already loaded above
       const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '7d') });
 
       return { 
@@ -927,7 +847,11 @@ export class AuthService {
 
   async signOut(accessToken: string) {
     try {
-      const decoded = jwt.verify(accessToken, this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4aystxakspbsodqmks')) as any;
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) {
+        throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
+      }
+      const decoded = jwt.verify(accessToken, secret) as any;
       
       // If we have a session ID, delete the Appwrite session
       if (decoded.session_id) {
@@ -1165,18 +1089,16 @@ export class AuthService {
         throw new UnauthorizedException('Invalid Appwrite JWT');
       }
 
-      // DEVELOPMENT BYPASS: Allow unverified users for testing
-      // TODO: Remove this bypass in production
+      // In production, require verified email
       if (!user.emailVerification) {
-        console.warn(`⚠️ DEVELOPMENT MODE: User ${user.$id} (${user.email}) is not verified, but allowing access for testing`);
-        console.warn('⚠️ This bypass should be removed in production!');
-        
-        // In production, you would uncomment this line:
-        // throw new UnauthorizedException('Email must be verified before accessing the API');
+        throw new UnauthorizedException('Email must be verified before accessing the API');
       }
 
       // Generate backend JWT tokens
-      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4akspbsodqmks');
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) {
+        throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
+      }
       
       // Create access token
       const accessToken = jwt.sign(
@@ -1218,11 +1140,7 @@ export class AuthService {
           name: user.name,
           emailVerification: user.emailVerification,
         },
-        message: user.emailVerification 
-          ? 'JWT exchange successful. Use the access_token for API requests.'
-          : 'JWT exchange successful (DEVELOPMENT MODE - email not verified). Use the access_token for API requests.',
-        warning: user.emailVerification ? null : 'DEVELOPMENT MODE: Email verification bypassed for testing',
-        development_mode: !user.emailVerification
+        message: 'JWT exchange successful. Use the access_token for API requests.'
       };
     } catch (error) {
       console.error('❌ Failed to exchange Appwrite JWT:', error);
@@ -1272,7 +1190,10 @@ export class AuthService {
       }
 
       // Generate backend JWT tokens (we still need these for API access)
-      const secret = this.configService.get<string>('JWT_SECRET', 'y5jktt3ff5tw2j4akspbsodqmks');
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) {
+        throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
+      }
       
       // Create access token with proper user ID
       const accessToken = jwt.sign(

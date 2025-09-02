@@ -15,7 +15,7 @@ export class ProfilesService {
   async getProfile(user_id: string): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
     const { Query } = await import('node-appwrite');
     const existing = await databases.listDocuments(databaseId, profilesCollection, [
       Query.equal('user_id', user_id),
@@ -29,7 +29,7 @@ export class ProfilesService {
   async updateProfile(user_id: string, updateProfileDto: UpdateProfileDto): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
     const { Query } = await import('node-appwrite');
     const existing = await databases.listDocuments(databaseId, profilesCollection, [
       Query.equal('user_id', user_id),
@@ -47,7 +47,7 @@ export class ProfilesService {
   async createProfileIfNotExists(user_id: string, email: string): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
     const { Query } = await import('node-appwrite');
     const existing = await databases.listDocuments(databaseId, profilesCollection, [
       Query.equal('user_id', user_id),
@@ -68,7 +68,7 @@ export class ProfilesService {
   async getAllProfiles(): Promise<Profile[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
     const { Query } = await import('node-appwrite');
     const res = await databases.listDocuments(databaseId, profilesCollection, [Query.orderDesc('created_at')]);
     return (res.documents as any) || [];

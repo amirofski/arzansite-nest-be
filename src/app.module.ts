@@ -6,7 +6,6 @@ import { AppwriteModule } from './appwrite/appwrite.module';
 import { AuthModule } from './auth/auth.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { OrdersModule } from './orders/orders.module';
-import { DesignsModule } from './designs/designs.module';
 import { WalletsModule } from './wallets/wallets.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -58,7 +57,6 @@ import { SupportModule } from './support/support.module';
     AuthModule,
     ProfilesModule,
     OrdersModule,
-    DesignsModule,
     WalletsModule,
     TransactionsModule,
     PaymentsModule,

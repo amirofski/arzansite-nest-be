@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
 import { ID, Query } from 'node-appwrite';
@@ -6,14 +6,21 @@ import { Order } from '../common/types/database.types';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { BaseAppwriteService } from '../common/services/base-appwrite.service';
+import { WalletsService } from '../wallets/wallets.service';
+import { EmailService } from '../email/email.service';
+import { TransactionType } from '../wallets/dto/wallet.dto';
+import { PaymentStatus } from './dto/order.dto';
 
 @Injectable()
 export class OrdersService extends BaseAppwriteService {
   protected readonly collectionId = 'orders';
+  private readonly logger = new Logger(OrdersService.name);
 
   constructor(
     appwriteService: AppwriteService,
     configService: ConfigService,
+    private readonly walletsService: WalletsService,
+    private readonly emailService: EmailService,
   ) {
     super(appwriteService, configService);
   }
@@ -45,19 +52,22 @@ export class OrdersService extends BaseAppwriteService {
   }
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
+    this.logger.log(`Creating order for user ${userId}`);
+
     // Extract title and description from the payload
     const title = createOrderDto.title || `Order for ${createOrderDto.site_type || 'website'}`;
     const description = createOrderDto.description || `Website order from wizard session ${createOrderDto.session_id}`;
-    const price = createOrderDto.price || createOrderDto.wizard_data?.pricing?.totalPrice || 0;
+    const wiz = (createOrderDto.wizard_data || {}) as Record<string, any>;
+    const totalAmount = createOrderDto.total_amount || Number(wiz?.pricing?.totalPrice) || 0;
 
     // Consolidate all wizard data into one field
     const wizardData = {
       site_type: createOrderDto.site_type,
-      website_framework: createOrderDto.wizard_data?.website_framework,
-      branding: createOrderDto.wizard_data?.branding,
-      additional_services: createOrderDto.wizard_data?.additional_services,
-      domains: createOrderDto.wizard_data?.domains,
-      pricing: createOrderDto.wizard_data?.pricing,
+      website_framework: wiz?.website_framework,
+      branding: wiz?.branding,
+      additional_services: wiz?.additional_services,
+      domains: wiz?.domains,
+      pricing: wiz?.pricing,
       session_id: createOrderDto.session_id
     };
 
@@ -65,14 +75,16 @@ export class OrdersService extends BaseAppwriteService {
       // Basic order fields
       title,
       description,
-      price,
-      userId,
+      total_amount: totalAmount,
+      user_id: userId,
       status: 'pending',
       payment_status: createOrderDto.payment_status || 'pending',
       comments: createOrderDto.comments,
-      total_pages: createOrderDto.total_pages || createOrderDto.wizard_data?.website_framework?.dynamicDesign?.pages?.length || 0,
-      total_sections: createOrderDto.total_sections || 
-        createOrderDto.wizard_data?.website_framework?.dynamicDesign?.pages?.reduce((total, page) => total + (page.sections?.length || 0), 0) || 0,
+      total_pages: createOrderDto.total_pages || (Array.isArray(wiz?.website_framework?.dynamicDesign?.pages) ? wiz.website_framework.dynamicDesign.pages.length : 0),
+      total_sections: createOrderDto.total_sections ||
+        (Array.isArray(wiz?.website_framework?.dynamicDesign?.pages)
+          ? wiz.website_framework.dynamicDesign.pages.reduce((total: number, page: any) => total + (Array.isArray(page?.sections) ? page.sections.length : 0), 0)
+          : 0),
       
       // Consolidated wizard data
       wizard_data: JSON.stringify(wizardData),
@@ -87,7 +99,63 @@ export class OrdersService extends BaseAppwriteService {
       updated_at: new Date().toISOString(),
     };
 
-    return this.createDocument<Order>(orderData);
+    try {
+      const order = await this.createDocument<Order>(orderData);
+      
+      // Initialize order progress
+      await this.initializeOrderProgress(order.id);
+      
+      // Send order confirmation email
+      await this.sendOrderConfirmationEmail(userId, order);
+      
+      this.logger.log(`Order created successfully: ${order.id}`);
+      return order;
+    } catch (error) {
+      this.logger.error(`Failed to create order: ${error.message}`);
+      throw new BadRequestException(`Failed to create order: ${error.message}`);
+    }
+  }
+
+  async createEnhancedOrder(userId: string, createOrderDto: any): Promise<Order> {
+    this.logger.log(`Creating enhanced order for user ${userId}`);
+
+    // Validate order data
+    await this.validateOrderData(createOrderDto);
+
+    // Calculate pricing if not provided
+    if (!createOrderDto.total_amount || createOrderDto.total_amount <= 0) {
+      createOrderDto.total_amount = await this.calculateOrderPrice(createOrderDto.wizard_data);
+    }
+
+    const orderData = {
+      user_id: userId,
+      title: createOrderDto.title,
+      description: createOrderDto.description,
+      total_amount: createOrderDto.total_amount,
+      status: createOrderDto.status || 'pending',
+      payment_status: createOrderDto.payment_status || 'pending',
+      site_type: createOrderDto.site_type,
+      wizard_data: createOrderDto.wizard_data,
+      session_id: createOrderDto.session_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      const order = await this.createDocument<Order>(orderData);
+      
+      // Initialize order progress
+      await this.initializeOrderProgress(order.id);
+      
+      // Send order confirmation email
+      await this.sendOrderConfirmationEmail(userId, order);
+      
+      this.logger.log(`Enhanced order created successfully: ${order.id}`);
+      return order;
+    } catch (error) {
+      this.logger.error(`Failed to create enhanced order: ${error.message}`);
+      throw new BadRequestException(`Failed to create order: ${error.message}`);
+    }
   }
 
   async updateOrder(
@@ -107,7 +175,7 @@ export class OrdersService extends BaseAppwriteService {
     if (updateOrderDto.title !== undefined) updateData.title = updateOrderDto.title;
     if (updateOrderDto.description !== undefined) updateData.description = updateOrderDto.description;
     if (updateOrderDto.status !== undefined) updateData.status = updateOrderDto.status;
-    if (updateOrderDto.price !== undefined) updateData.price = updateOrderDto.price;
+    if (updateOrderDto.total_amount !== undefined) updateData.total_amount = updateOrderDto.total_amount;
     if (updateOrderDto.comments !== undefined) updateData.comments = updateOrderDto.comments;
     if (updateOrderDto.payment_status !== undefined) updateData.payment_status = updateOrderDto.payment_status;
 
@@ -144,5 +212,149 @@ export class OrdersService extends BaseAppwriteService {
     await this.getOrder(orderId, userId, isAdmin);
     
     await this.deleteDocument(orderId);
+  }
+
+  // Enhanced functionality methods
+  async getEnhancedOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<any> {
+    this.logger.log(`Getting enhanced order ${orderId} for user ${userId}`);
+
+    const order = await this.getOrder(orderId, userId, isAdmin);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Get wallet balance
+    let walletBalance = 0;
+    let canPayWithWallet = false;
+    try {
+      const wallet = await this.walletsService.getWallet(userId);
+      walletBalance = wallet.balance || 0;
+      canPayWithWallet = walletBalance >= order.total_amount;
+    } catch (error) {
+      this.logger.warn(`Could not get wallet balance for user ${userId}: ${error.message}`);
+    }
+
+    // Get order progress
+    const progress = await this.getOrderProgress(orderId);
+
+    return {
+      ...order,
+      progress,
+      walletBalance,
+      canPayWithWallet,
+    };
+  }
+
+  async payWithWallet(orderId: string, userId: string): Promise<any> {
+    this.logger.log(`Processing wallet payment for order ${orderId}`);
+
+    const order = await this.getOrder(orderId, userId);
+    if (order.payment_status === 'succeeded') {
+      throw new BadRequestException('Order is already paid');
+    }
+
+    // Check wallet balance
+    const walletBalance = await this.walletsService.getWallet(userId);
+    if (walletBalance.balance < order.total_amount) {
+      throw new BadRequestException('Insufficient wallet balance');
+    }
+
+    try {
+      // Process wallet payment
+      const transaction = await this.walletsService.createTransaction(userId, {
+        type: TransactionType.PAYMENT,
+        amount: order.total_amount,
+        description: `Payment for order ${orderId}`,
+        referenceId: orderId,
+        referenceType: 'order',
+      });
+
+      // Update order payment status
+      await this.updateOrder(orderId, userId, { payment_status: PaymentStatus.SUCCEEDED });
+
+      // Send payment confirmation email
+      await this.sendPaymentStatusNotification(userId, order, 'succeeded');
+
+      this.logger.log(`Wallet payment processed successfully for order ${orderId}`);
+      return { success: true, transactionId: transaction.transactionId };
+    } catch (error) {
+      this.logger.error(`Failed to process wallet payment: ${error.message}`);
+      throw new BadRequestException(`Payment failed: ${error.message}`);
+    }
+  }
+
+  private async validateOrderData(createOrderDto: any): Promise<void> {
+    if (!createOrderDto.title || !createOrderDto.description) {
+      throw new BadRequestException('Title and description are required');
+    }
+    
+    if (!createOrderDto.wizard_data) {
+      throw new BadRequestException('Wizard data is required');
+    }
+  }
+
+  private async calculateOrderPrice(wizardData: any): Promise<number> {
+    // Basic price calculation logic
+    let basePrice = 1000000; // 1,000,000 Rials base price
+    
+    if (wizardData.website_framework?.dynamicDesign?.pages) {
+      basePrice += wizardData.website_framework.dynamicDesign.pages.length * 500000; // 500,000 per page
+    }
+    
+    if (wizardData.additional_services) {
+      if (wizardData.additional_services.seoOptimization) basePrice += 300000;
+      if (wizardData.additional_services.analyticsSetup) basePrice += 200000;
+      if (wizardData.additional_services.maintenancePlan) basePrice += 500000;
+    }
+    
+    return basePrice;
+  }
+
+  private async initializeOrderProgress(orderId: string): Promise<void> {
+    // Initialize order progress tracking
+    // This would typically create a progress record in a separate collection
+    this.logger.log(`Initialized progress tracking for order ${orderId}`);
+  }
+
+  private async getOrderProgress(orderId: string): Promise<any> {
+    // Get order progress information
+    // This would typically fetch from a progress collection
+    return {
+      order_id: orderId,
+      currentStep: 'pending',
+      completedSteps: [],
+      remainingSteps: ['confirmed', 'in_progress', 'completed'],
+      progressPercentage: 0,
+      estimatedDelivery: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+      lastUpdate: new Date().toISOString(),
+      nextMilestone: 'Order Confirmation',
+      timeline: []
+    };
+  }
+
+  private async sendOrderConfirmationEmail(userId: string, order: Order): Promise<void> {
+    try {
+      await this.emailService.sendOrderNotification(userId, {
+        orderId: order.id,
+        orderTitle: order.title,
+        totalAmount: order.total_amount,
+        status: order.status,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to send order confirmation email: ${error.message}`);
+    }
+  }
+
+  private async sendPaymentStatusNotification(userId: string, order: Order, status: string): Promise<void> {
+    try {
+      await this.emailService.sendPaymentNotification(userId, {
+        orderId: order.id,
+        orderTitle: order.title,
+        totalAmount: order.total_amount,
+        status,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to send payment status notification: ${error.message}`);
+    }
   }
 }

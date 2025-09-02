@@ -9,18 +9,64 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ErrorInterceptor } from './common/interceptors/error.interceptor';
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import pino from 'pino';
+import pinoHttp from 'pino-http';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
   try {
     const app = await NestFactory.create(AppModule, {
-      logger: ['error', 'warn', 'log', 'debug', 'verbose'],
-      cors: false, // We'll configure CORS manually for better control
+      logger: ['error', 'warn', 'log'],
+      cors: false,
     });
-    
+    // Resolve ConfigService early for validations
     const configService = app.get(ConfigService);
+
+    // Startup env validation (fail fast)
+    const requiredEnvs = [
+      'APPWRITE_ENDPOINT',
+      'APPWRITE_PROJECT_ID',
+      'APPWRITE_API_KEY',
+      'APPWRITE_DATABASE_ID',
+      'JWT_SECRET',
+      'FRONTEND_URL',
+      'ZARINPAL_MERCHANT_ID',
+    ];
+    const missing = requiredEnvs.filter((k) => !configService.get(k));
+    if (missing.length) {
+      throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    }
+
+    // Request logging (sanitized)
+    app.use(
+      pinoHttp({
+        logger: pino({ level: process.env.LOG_LEVEL || 'info' }),
+        autoLogging: true,
+        serializers: {
+          req(req) {
+            return {
+              id: req.id,
+              method: req.method,
+              url: req.url,
+              remoteAddress: req.socket?.remoteAddress,
+              userAgent: req.headers['user-agent'],
+            };
+          },
+          res(res) {
+            return { statusCode: res.statusCode };
+          },
+        },
+        redact: {
+          paths: ['req.headers.authorization', 'req.headers.cookie'],
+          remove: true,
+        },
+      })
+    );
+    
+    // configService already initialized above
 
     // Enhanced security middleware with latest configurations
     app.use(helmet({
@@ -134,7 +180,7 @@ async function bootstrap() {
 
     // Global filters and interceptors
     app.useGlobalFilters(new HttpExceptionFilter());
-    app.useGlobalInterceptors(new TransformInterceptor(), new ErrorInterceptor());
+    app.useGlobalInterceptors(new RequestLoggingInterceptor(), new TransformInterceptor(), new ErrorInterceptor());
 
     // Global prefix
     app.setGlobalPrefix('api', {
@@ -206,7 +252,6 @@ For detailed endpoint information, see the sections below.
       .addTag('auth', '🔐 Authentication & User Management (including OAuth)')
       .addTag('profiles', '👤 User Profiles')
       .addTag('orders', '📦 Order Management')
-      .addTag('designs', '🎨 Design Management')
       .addTag('wallets', '💰 Wallet & Transactions')
       .addTag('invoices', '📄 Invoice Management')
       .addTag('receipts', '🧾 Digital Receipts')

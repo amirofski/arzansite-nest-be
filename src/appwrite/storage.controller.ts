@@ -12,6 +12,7 @@ import {
   Post,
   Body,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -43,7 +44,22 @@ export class StorageController {
 
   @Post('upload/:bucket_id')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: (req, file, cb) => {
+      const ALLOWED_MIME_TYPES = new Set([
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'application/pdf',
+        'text/plain'
+      ]);
+      if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+        return cb(new BadRequestException('Invalid file type'), false);
+      }
+      cb(null, true);
+    },
+  }))
   @ApiOperation({
     summary: 'Upload file',
     description: 'Upload a file to the specified bucket',
@@ -82,10 +98,18 @@ export class StorageController {
     @Request() req?: any,
   ) {
     if (!file) {
-      return {
-        success: false,
-        error: 'No file provided',
-      };
+      throw new BadRequestException('No file provided');
+    }
+
+    // Enforce bucket allowlist
+    const config = this.appwriteService.getConfig();
+    const allowedBuckets = new Set([
+      config.storage.projectFiles,
+      config.storage.userAvatars,
+      config.storage.designAssets,
+    ].filter(Boolean));
+    if (!allowedBuckets.has(bucket_id)) {
+      throw new BadRequestException('Bucket not allowed');
     }
 
     // Use underlying UploadsService implementation which handles Storage + DB mapping
@@ -118,8 +142,7 @@ export class StorageController {
       // Persist metadata to project_files collection
       try {
         const databases = this.appwriteService.getDatabases();
-        const config = this.appwriteService.getConfig();
-        const databaseId = config.databaseId;
+        const databaseId = this.appwriteService.getConfig().databaseId;
         const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
         const now = new Date().toISOString();
 

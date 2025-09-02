@@ -8,7 +8,7 @@ import { OrdersModule } from '../orders/orders.module';
 import { WalletsModule } from '../wallets/wallets.module';
 
 @Module({
-  imports: [ConfigModule, AppwriteModule, OrdersModule, forwardRef(() => WalletsModule)],
+  imports: [ConfigModule, AppwriteModule, forwardRef(() => OrdersModule), forwardRef(() => WalletsModule)],
   providers: [ZarinPalService, PaymentsService],
   controllers: [PaymentsController],
   exports: [ZarinPalService, PaymentsService],
