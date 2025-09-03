@@ -50,8 +50,8 @@ export class AppwriteService implements OnModuleInit {
   // Authentication methods - Updated for latest SDK
   async createUser(email: string, password: string, name?: string) {
     try {
-      // Use Account API to ensure proper "users" role (not "guests")
-      const user = await this.account.create(
+      // Use Users API to create users (Account API is for sessions)
+      const user = await this.users.create(
         ID.unique(),
         email,
         password,

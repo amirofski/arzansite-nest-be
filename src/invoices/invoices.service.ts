@@ -150,46 +150,67 @@ export class InvoicesService {
   }
 
   async checkOverdueInvoices(): Promise<void> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    try {
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    const today = new Date().toISOString();
-    const overdueInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
-      Query.equal('status', InvoiceStatus.PENDING),
-      Query.lessThan('due_date', today),
-    ]);
+      if (!databaseId || !invoicesCollection) {
+        // eslint-disable-next-line no-console
+        console.warn('[InvoicesService.checkOverdueInvoices] Missing database/collection IDs; skipping run');
+        return;
+      }
 
-    for (const invoice of overdueInvoices.documents) {
-      await this.updateInvoiceStatus(invoice.$id, InvoiceStatus.OVERDUE);
-      
-      // Send overdue notification
-      await this.emailService.sendInvoiceOverdueEmail(invoice.user_id, invoice.$id, invoice.amount);
+      const today = new Date().toISOString();
+      const overdueInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
+        Query.equal('status', InvoiceStatus.PENDING),
+        Query.lessThan('due_date', today),
+      ]);
+
+      for (const invoice of overdueInvoices.documents) {
+        await this.updateInvoiceStatus(invoice.$id, InvoiceStatus.OVERDUE);
+        // Send overdue notification
+        await this.emailService.sendInvoiceOverdueEmail(invoice.user_id, invoice.$id, invoice.amount);
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[InvoicesService.checkOverdueInvoices] Failed:', (error as any)?.message || error);
     }
   }
 
   async autoPayInvoices(): Promise<void> {
-    const databases = this.appwriteService.getDatabases();
-    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    try {
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    const pendingInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
-      Query.equal('status', InvoiceStatus.PENDING),
-    ]);
-
-    for (const invoice of pendingInvoices.documents) {
-      try {
-        const wallet = await this.walletsService.getWallet(invoice.user_id);
-        if (wallet.balance >= invoice.amount) {
-          // Auto-pay invoice
-          await this.payInvoice(invoice.$id, invoice.user_id, {
-            refId: `AUTO_${Date.now()}`,
-            paymentMethod: 'auto_wallet',
-          });
-        }
-      } catch (error) {
-        console.error(`Failed to auto-pay invoice ${invoice.$id}:`, error);
+      if (!databaseId || !invoicesCollection) {
+        // eslint-disable-next-line no-console
+        console.warn('[InvoicesService.autoPayInvoices] Missing database/collection IDs; skipping run');
+        return;
       }
+
+      const pendingInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
+        Query.equal('status', InvoiceStatus.PENDING),
+      ]);
+
+      for (const invoice of pendingInvoices.documents) {
+        try {
+          const wallet = await this.walletsService.getWallet(invoice.user_id);
+          if (wallet.balance >= invoice.amount) {
+            await this.payInvoice(invoice.$id, invoice.user_id, {
+              refId: `AUTO_${Date.now()}`,
+              paymentMethod: 'auto_wallet',
+            });
+          }
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error(`Failed to auto-pay invoice ${invoice.$id}:`, (error as any)?.message || error);
+        }
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[InvoicesService.autoPayInvoices] Failed:', (error as any)?.message || error);
     }
   }
 

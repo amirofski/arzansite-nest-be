@@ -22,8 +22,9 @@ const client = new Client()
 const databases = new Databases(client);
 const storage = new Storage(client);
 
-// Core collections to create
+// Complete collections needed by the backend
 const collections = [
+  // Core collections
   {
     id: 'users',
     name: 'Users',
@@ -73,6 +74,37 @@ const collections = [
     id: 'system_settings',
     name: 'System Settings',
     permissions: ['read("any")', 'write("users")', 'create("users")', 'update("users")', 'delete("users")']
+  },
+  // Missing collections that backend needs
+  {
+    id: 'auth_tokens',
+    name: 'Auth Tokens',
+    permissions: ['read("users")', 'write("users")', 'create("users")', 'update("users")', 'delete("users")']
+  },
+  {
+    id: 'invoices',
+    name: 'Invoices',
+    permissions: ['read("users")', 'write("users")', 'create("users")', 'update("users")', 'delete("users")']
+  },
+  {
+    id: 'receipts',
+    name: 'Receipts',
+    permissions: ['read("users")', 'write("users")', 'create("users")', 'update("users")', 'delete("users")']
+  },
+  {
+    id: 'wallets',
+    name: 'Wallets',
+    permissions: ['read("users")', 'write("users")', 'create("users")', 'update("users")', 'delete("users")']
+  },
+  {
+    id: 'transactions',
+    name: 'Transactions',
+    permissions: ['read("users")', 'write("users")', 'create("users")', 'update("users")', 'delete("users")']
+  },
+  {
+    id: 'designs',
+    name: 'Designs',
+    permissions: ['read("users")', 'write("users")', 'create("users")', 'update("users")', 'delete("users")']
   }
 ];
 

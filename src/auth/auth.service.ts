@@ -385,7 +385,7 @@ export class AuthService {
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
       
       if (!databaseId || !collectionId) {
-        throw new Error('Missing database configuration for notifications');
+        throw new Error('Missing database configuration for auth tokens');
       }
 
       const crypto = require('crypto');
@@ -397,14 +397,10 @@ export class AuthService {
         'unique()',
         {
           user_id,
-          title: 'Password Reset',
-          message: 'Password reset token',
+          email,
           type: 'password_reset',
-          priority: 'high',
-          is_read: false,
           token_hash,
           is_used: false,
-          email,
           expires_at: expiresAt.toISOString(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()

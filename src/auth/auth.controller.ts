@@ -688,6 +688,74 @@ export class AuthController {
     };
   }
 
+  @Post('oauth/start')
+  @ApiOperation({
+    summary: '🚀 Initiate OAuth Flow (Generic)',
+    description: 'Start OAuth authentication flow. Defaults to GitHub if no provider specified.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        provider: { 
+          type: 'string', 
+          description: 'OAuth provider (defaults to github)',
+          example: 'github'
+        },
+        successUrl: { 
+          type: 'string', 
+          description: 'URL to redirect after successful OAuth login',
+          example: 'https://arzansite.com/auth/oauth/callback'
+        },
+        failureUrl: { 
+          type: 'string', 
+          description: 'URL to redirect after failed OAuth login',
+          example: 'https://arzansite.com/auth/login?error=oauth_failed'
+        },
+      },
+      required: ['successUrl', 'failureUrl'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: '✅ OAuth flow initiated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        redirectUrl: { 
+          type: 'string', 
+          example: 'https://github.com/login/oauth/authorize?client_id=...',
+          description: 'URL to redirect user to OAuth provider'
+        },
+        provider: { 
+          type: 'string', 
+          example: 'github',
+          description: 'OAuth provider name'
+        },
+        projectId: { 
+          type: 'string', 
+          example: '6898b35e003067cd7b43',
+          description: 'Appwrite project ID'
+        },
+        message: { 
+          type: 'string', 
+          example: 'Redirecting to GitHub for authentication...',
+          description: 'Success message'
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: '❌ Bad request - invalid provider or URLs',
+  })
+  async startOAuth(
+    @Body() body: { provider?: string; successUrl: string; failureUrl: string },
+  ) {
+    const provider = body.provider || 'github';
+    return this.authService.startOAuth(provider, body.successUrl, body.failureUrl);
+  }
+
   @Post('oauth/github/start')
   @ApiOperation({
     summary: '🚀 Initiate GitHub OAuth Flow',
