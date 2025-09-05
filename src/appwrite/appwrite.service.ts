@@ -51,11 +51,13 @@ export class AppwriteService implements OnModuleInit {
   async createUser(email: string, password: string, name?: string) {
     try {
       // Use Users API to create users (Account API is for sessions)
+      // Note: Appwrite SDK v13+ requires phone parameter, using empty string as default
       const user = await this.users.create(
         ID.unique(),
         email,
         password,
         name,
+        '', // phone - empty string as default since it's required by SDK
       );
       
       console.log('✅ User created successfully with latest SDK');

@@ -1,0 +1,359 @@
+{
+  "meta": {
+    "title": "Arzansite Backend API Integration Guide",
+    "version": "2025-09-05",
+    "baseUrl": "https://api.arzansite.com",
+    "authHeaderTemplate": "Authorization: Bearer <access_token>",
+    "notes": [
+      "All protected endpoints require a backend JWT in Authorization header or the httpOnly cookie appwrite_jwt set by /auth/session.",
+      "Roles are derived from Appwrite labels: label 'admin' -> role=admin, else user.",
+      "FIXED: Phone number requirement in signup - backend now handles this automatically."
+    ]
+  },
+
+  "critical_fixes": {
+    "signup_phone_requirement": {
+      "issue": "Appwrite SDK v13+ requires phone parameter in users.create()",
+      "fix": "Backend now passes empty string as default phone parameter",
+      "frontend_impact": "No changes needed - signup works with just email/password"
+    },
+    "login_verification_requirement": {
+      "issue": "Login fails with 401 if Appwrite emailVerification is false",
+      "solution": "Use custom verification flow or ensure Appwrite shows emailVerification=true",
+      "workaround": "Use /auth/exchange-jwt with Appwrite session JWT"
+    }
+  },
+
+  "auth": {
+    "endpoints": [
+      {
+        "method": "POST",
+        "path": "/auth/signup",
+        "body": { 
+          "email": "string", 
+          "password": "string", 
+          "metadata?": { 
+            "name?": "string",
+            "phone?": "string (optional - not required for signup)"
+          } 
+        },
+        "response": {
+          "201": {
+            "message": "User created successfully. Please check your email to verify your account.",
+            "user": { 
+              "id": "string", 
+              "email": "string", 
+              "emailVerification": false, 
+              "$created_at": "ISO" 
+            },
+            "verificationEmailSent": true,
+            "requiresFrontendVerification": false
+          },
+          "400": {
+            "success": false,
+            "error": "Failed to create user: [specific error]",
+            "message": "Http Exception",
+            "status": 400
+          }
+        },
+        "notes": [
+          "Phone number is NOT required - backend handles this automatically",
+          "Password must meet complexity requirements",
+          "Email must be unique"
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/auth/verify-email",
+        "body": { "token": "string", "user_id?": "string" },
+        "response": {
+          "200": {
+            "message": "Email verified successfully! Welcome email sent.",
+            "user": { "id": "string", "email": "string", "name": "string", "emailVerification": true }
+          }
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/auth/login",
+        "body": { "email": "string", "password": "string" },
+        "response": {
+          "200": {
+            "access_token": "string",
+            "refresh_token": "string",
+            "user": { "id": "string", "email": "string", "emailVerified": true, "role": "user|admin" },
+            "session": { "$id": "string", "userId": "string" },
+            "redirect": { "url": "/dashboard", "message": "Login successful! Redirecting to dashboard..." }
+          },
+          "401": { 
+            "success": false,
+            "error": "Invalid credentials",
+            "message": "Http Exception",
+            "status": 401
+          }
+        },
+        "important": [
+          "Will 401 if Appwrite emailVerification is false",
+          "Content-Type must be application/json",
+          "Use /auth/exchange-jwt as alternative if you have Appwrite session"
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/auth/exchange-jwt",
+        "body": { "appwriteJwt": "string" },
+        "response": { 
+          "200": { 
+            "access_token": "string", 
+            "refresh_token": "string", 
+            "user": { "id": "string", "email": "string", "emailVerification": true } 
+          } 
+        },
+        "notes": [
+          "Alternative to /auth/login when you have Appwrite session JWT",
+          "Useful when Appwrite emailVerification is false"
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/auth/refresh",
+        "body": { "refresh_token": "string" },
+        "response": { "200": { "access_token": "string", "user": { "id": "string", "email": "string", "role": "user|admin" } } }
+      },
+      {
+        "method": "GET",
+        "path": "/auth/me",
+        "headers": { "Authorization": "Bearer <access_token>" },
+        "response": { "200": { "id": "string", "role": "user|admin" } }
+      },
+      {
+        "method": "POST",
+        "path": "/auth/password-reset",
+        "body": { "email": "string" },
+        "response": { "200": { "message": "If an account with that email exists, a password reset link has been sent.", "emailSent": true } }
+      },
+      {
+        "method": "POST",
+        "path": "/auth/reset-password",
+        "body": { "token": "string", "newPassword": "string", "email?": "string" },
+        "response": { "200": { "success": true, "message": "Password has been successfully reset. You can now log in with your new password." } }
+      }
+    ],
+    "frontend_sequences": [
+      {
+        "name": "Email/password signup and login",
+        "steps": [
+          { "POST": "/auth/signup", "body": { "email": "user@example.com", "password": "Secret123!" } },
+          { "user_action": "Check email and click verification link" },
+          { "POST": "/auth/verify-email", "body": { "token": "from_email_link" } },
+          { "POST": "/auth/login", "body": { "email": "user@example.com", "password": "Secret123!" } },
+          { "store": "access_token, refresh_token" }
+        ]
+      },
+      {
+        "name": "Appwrite session → backend JWT (bypass verification)",
+        "steps": [
+          { "POST": "/auth/exchange-jwt", "body": { "appwriteJwt": "<Appwrite-user-session-JWT>" } },
+          { "store": "access_token, refresh_token" }
+        ]
+      }
+    ],
+    "curl_tests": [
+      "curl -s -X POST $API/auth/signup -H 'Content-Type: application/json' -d '{\"email\":\"user@example.com\",\"password\":\"Secret123!\"}' | jq",
+      "curl -s -X POST $API/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"user@example.com\",\"password\":\"Secret123!\"}' | jq",
+      "curl -s -X GET $API/auth/me -H 'Authorization: Bearer <ACCESS>' | jq"
+    ]
+  },
+
+  "wallets": {
+    "endpoints": [
+      { "GET": "/wallets/me", "auth": "JWT" },
+      { "GET": "/wallets/me/balance", "auth": "JWT" },
+      { "GET": "/wallets/me/transactions?limit=50&offset=0", "auth": "JWT" },
+      { "POST": "/wallets/me/deposit", "body": { "amount": 3000000, "description": "Top-up", "callback_url?": "https://app.arzansite.com/pay/callback" }, "auth": "JWT" },
+      { "POST": "/wallets/me/deposit/verify", "body": { "authority": "string" }, "auth": "JWT" },
+      { "POST": "/wallets/me/topup", "body": { "amount": 1000000, "refId": "PAY_REF_123" }, "auth": "JWT" }
+    ],
+    "notes": [
+      "Minimum amounts are in Rials, e.g., >= 1,000,000",
+      "Idempotency: duplicate callback/verify are safely ignored"
+    ]
+  },
+
+  "orders": {
+    "endpoints": [
+      { "GET": "/orders?mine=true", "auth": "JWT" },
+      { "POST": "/orders", "body": { "title": "string", "description?": "string", "total_amount?": 0, "wizard_data?": {} }, "auth": "JWT" },
+      { "GET": "/orders/:id", "auth": "JWT" },
+      { "PATCH": "/orders/:id", "body": { "status?": "pending|in_progress|completed|cancelled" }, "auth": "JWT" },
+      { "DELETE": "/orders/:id", "auth": "JWT" }
+    ]
+  },
+
+  "wizard": {
+    "endpoints": [
+      { "POST": "/wizard/save-progress", "body": { "session_id": "string", "..." } },
+      { "GET": "/wizard/progress/:session_id?user_id=optional" },
+      { "POST": "/wizard/complete-order", "body": { "session_id": "string", "order": { "title": "string", "description": "string", "total_amount": 0 }, "design_snapshot": {} } },
+      { "POST": "/wizard/upload", "multipart": true, "fields": ["order_id", "session_id", "files[]"] },
+      { "POST": "/wizard/calculate-price", "body": { "site_type?": "business|personal", "website_framework?": {}, "additional_services?": {}, "domains?": {}, "paymentCycle?": "monthly|annual" } }
+    ]
+  },
+
+  "payments": {
+    "endpoints": [
+      { "POST": "/payments/request", "body": { "order_id?": "string", "amount": 3000000, "description": "string", "callback_url?": "https://app.arzansite.com/pay/callback" }, "auth": "JWT" },
+      { "POST": "/payments/verify", "body": { "order_id?": "string", "authority": "string", "amount?": 3000000 }, "auth": "JWT" },
+      { "GET": "/payments/order/:order_id", "auth": "JWT" }
+    ]
+  },
+
+  "invoices_receipts": {
+    "endpoints": [
+      { "POST": "/invoices", "body": { "order_id": "string", "amount": 3000000, "dueDate": "ISO", "description?": "string" }, "auth": "JWT" },
+      { "GET": "/invoices", "auth": "JWT" },
+      { "GET": "/invoices/:id", "auth": "JWT" },
+      { "POST": "/invoices/:id/pay", "body": { "useWallet?": true, "refId?": "string", "amount?": 3000000 }, "auth": "JWT" },
+      { "GET": "/receipts", "auth": "JWT" },
+      { "GET": "/receipts/:id", "auth": "JWT" },
+      { "GET": "/receipts/:id/download?format=pdf|html", "auth": "JWT" }
+    ]
+  },
+
+  "uploads": {
+    "endpoints": [
+      { "GET": "/uploads?user_id?&order_id?" },
+      { "POST": "/uploads", "multipart": true, "fields": ["file", "order_id?", "fileType? (document|design|avatar)"] },
+      { "POST": "/uploads/multi", "multipart": true, "fields": ["files[]", "order_id?", "fileType?", "description?"] },
+      { "DELETE": "/uploads/:id?bucketType=document|design|avatar" }
+    ]
+  },
+
+  "profiles": {
+    "endpoints": [
+      { "GET": "/profiles/me", "auth": "JWT" },
+      { "PATCH": "/profiles/me", "body": { "full_name?": "string", "phone?": "string", "address?": "string" }, "auth": "JWT" },
+      { "GET": "/profiles", "auth": "JWT+Admin" }
+    ]
+  },
+
+  "notifications": {
+    "endpoints": [
+      { "GET": "/notifications/preferences", "auth": "JWT" },
+      { "PATCH": "/notifications/preferences", "body": { "email?": {}, "dashboard?": {} }, "auth": "JWT" },
+      { "GET": "/notifications/history?type?&status?&from_date?&to_date?&page=1&limit=20", "auth": "JWT" },
+      { "PATCH": "/notifications/:notificationId/read", "auth": "JWT" },
+      { "PATCH": "/notifications/read-all", "auth": "JWT" },
+      { "GET": "/notifications/unread-count", "auth": "JWT" }
+    ]
+  },
+
+  "analytics": {
+    "endpoints": [
+      { "GET": "/analytics/orders?period=30d&groupBy=day", "auth": "JWT" },
+      { "GET": "/analytics/wallet?period=30d&type?", "auth": "JWT" },
+      { "GET": "/analytics/behavior?period=30d", "auth": "JWT" },
+      { "GET": "/analytics/revenue?period=30d", "auth": "JWT" },
+      { "GET": "/analytics/dashboard", "auth": "JWT" },
+      { "GET": "/analytics/export?type=orders|wallet|behavior|revenue|all&period=30d&format=json", "auth": "JWT" }
+    ]
+  },
+
+  "admin": {
+    "requires": "role=admin",
+    "endpoints": [
+      { "GET": "/admin/wallets?page=1&limit=50&search?", "auth": "JWT+Admin" },
+      { "GET": "/admin/invoices?page=1&limit=50&status?&user_id?", "auth": "JWT+Admin" },
+      { "GET": "/admin/payments?page=1&limit=50&status?&user_id?", "auth": "JWT+Admin" },
+      { "GET": "/admin/dashboard", "auth": "JWT+Admin" },
+      { "DELETE": "/admin/users/:user_id", "auth": "JWT+Admin" },
+      { "GET": "/admin/domains", "auth": "JWT+Admin" },
+      { "PUT": "/admin/domains/:extensionId", "body": { "price?": 0, "available?": true, "description?": "string" }, "auth": "JWT+Admin" },
+      { "POST": "/admin/domains", "body": { "extension": ".com", "price": 0, "description": "string", "available": true }, "auth": "JWT+Admin" },
+      { "POST": "/admin/domains/check", "body": { "domain": "example", "extension": ".com" }, "auth": "JWT+Admin" },
+      { "GET": "/admin/system/metrics", "auth": "JWT+Admin" }
+    ]
+  },
+
+  "troubleshooting": {
+    "signup_400_phone_error": {
+      "issue": "Phone number must start with a '+' can have a maximum of fifteen digits",
+      "status": "FIXED",
+      "solution": "Backend now passes empty string as default phone parameter to Appwrite SDK",
+      "frontend_action": "No changes needed - continue using email/password only"
+    },
+    "login_401_invalid_credentials": {
+      "causes": [
+        "Email not verified in Appwrite (most common)",
+        "Wrong Content-Type (must be application/json)",
+        "Incorrect password",
+        "Appwrite configuration issues"
+      ],
+      "solutions": [
+        "Use /auth/verify-email with token from signup email",
+        "Use /auth/exchange-jwt with Appwrite session JWT",
+        "Ensure Appwrite user has emailVerification=true"
+      ]
+    },
+    "common_curl_tests": [
+      "curl -s -X POST $API/auth/signup -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"Secret123!\"}' | jq",
+      "curl -s -X POST $API/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"Secret123!\"}' | jq"
+    ]
+  },
+
+  "example_flows": {
+    "complete_signup_login_flow": {
+      "step1_signup": {
+        "method": "POST",
+        "url": "/auth/signup",
+        "body": { "email": "user@example.com", "password": "Secret123!" },
+        "expected_response": {
+          "message": "User created successfully. Please check your email to verify your account.",
+          "verificationEmailSent": true
+        }
+      },
+      "step2_verify": {
+        "method": "POST",
+        "url": "/auth/verify-email",
+        "body": { "token": "from_email_link", "user_id": "user_id_from_signup" },
+        "expected_response": {
+          "message": "Email verified successfully! Welcome email sent."
+        }
+      },
+      "step3_login": {
+        "method": "POST",
+        "url": "/auth/login",
+        "body": { "email": "user@example.com", "password": "Secret123!" },
+        "expected_response": {
+          "access_token": "jwt_token",
+          "refresh_token": "refresh_token",
+          "user": { "id": "user_id", "email": "user@example.com", "emailVerified": true, "role": "user" }
+        }
+      }
+    },
+    "wallet_deposit_flow": {
+      "step1_deposit": {
+        "method": "POST",
+        "url": "/wallets/me/deposit",
+        "headers": { "Authorization": "Bearer <access_token>" },
+        "body": { "amount": 3000000, "description": "Top-up wallet" },
+        "expected_response": {
+          "authority": "payment_authority",
+          "paymentUrl": "https://zarinpal.com/pg/StartPay/..."
+        }
+      },
+      "step2_redirect": "Redirect user to paymentUrl",
+      "step3_verify": {
+        "method": "POST",
+        "url": "/wallets/me/deposit/verify",
+        "headers": { "Authorization": "Bearer <access_token>" },
+        "body": { "authority": "from_step1" },
+        "expected_response": {
+          "success": true,
+          "refId": "payment_reference_id",
+          "amount": 3000000
+        }
+      }
+    }
+  }
+}
