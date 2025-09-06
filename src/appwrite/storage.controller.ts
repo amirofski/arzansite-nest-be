@@ -146,23 +146,23 @@ export class StorageController {
         const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
         const now = new Date().toISOString();
 
-        await databases.createDocument(
-          databaseId,
-          collectionId,
-          ID.unique(),
-          {
-            file_id: uploaded.$id,
-            user_id: user_id || null,
-            order_id: order_id || null,
-            bucket_id: uploaded.bucketId,
-            original_name: uploaded.name,
-            mime_type: uploaded.mimeType,
-            size: uploaded.sizeOriginal,
-            created_at: now,
-            updated_at: now,
-          },
-          permissions,
-        );
+      await databases.createDocument(
+        databaseId,
+        collectionId,
+        ID.unique(),
+        {
+          file_id: uploaded.$id,
+          user_id: user_id || null,
+          order_id: order_id || null,
+          bucket_id: uploaded.bucketId,
+          original_name: uploaded.name,
+          mime_type: uploaded.mimeType,
+          size: uploaded.sizeOriginal,
+          created_at: now,
+          updated_at: now,
+        },
+        permissions,
+      );
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('Failed to create project_files record:', (e as any)?.message);

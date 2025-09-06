@@ -68,10 +68,14 @@ export class WizardService {
     const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
     // Check if progress already exists
-    const existingProgress = await databases.listDocuments(databaseId, wizardSessionsCollection, [
-      Query.equal('session_id', saveProgressDto.session_id),
-      Query.limit(1),
-    ]);
+    const existingProgress = await databases.listDocuments(
+      databaseId,
+      wizardSessionsCollection,
+      [
+        Query.equal('session_id', saveProgressDto.session_id),
+        Query.limit(1),
+      ],
+    );
 
     if (existingProgress.documents && existingProgress.documents.length > 0) {
       // Update existing progress
@@ -83,7 +87,7 @@ export class WizardService {
         {
           ...saveProgressDto,
           updated_at: new Date().toISOString(),
-        }
+        },
       );
       return updated as any;
     } else {
@@ -98,7 +102,7 @@ export class WizardService {
           project_files: [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }
+        },
       );
       return newDoc as any;
     }
@@ -109,10 +113,14 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
 
-    const result = await databases.listDocuments(databaseId, wizardOrdersCollection, [
-      Query.equal('session_id', session_id),
-      Query.limit(1),
-    ]);
+    const result = await databases.listDocuments(
+      databaseId,
+      wizardOrdersCollection,
+      [
+        Query.equal('session_id', session_id),
+        Query.limit(1),
+      ],
+    );
 
     if (!result.documents || result.documents.length === 0) {
       throw new NotFoundException('Progress not found');
@@ -133,10 +141,14 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
-    const result = await databases.listDocuments(databaseId, wizardSessionsCollection, [
-      Query.equal('user_id', user_id),
-      Query.orderDesc('updated_at'),
-    ]);
+    const result = await databases.listDocuments(
+      databaseId,
+      wizardSessionsCollection,
+      [
+        Query.equal('user_id', user_id),
+        Query.orderDesc('updated_at'),
+      ],
+    );
 
     return (result.documents as any) || [];
   }
@@ -189,7 +201,7 @@ export class WizardService {
         databaseId,
         ordersCollection,
         ID.unique(),
-        orderData
+        orderData,
       );
 
       // 3. Create payment record for the order
@@ -208,17 +220,19 @@ export class WizardService {
         databaseId,
         paymentsCollection,
         ID.unique(),
-        paymentData
+        paymentData,
       );
 
       // 4. Update wizard session with completed status
       const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
-      const { Query } = await import('node-appwrite');
-      
-      const existingWizardSession = await databases.listDocuments(databaseId, wizardSessionsCollection, [
-        Query.equal('session_id', completeOrderDto.session_id),
-        Query.limit(1),
-      ]);
+      const existingWizardSession = await databases.listDocuments(
+        databaseId,
+        wizardSessionsCollection,
+        [
+          Query.equal('session_id', completeOrderDto.session_id),
+          Query.limit(1),
+        ],
+      );
 
       if (existingWizardSession.documents.length > 0) {
         const updated = await databases.updateDocument(
@@ -228,7 +242,7 @@ export class WizardService {
           {
             is_completed: true,
             updated_at: new Date().toISOString(),
-          }
+          },
         );
       }
 
@@ -288,7 +302,7 @@ export class WizardService {
       {
         ...updateOrderDto,
         updated_at: new Date().toISOString(),
-      }
+      },
     );
 
     return updated as any;
@@ -299,7 +313,16 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
-    const data = await databases.getDocument(databaseId, wizardSessionsCollection, order_id).catch(() => null);
+    let data = null as any;
+    try {
+      data = await databases.getDocument(
+        databaseId,
+        wizardSessionsCollection,
+        order_id,
+      );
+    } catch (_) {
+      data = null;
+    }
 
     if (!data) {
       throw new NotFoundException('Order not found');
@@ -341,7 +364,11 @@ export class WizardService {
     queries.push(Query.offset(offset));
     queries.push(Query.limit(limit));
 
-    const result = await databases.listDocuments(databaseId, wizardSessionsCollection, queries);
+    const result = await databases.listDocuments(
+      databaseId,
+      wizardSessionsCollection,
+      queries,
+    );
     const total = result.total;
 
     return {
@@ -544,29 +571,33 @@ export class WizardService {
     const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
 
     // Check if design already exists for this order
-    const existing = await databases.listDocuments(databaseId, designsCollection, [
-      Query.equal('order_id', saveDesignDto.order_id),
-      Query.limit(1),
-    ]);
+    const existing = await databases.listDocuments(
+      databaseId,
+      designsCollection,
+      [
+        Query.equal('order_id', saveDesignDto.order_id),
+        Query.limit(1),
+      ],
+    );
 
     if (existing.documents.length > 0) {
       // Update existing design
       await databases.updateDocument(
-        databaseId, 
-        designsCollection, 
-        existing.documents[0].$id, 
+        databaseId,
+        designsCollection,
+        existing.documents[0].$id,
         {
           dynamic_design: saveDesignDto.dynamicDesign,
           options: saveDesignDto.options,
           updated_at: new Date().toISOString(),
-        } as any
+        } as any,
       );
     } else {
       // Create new design
       await databases.createDocument(
-        databaseId, 
-        designsCollection, 
-        ID.unique(), 
+        databaseId,
+        designsCollection,
+        ID.unique(),
         {
           order_id: saveDesignDto.order_id,
           user_id: user_id,
@@ -574,7 +605,7 @@ export class WizardService {
           options: saveDesignDto.options,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        } as any
+        } as any,
       );
     }
 
@@ -594,10 +625,14 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const designsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DESIGNS');
 
-    const design = await databases.listDocuments(databaseId, designsCollection, [
-      Query.equal('order_id', order_id),
-      Query.limit(1),
-    ]);
+    const design = await databases.listDocuments(
+      databaseId,
+      designsCollection,
+      [
+        Query.equal('order_id', order_id),
+        Query.limit(1),
+      ],
+    );
 
     if (design.documents.length === 0) {
       return { dynamicDesign: null, options: null };

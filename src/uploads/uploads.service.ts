@@ -101,7 +101,9 @@ export class UploadsService {
           const bucketName = this.getBucketName(bucketType);
           const bucket_id = this.getBucketId(bucketName);
           
-          const files = await storage.listFiles(bucket_id);
+          const files = await storage.listFiles(
+            bucket_id,
+          );
           
           for (const file of files.files) {
             // Cast to our extended interface
@@ -162,7 +164,10 @@ export class UploadsService {
         // Search in specific bucket
         const bucket_id = this.getBucketId(bucketType);
         try {
-          const rawFile = await storage.getFile(bucket_id, id);
+          const rawFile = await storage.getFile(
+            bucket_id,
+            id,
+          );
           file = rawFile as unknown as AppwriteFileWithMetadata;
         } catch (error) {
           if (error.code === 404) {
@@ -178,7 +183,10 @@ export class UploadsService {
         for (const bucketType of bucketTypes) {
           try {
             const bucket_id = this.getBucketId(bucketType);
-            const rawFile = await storage.getFile(bucket_id, id);
+            const rawFile = await storage.getFile(
+              bucket_id,
+              id,
+            );
             file = rawFile as unknown as AppwriteFileWithMetadata;
             break; // Found the file
           } catch (error) {
@@ -366,7 +374,10 @@ export class UploadsService {
       if (bucketType) {
         // Delete from specific bucket
         const bucket_id = this.getBucketId(bucketType);
-        await storage.deleteFile(bucket_id, id);
+        await storage.deleteFile(
+          bucket_id,
+          id,
+        );
       } else {
         // Try to delete from all buckets
         const buckets = (this.appwriteService.getConfig() as any).buckets as Record<string, string>;
@@ -376,7 +387,10 @@ export class UploadsService {
         for (const bucketType of bucketTypes) {
           try {
             const bucket_id = this.getBucketId(bucketType);
-            await storage.deleteFile(bucket_id, id);
+            await storage.deleteFile(
+              bucket_id,
+              id,
+            );
             deleted = true;
             break;
           } catch (error) {
@@ -432,7 +446,9 @@ export class UploadsService {
           const bucketName = this.getBucketName(bucketType);
           const bucket_id = this.getBucketId(bucketName);
           
-          const files = await storage.listFiles(bucket_id);
+          const files = await storage.listFiles(
+            bucket_id,
+          );
           
           for (const file of files.files) {
             // Cast to our extended interface

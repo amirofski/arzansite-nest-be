@@ -5,7 +5,7 @@ import {
   Put,
   Body,
   Param,
-  Query,
+  Query as NestQuery,
   UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
@@ -26,6 +26,7 @@ import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
+import { Query as AppwriteQuery } from 'node-appwrite';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
@@ -235,12 +236,12 @@ export class NotificationsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getNotificationHistory(
     @User() user: UserPayload,
-    @Query('type') type?: string,
-    @Query('status') status?: string,
-    @Query('from_date') from_date?: string,
-    @Query('to_date') to_date?: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+    @NestQuery('type') type?: string,
+    @NestQuery('status') status?: string,
+    @NestQuery('from_date') from_date?: string,
+    @NestQuery('to_date') to_date?: string,
+    @NestQuery('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @NestQuery('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
     this.logger.log(`Getting notification history for user ${user.id}`);
 
@@ -350,18 +351,25 @@ export class NotificationsController {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const notificationsCollection = this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
-      const { Query } = await import('node-appwrite');
 
       // Get total notifications count
-      const totalResult = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('user_id', user.id),
-      ]);
+      const totalResult = await databases.listDocuments(
+        databaseId,
+        notificationsCollection,
+        [
+          AppwriteQuery.equal('user_id', user.id),
+        ],
+      );
 
       // Get unread notifications count
-      const unreadResult = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('user_id', user.id),
-        Query.isNull('read_at'),
-      ]);
+      const unreadResult = await databases.listDocuments(
+        databaseId,
+        notificationsCollection,
+        [
+          AppwriteQuery.equal('user_id', user.id),
+          AppwriteQuery.isNull('read_at'),
+        ],
+      );
 
       return {
         unreadCount: unreadResult.total,
@@ -481,27 +489,38 @@ export class NotificationsController {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
-      const { Query } = await import('node-appwrite');
 
-      const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', user.id),
-        Query.limit(1),
-      ]);
+      const userProfile = await databases.listDocuments(
+        databaseId,
+        profilesCollection,
+        [
+          AppwriteQuery.equal('user_id', user.id),
+          AppwriteQuery.limit(1),
+        ],
+      );
 
       // Get push tokens count
       const pushTokensCollection = this.configService.get<string>('APPWRITE_COLLECTION_PUSH_TOKENS');
-      const pushTokens = await databases.listDocuments(databaseId, pushTokensCollection, [
-        Query.equal('user_id', user.id),
-        Query.equal('active', true),
-      ]);
+      const pushTokens = await databases.listDocuments(
+        databaseId,
+        pushTokensCollection,
+        [
+          AppwriteQuery.equal('user_id', user.id),
+          AppwriteQuery.equal('active', true),
+        ],
+      );
 
       // Get last notification sent for each channel
       const notificationsCollection = this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
-      const lastNotifications = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('user_id', user.id),
-        Query.orderDesc('created_at'),
-        Query.limit(100), // Get last 100 to analyze channel usage
-      ]);
+      const lastNotifications = await databases.listDocuments(
+        databaseId,
+        notificationsCollection,
+        [
+          AppwriteQuery.equal('user_id', user.id),
+          AppwriteQuery.orderDesc('created_at'),
+          AppwriteQuery.limit(100), // Get last 100 to analyze channel usage
+        ],
+      );
 
       const channelStatus = {
         email: {
@@ -561,14 +580,17 @@ export class NotificationsController {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const userActivityCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ACTIVITY');
-      const { Query } = await import('node-appwrite');
 
-      const result = await databases.listDocuments(databaseId, userActivityCollection, [
-        Query.equal('user_id', user_id),
-        Query.equal('activity_type', 'dashboard_login'),
-        Query.orderDesc('created_at'),
-        Query.limit(1),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        userActivityCollection,
+        [
+          AppwriteQuery.equal('user_id', user_id),
+          AppwriteQuery.equal('activity_type', 'dashboard_login'),
+          AppwriteQuery.orderDesc('created_at'),
+          AppwriteQuery.limit(1),
+        ],
+      );
 
       return result.documents.length > 0 ? result.documents[0].created_at : null;
     } catch (error) {

@@ -3,7 +3,7 @@ import { AppwriteService } from '../appwrite/appwrite.service';
 import { Profile } from '../common/types/database.types';
 import { UpdateProfileDto } from './dto/profile.dto';
 import { ConfigService } from '@nestjs/config';
-import { ID } from 'node-appwrite';
+import { ID, Query } from 'node-appwrite';
 
 @Injectable()
 export class ProfilesService {
@@ -16,11 +16,15 @@ export class ProfilesService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
-    const { Query } = await import('node-appwrite');
-    const existing = await databases.listDocuments(databaseId, profilesCollection, [
-      Query.equal('user_id', user_id),
-      Query.limit(1),
-    ]);
+
+    const existing = await databases.listDocuments(
+      databaseId,
+      profilesCollection,
+      [
+        Query.equal('user_id', user_id),
+        Query.limit(1),
+      ],
+    );
     const doc: any = existing.documents[0];
     if (!doc) throw new NotFoundException('Profile not found');
     return doc as any;
@@ -30,17 +34,27 @@ export class ProfilesService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
-    const { Query } = await import('node-appwrite');
-    const existing = await databases.listDocuments(databaseId, profilesCollection, [
-      Query.equal('user_id', user_id),
-      Query.limit(1),
-    ]);
+
+    const existing = await databases.listDocuments(
+      databaseId,
+      profilesCollection,
+      [
+        Query.equal('user_id', user_id),
+        Query.limit(1),
+      ],
+    );
     const doc: any = existing.documents[0];
     if (!doc) throw new NotFoundException('Profile not found');
-    const updated = await databases.updateDocument(databaseId, profilesCollection, doc.$id, {
-      ...updateProfileDto,
-      updated_at: new Date().toISOString(),
-    } as any);
+
+    const updated = await databases.updateDocument(
+      databaseId,
+      profilesCollection,
+      doc.$id,
+      {
+        ...updateProfileDto,
+        updated_at: new Date().toISOString(),
+      },
+    );
     return updated as any;
   }
 
@@ -48,20 +62,30 @@ export class ProfilesService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
-    const { Query } = await import('node-appwrite');
-    const existing = await databases.listDocuments(databaseId, profilesCollection, [
-      Query.equal('user_id', user_id),
-      Query.limit(1),
-    ]);
+
+    const existing = await databases.listDocuments(
+      databaseId,
+      profilesCollection,
+      [
+        Query.equal('user_id', user_id),
+        Query.limit(1),
+      ],
+    );
     if (existing.documents[0]) return existing.documents[0] as any;
+
     const now = new Date().toISOString();
-    const doc = await databases.createDocument(databaseId, profilesCollection, ID.unique(), {
-      user_id: user_id, // use snake_case for database
-      email,
-      full_name: '',
-      created_at: now,
-      updated_at: now,
-    } as any);
+    const doc = await databases.createDocument(
+      databaseId,
+      profilesCollection,
+      ID.unique(),
+      {
+        user_id: user_id, // use snake_case for database
+        email,
+        full_name: '',
+        created_at: now,
+        updated_at: now,
+      },
+    );
     return doc as any;
   }
 
@@ -69,8 +93,12 @@ export class ProfilesService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
-    const { Query } = await import('node-appwrite');
-    const res = await databases.listDocuments(databaseId, profilesCollection, [Query.orderDesc('created_at')]);
+
+    const res = await databases.listDocuments(
+      databaseId,
+      profilesCollection,
+      [Query.orderDesc('created_at')],
+    );
     return (res.documents as any) || [];
   }
 }

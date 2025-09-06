@@ -19,9 +19,13 @@ export class ReceiptsService {
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
     // Get user's invoices first
-    const userInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
-      Query.equal('user_id', user_id),
-    ]);
+    const userInvoices = await databases.listDocuments(
+      databaseId,
+      invoicesCollection,
+      [
+        Query.equal('user_id', user_id),
+      ],
+    );
 
     const invoiceIds = userInvoices.documents.map(inv => inv.$id);
     
@@ -30,10 +34,14 @@ export class ReceiptsService {
     }
 
     // Get receipts for user's invoices
-    const receipts = await databases.listDocuments(databaseId, receiptsCollection, [
-      Query.equal('invoice_id', invoiceIds),
-      Query.orderDesc('created_at'),
-    ]);
+    const receipts = await databases.listDocuments(
+      databaseId,
+      receiptsCollection,
+      [
+        Query.equal('invoice_id', invoiceIds),
+        Query.orderDesc('created_at'),
+      ],
+    );
 
     return receipts.documents.map(doc => this.mapToResponseDto(doc));
   }
@@ -44,14 +52,22 @@ export class ReceiptsService {
     const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    const receipt = await databases.getDocument(databaseId, receiptsCollection, receiptId);
+    const receipt = await databases.getDocument(
+      databaseId,
+      receiptsCollection,
+      receiptId,
+    );
     if (!receipt) {
       throw new NotFoundException('Receipt not found');
     }
 
     // Check access rights
     if (!isAdmin) {
-      const invoice = await databases.getDocument(databaseId, invoicesCollection, receipt.invoice_id);
+      const invoice = await databases.getDocument(
+        databaseId,
+        invoicesCollection,
+        receipt.invoice_id,
+      );
       if (invoice.user_id !== user_id) {
         throw new BadRequestException('Access denied');
       }

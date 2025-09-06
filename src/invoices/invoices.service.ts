@@ -35,16 +35,21 @@ export class InvoicesService {
       throw new NotFoundException('Order not found');
     }
 
-    const invoice = await databases.createDocument(databaseId, invoicesCollection, ID.unique(), {
-      user_id: user_id,
-      order_id: createInvoiceDto.order_id,
-      amount: createInvoiceDto.amount,
-      due_date: createInvoiceDto.dueDate,
-      status: InvoiceStatus.PENDING,
-      description: createInvoiceDto.description || `Invoice for order ${createInvoiceDto.order_id}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    const invoice = await databases.createDocument(
+      databaseId,
+      invoicesCollection,
+      ID.unique(),
+      {
+        user_id: user_id,
+        order_id: createInvoiceDto.order_id,
+        amount: createInvoiceDto.amount,
+        due_date: createInvoiceDto.dueDate,
+        status: InvoiceStatus.PENDING,
+        description: createInvoiceDto.description || `Invoice for order ${createInvoiceDto.order_id}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    );
 
     // Send email notification
     await this.emailService.sendInvoiceCreatedEmail(user_id, invoice.$id, createInvoiceDto.amount);
@@ -62,7 +67,11 @@ export class InvoicesService {
       queries.push(Query.equal('user_id', user_id));
     }
 
-    const result = await databases.listDocuments(databaseId, invoicesCollection, queries);
+    const result = await databases.listDocuments(
+      databaseId,
+      invoicesCollection,
+      queries,
+    );
     return result.documents.map(doc => this.mapToResponseDto(doc));
   }
 
@@ -71,7 +80,11 @@ export class InvoicesService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    const invoice = await databases.getDocument(databaseId, invoicesCollection, invoiceId);
+    const invoice = await databases.getDocument(
+      databaseId,
+      invoicesCollection,
+      invoiceId,
+    );
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
     }
@@ -126,10 +139,15 @@ export class InvoicesService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    await databases.updateDocument(databaseId, invoicesCollection, invoiceId, {
-      status,
-      updated_at: new Date().toISOString(),
-    });
+    await databases.updateDocument(
+      databaseId,
+      invoicesCollection,
+      invoiceId,
+      {
+        status,
+        updated_at: new Date().toISOString(),
+      },
+    );
   }
 
   async generateReceipt(invoiceId: string, refId: string, amount: number): Promise<string> {
@@ -137,14 +155,19 @@ export class InvoicesService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
 
-    const receipt = await databases.createDocument(databaseId, receiptsCollection, ID.unique(), {
-      invoice_id: invoiceId,
-      ref_id: refId,
-      amount,
-      format: 'pdf',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    const receipt = await databases.createDocument(
+      databaseId,
+      receiptsCollection,
+      ID.unique(),
+      {
+        invoice_id: invoiceId,
+        ref_id: refId,
+        amount,
+        format: 'pdf',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    );
 
     return receipt.$id;
   }
@@ -162,10 +185,14 @@ export class InvoicesService {
       }
 
       const today = new Date().toISOString();
-      const overdueInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
-        Query.equal('status', InvoiceStatus.PENDING),
-        Query.lessThan('due_date', today),
-      ]);
+      const overdueInvoices = await databases.listDocuments(
+        databaseId,
+        invoicesCollection,
+        [
+          Query.equal('status', InvoiceStatus.PENDING),
+          Query.lessThan('due_date', today),
+        ],
+      );
 
       for (const invoice of overdueInvoices.documents) {
         await this.updateInvoiceStatus(invoice.$id, InvoiceStatus.OVERDUE);
@@ -190,9 +217,13 @@ export class InvoicesService {
         return;
       }
 
-      const pendingInvoices = await databases.listDocuments(databaseId, invoicesCollection, [
-        Query.equal('status', InvoiceStatus.PENDING),
-      ]);
+      const pendingInvoices = await databases.listDocuments(
+        databaseId,
+        invoicesCollection,
+        [
+          Query.equal('status', InvoiceStatus.PENDING),
+        ],
+      );
 
       for (const invoice of pendingInvoices.documents) {
         try {

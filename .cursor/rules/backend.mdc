@@ -1,4 +1,4 @@
 ---
-description: my NestJS backend api address is nest.arzansite.com
+description: my NestJS backend api address is nest.arzansite.com/api like https://nest.arzansite.com/api/auth/signup
 alwaysApply: false
 ---

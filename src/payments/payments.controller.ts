@@ -18,7 +18,10 @@ import {
 } from './dto/payment.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody } from '@nestjs/swagger';
 
+@ApiTags('Payments')
+@ApiBearerAuth()
 @Controller('payments')
 @UseGuards(JwtGuard)
 export class PaymentsController {
@@ -30,12 +33,17 @@ export class PaymentsController {
   ) {}
 
   @Get('test-connection')
+  @ApiOperation({ summary: 'Test ZarinPal connection' })
+  @ApiResponse({ status: 200, description: 'Connection tested' })
   async testZarinPalConnection() {
     this.logger.log('Testing ZarinPal connection...');
     return this.zarinPalService.testConnection();
   }
 
   @Post('request')
+  @ApiOperation({ summary: 'Create payment request' })
+  @ApiBody({ type: PaymentRequestDto })
+  @ApiResponse({ status: 201, description: 'Payment request created' })
   async requestPayment(
     @User() user: UserPayload,
     @Body() paymentRequestDto: PaymentRequestDto,
@@ -113,6 +121,9 @@ export class PaymentsController {
   }
 
   @Post('verify')
+  @ApiOperation({ summary: 'Verify payment' })
+  @ApiBody({ type: PaymentVerifyDto })
+  @ApiResponse({ status: 200, description: 'Payment verified' })
   async verifyPayment(
     @User() user: UserPayload,
     @Body() paymentVerifyDto: PaymentVerifyDto,
@@ -173,6 +184,9 @@ export class PaymentsController {
   }
 
   @Post('refund')
+  @ApiOperation({ summary: 'Refund order payment' })
+  @ApiBody({ type: PaymentRefundDto })
+  @ApiResponse({ status: 200, description: 'Refund logged' })
   async refundPayment(
     @User() user: UserPayload,
     @Body() paymentRefundDto: PaymentRefundDto,
@@ -188,6 +202,9 @@ export class PaymentsController {
   }
 
   @Post('cancel')
+  @ApiOperation({ summary: 'Cancel payment' })
+  @ApiBody({ type: PaymentCancelDto })
+  @ApiResponse({ status: 200, description: 'Cancellation logged' })
   async cancelPayment(
     @User() user: UserPayload,
     @Body() paymentCancelDto: PaymentCancelDto,
@@ -202,6 +219,9 @@ export class PaymentsController {
   }
 
   @Get('orders/:order_id')
+  @ApiOperation({ summary: 'Get payments for an order' })
+  @ApiParam({ name: 'order_id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Payments retrieved' })
   async getOrderPayments(
     @User() user: UserPayload,
     @Param('order_id') order_id: string,
@@ -211,6 +231,8 @@ export class PaymentsController {
   }
 
   @Get('status')
+  @ApiOperation({ summary: 'Payment gateway status' })
+  @ApiResponse({ status: 200, description: 'Status retrieved' })
   async getPaymentGatewayStatus() {
     this.logger.log('Getting payment gateway status');
     

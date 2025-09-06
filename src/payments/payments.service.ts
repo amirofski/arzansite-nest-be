@@ -5,6 +5,8 @@ import { OrdersService } from '../orders/orders.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { PaymentTransaction } from '../common/types/database.types';
 import { ZarinPalService } from './zarinpal.service';
+import { ID, Query } from 'node-appwrite';
+import { TransactionType } from '../wallets/dto/wallet.dto';
 import {
   PaymentRequestDto,
   PaymentVerifyDto,
@@ -134,7 +136,7 @@ export class PaymentsService {
           );
           // Notify user for successful order payment
           try {
-            await this.appwriteService.sendUserPush(
+            await (this.appwriteService as any).sendUserPush(
               user_id,
               'پرداخت سفارش موفق بود',
               `پرداخت سفارش شما با موفقیت انجام شد. کد رهگیری: ${refId}`,
@@ -148,10 +150,17 @@ export class PaymentsService {
           } catch (_) {}
         } else {
           // For wallet deposits, top up the wallet
-          await this.walletsService.topUpWallet(user_id, orderAmount, refId);
+          await this.walletsService.createTransaction(user_id, {
+            type: TransactionType.CREDIT,
+            amount: orderAmount,
+            description: 'Wallet deposit',
+            referenceType: 'wallet_deposit',
+            referenceId: paymentVerifyDto.authority,
+            metadata: { refId, source: 'zarinpal' },
+          });
           // Notify user for successful wallet deposit
           try {
-            await this.appwriteService.sendUserPush(
+            await (this.appwriteService as any).sendUserPush(
               user_id,
               'شارژ کیف پول موفق بود',
               `کیف پول شما به مبلغ ${orderAmount} ریال شارژ شد. کد رهگیری: ${refId}`,
@@ -259,11 +268,14 @@ export class PaymentsService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
-    const { Query } = await import('node-appwrite');
-    const res = await databases.listDocuments(databaseId, collectionId, [
-      Query.equal('order_id', order_id),
-      Query.orderDesc('created_at'),
-    ]);
+    const res = await databases.listDocuments(
+      databaseId,
+      collectionId,
+      [
+        Query.equal('order_id', order_id),
+        Query.orderDesc('created_at'),
+      ],
+    );
     return (res.documents as any) || [];
   }
 
@@ -347,7 +359,14 @@ export class PaymentsService {
         const refId = paymentResponse.data.ref_id.toString();
 
         // Top up the wallet
-        await this.walletsService.topUpWallet(user_id, transaction.amount, refId);
+        await this.walletsService.createTransaction(user_id, {
+          type: TransactionType.CREDIT,
+          amount: transaction.amount,
+          description: 'Wallet deposit',
+          referenceType: 'wallet_deposit',
+          referenceId: authority,
+          metadata: { refId, source: 'zarinpal' },
+        });
 
         // Log payment transaction
         await this.logPaymentTransaction({
@@ -378,13 +397,16 @@ export class PaymentsService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
-    const { Query } = await import('node-appwrite');
     
     try {
-      const res = await databases.listDocuments(databaseId, collectionId, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const res = await databases.listDocuments(
+        databaseId,
+        collectionId,
+        [
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
       return res.documents[0] || {};
     } catch (error) {
       return {};
@@ -395,7 +417,6 @@ export class PaymentsService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
-    const { ID } = await import('node-appwrite');
     
     // Stringify metadata and gateway_response for Appwrite storage
     const processedData = {
@@ -406,7 +427,12 @@ export class PaymentsService {
       updated_at: new Date().toISOString(),
     };
     
-    await databases.createDocument(databaseId, collectionId, ID.unique(), processedData as any);
+    await databases.createDocument(
+      databaseId,
+      collectionId,
+      ID.unique(),
+      processedData as any,
+    );
   }
 
   /**
@@ -416,13 +442,16 @@ export class PaymentsService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
-    const { Query } = await import('node-appwrite');
     
     try {
-      const res = await databases.listDocuments(databaseId, collectionId, [
-        Query.equal('zarinpal_authority', authority),
-        Query.limit(1),
-      ]);
+      const res = await databases.listDocuments(
+        databaseId,
+        collectionId,
+        [
+          Query.equal('zarinpal_authority', authority),
+          Query.limit(1),
+        ],
+      );
       return res.documents[0] || null;
     } catch (error) {
       return null;

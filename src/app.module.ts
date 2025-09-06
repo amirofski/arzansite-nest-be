@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { validationSchema } from './config/validation';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AppwriteModule } from './appwrite/appwrite.module';
@@ -31,6 +32,7 @@ import { SupportModule } from './support/support.module';
       envFilePath: ['.env', '.env.local', '.env.production'],
       cache: true,
       expandVariables: true,
+      validationSchema,
     }),
     ThrottlerModule.forRoot([
       {

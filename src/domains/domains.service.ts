@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { Query } from 'node-appwrite';
 
 @Injectable()
 export class DomainsService {
@@ -96,11 +97,14 @@ export class DomainsService {
     const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
     
     try {
-      const { Query } = await import('node-appwrite');
-      const result = await databases.listDocuments(databaseId, domainExtensionsCollection, [
-        Query.equal('available', true),
-        Query.orderAsc('extension'),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        domainExtensionsCollection,
+        [
+          Query.equal('available', true),
+          Query.orderAsc('extension'),
+        ],
+      );
       
       return (result.documents as any) || [];
     } catch (error) {
@@ -122,10 +126,13 @@ export class DomainsService {
     const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
     
     try {
-      const { Query } = await import('node-appwrite');
-      const result = await databases.listDocuments(databaseId, domainExtensionsCollection, [
-        Query.orderAsc('extension'),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        domainExtensionsCollection,
+        [
+          Query.orderAsc('extension'),
+        ],
+      );
       
       return (result.documents as any) || [];
     } catch (error) {
@@ -159,7 +166,7 @@ export class DomainsService {
           price,
           available,
           updated_at: new Date().toISOString(),
-        }
+        },
       );
       
       return updated;

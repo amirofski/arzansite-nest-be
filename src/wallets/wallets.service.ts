@@ -19,19 +19,28 @@ export class WalletsService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
-    const existing = await databases.listDocuments(databaseId, walletsCollection, [
-      Query.equal('user_id', user_id),
-      Query.limit(1),
-    ]);
+    const existing = await databases.listDocuments(
+      databaseId,
+      walletsCollection,
+      [
+        Query.equal('user_id', user_id),
+        Query.limit(1),
+      ],
+    );
 
     const wallet: any = existing.documents[0];
     if (!wallet) {
-      const newWallet = await databases.createDocument(databaseId, walletsCollection, ID.unique(), {
-        user_id: user_id,
-        balance: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any);
+      const newWallet = await databases.createDocument(
+        databaseId,
+        walletsCollection,
+        ID.unique(),
+        {
+          user_id: user_id,
+          balance: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any,
+      );
       return newWallet as any;
     }
 
@@ -51,13 +60,16 @@ export class WalletsService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
-    const { Query } = await import('node-appwrite');
-    const result = await databases.listDocuments(databaseId, transactionsCollection, [
-      Query.equal('user_id', user_id),
-      Query.orderDesc('created_at'),
-      Query.limit(limit),
-      Query.offset(offset),
-    ]);
+    const result = await databases.listDocuments(
+      databaseId,
+      transactionsCollection,
+      [
+        Query.equal('user_id', user_id),
+        Query.orderDesc('created_at'),
+        Query.limit(limit),
+        Query.offset(offset),
+      ],
+    );
     
     // Parse metadata from JSON string back to object
     const transactions = (result.documents as any[]).map(transaction => {
@@ -90,6 +102,7 @@ export class WalletsService {
 
     // Ensure wallet exists
     const wallet = await this.getWallet(user_id);
+    const walletId = (wallet as any).$id ?? (wallet as any).id;
     const balanceBefore = wallet.balance || 0;
 
     // Validate transaction
@@ -101,7 +114,7 @@ export class WalletsService {
     // Prepare transaction document
     const transactionDoc = this.prepareTransactionDocument(
       user_id,
-      wallet.id,
+      walletId,
       createTransactionDto,
       balanceBefore,
       balanceAfter
@@ -116,17 +129,22 @@ export class WalletsService {
     try {
       // Create transaction first
       const tx = await databases.createDocument(
-        databaseId, 
-        transactionsCollection, 
-        ID.unique(), 
-        transactionDoc
+        databaseId,
+        transactionsCollection,
+        ID.unique(),
+        transactionDoc,
       );
 
       // Update wallet balance
-      await databases.updateDocument(databaseId, walletsCollection, wallet.id, {
-        balance: balanceAfter,
-        updated_at: new Date().toISOString(),
-      } as any);
+      await databases.updateDocument(
+        databaseId,
+        walletsCollection,
+        walletId,
+        {
+          balance: balanceAfter,
+          updated_at: new Date().toISOString(),
+        } as any,
+      );
 
       this.logger.log(`Transaction created successfully: ${(tx as any).$id}. Balance: ${balanceBefore} → ${balanceAfter}`);
 
@@ -235,10 +253,14 @@ export class WalletsService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
 
-    const existingTransaction = await databases.listDocuments(databaseId, transactionsCollection, [
-      Query.equal('reference_id', referenceId),
-      Query.limit(1),
-    ]);
+    const existingTransaction = await databases.listDocuments(
+      databaseId,
+      transactionsCollection,
+      [
+        Query.equal('reference_id', referenceId),
+        Query.limit(1),
+      ],
+    );
 
     if (existingTransaction.documents.length > 0) {
       throw new BadRequestException(`Reference ID '${referenceId}' has already been used for a transaction`);
@@ -253,7 +275,11 @@ export class WalletsService {
     const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
 
     try {
-      const order: any = await databases.getDocument(databaseId, ordersCollection, refundOrderDto.order_id);
+      const order: any = await databases.getDocument(
+        databaseId,
+        ordersCollection,
+        refundOrderDto.order_id,
+      );
       const amount = order.price || 0;
       const user_id = order.user_id;
 
@@ -362,10 +388,14 @@ export class WalletsService {
       const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
 
       // Check if RefId has already been used
-      const transaction = await databases.listDocuments(databaseId, transactionsCollection, [
-        Query.equal('reference_id', refId),
-        Query.limit(1),
-      ]);
+      const transaction = await databases.listDocuments(
+        databaseId,
+        transactionsCollection,
+        [
+          Query.equal('reference_id', refId),
+          Query.limit(1),
+        ],
+      );
 
       if (transaction.documents.length > 0) {
         this.logger.warn(`Ref ID ${refId} has already been used`);
@@ -398,10 +428,14 @@ export class WalletsService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
 
-    const result = await databases.listDocuments(databaseId, transactionsCollection, [
-      Query.equal('reference_id', referenceId),
-      Query.limit(1),
-    ]);
+    const result = await databases.listDocuments(
+      databaseId,
+      transactionsCollection,
+      [
+        Query.equal('reference_id', referenceId),
+        Query.limit(1),
+      ],
+    );
 
     if (result.documents.length === 0) {
       return null;
@@ -553,11 +587,15 @@ export class WalletsService {
     try {
       // Search for transactions with the authority in metadata
       // Note: This is a simplified search - in production, you might want to create a separate index
-      const result = await databases.listDocuments(databaseId, transactionsCollection, [
-        Query.equal('reference_type', 'wallet_deposit'),
-        Query.limit(100), // Get recent deposits to search through
-        Query.orderDesc('created_at'),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        transactionsCollection,
+        [
+          Query.equal('reference_type', 'wallet_deposit'),
+          Query.limit(100), // Get recent deposits to search through
+          Query.orderDesc('created_at'),
+        ],
+      );
 
       // Search through the results for matching authority
       for (const doc of result.documents) {

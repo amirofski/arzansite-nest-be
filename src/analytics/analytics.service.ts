@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppwriteService } from '../appwrite/appwrite.service';
+import { Query } from 'node-appwrite';
 
 export interface OrderAnalytics {
   totalOrders: number;
@@ -61,7 +62,6 @@ export class AnalyticsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-      const { Query } = await import('node-appwrite');
       
       // Calculate date range
       const endDate = new Date();
@@ -90,7 +90,11 @@ export class AnalyticsService {
         Query.lessThanEqual('created_at', endDate.toISOString()),
       ];
 
-      const orders = await databases.listDocuments(databaseId, ordersCollection, ordersQuery);
+      const orders = await databases.listDocuments(
+        databaseId,
+        ordersCollection,
+        ordersQuery
+      );
       
       // Process orders data
       const analytics = this.processOrderData(orders.documents, groupBy);
@@ -115,7 +119,6 @@ export class AnalyticsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
-      const { Query } = await import('node-appwrite');
       
       // Calculate date range
       const endDate = new Date();
@@ -148,7 +151,11 @@ export class AnalyticsService {
         queryFilters.push(Query.equal('type', type));
       }
 
-      const transactions = await databases.listDocuments(databaseId, transactionsCollection, queryFilters);
+      const transactions = await databases.listDocuments(
+        databaseId,
+        transactionsCollection,
+        queryFilters
+      );
       
       // Process transactions data
       const analytics = this.processWalletTransactionData(transactions.documents);
@@ -173,7 +180,6 @@ export class AnalyticsService {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const userActivityCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_ACTIVITY');
       const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
-      const { Query } = await import('node-appwrite');
       
       // Calculate date range
       const endDate = new Date();
@@ -197,17 +203,25 @@ export class AnalyticsService {
       }
 
       // Get user activity
-      const userActivity = await databases.listDocuments(databaseId, userActivityCollection, [
-        Query.equal('user_id', user_id),
-        Query.greaterThanEqual('created_at', startDate.toISOString()),
-        Query.lessThanEqual('created_at', endDate.toISOString()),
-      ]);
+      const userActivity = await databases.listDocuments(
+        databaseId,
+        userActivityCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.greaterThanEqual('created_at', startDate.toISOString()),
+          Query.lessThanEqual('created_at', endDate.toISOString()),
+        ],
+      );
 
       // Get user profile
-      const userProfile = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const userProfile = await databases.listDocuments(
+        databaseId,
+        profilesCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
 
       // Process behavior data
       const analytics = this.processUserBehaviorData(userActivity.documents, userProfile.documents[0]);
@@ -231,7 +245,6 @@ export class AnalyticsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
-      const { Query } = await import('node-appwrite');
       
       // Calculate date range
       const endDate = new Date();
@@ -261,7 +274,11 @@ export class AnalyticsService {
         Query.lessThanEqual('created_at', endDate.toISOString()),
       ];
 
-      const orders = await databases.listDocuments(databaseId, ordersCollection, ordersQuery);
+      const orders = await databases.listDocuments(
+        databaseId,
+        ordersCollection,
+        ordersQuery
+      );
       
       // Process revenue data
       const analytics = this.processRevenueData(orders.documents);

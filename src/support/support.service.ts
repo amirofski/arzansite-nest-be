@@ -108,7 +108,7 @@ export class SupportService {
         databaseId,
         this.collectionId,
         ID.unique(),
-        ticketData
+        ticketData,
       );
 
       // Send confirmation email
@@ -137,7 +137,7 @@ export class SupportService {
       const ticket = await databases.getDocument(
         databaseId,
         this.collectionId,
-        ticketId
+        ticketId,
       );
 
       // Verify user owns this ticket or is admin
@@ -183,7 +183,7 @@ export class SupportService {
         {
           messages: updatedMessages,
           updated_at: new Date().toISOString(),
-        }
+        },
       );
 
       // Notify support team about new message
@@ -211,7 +211,7 @@ export class SupportService {
       const ticket = await databases.getDocument(
         databaseId,
         this.collectionId,
-        ticketId
+        ticketId,
       );
 
       await databases.updateDocument(
@@ -222,7 +222,7 @@ export class SupportService {
           status,
           updated_at: new Date().toISOString(),
           assignedTo: adminUserId,
-        }
+        },
       );
 
       // Notify user about status change
@@ -263,10 +263,14 @@ export class SupportService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       
+      queries.push(Query.orderDesc('created_at'));
+      queries.push(Query.limit(limit));
+      queries.push(Query.offset(offset));
+
       const tickets = await databases.listDocuments(
         databaseId,
         this.collectionId,
-        queries
+        queries,
       );
 
       const total = await this.getTotalTicketCount(user_id, status);
@@ -399,7 +403,7 @@ export class SupportService {
       const result = await databases.listDocuments(
         databaseId,
         this.collectionId,
-        queries
+        queries,
       );
 
       return result.total;

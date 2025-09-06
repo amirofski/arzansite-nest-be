@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { AppwriteService } from '../appwrite/appwrite.service';
-import { ID } from 'node-appwrite';
+import { ID, Query } from 'node-appwrite';
 
 export interface EmailOptions {
   to: string;
@@ -266,7 +266,12 @@ export class EmailService {
         return;
       }
 
-      await databases.createDocument(databaseId, collectionId, ID.unique(), logData as any);
+      await databases.createDocument(
+        databaseId,
+        collectionId,
+        ID.unique(),
+        logData,
+      );
       this.logger.debug(`📝 Email logged to database: ${logData.success ? 'SUCCESS' : 'FAILED'}`);
     } catch (error) {
       this.logger.error('❌ Error logging email to database:', error);
@@ -283,14 +288,17 @@ export class EmailService {
         throw new Error('Email logging not configured');
       }
 
-      const { Query } = await import('node-appwrite');
       const filters = [Query.limit(params.limit), Query.offset(params.offset), Query.orderDesc('sent_at')];
       
       if (params.success === 'true') filters.push(Query.equal('success', true));
       if (params.success === 'false') filters.push(Query.equal('success', false));
       if (params.template_type) filters.push(Query.equal('template_type', params.template_type));
       
-      const res = await databases.listDocuments(databaseId, collectionId, filters);
+      const res = await databases.listDocuments(
+        databaseId,
+        collectionId,
+        filters,
+      );
       
       return {
         logs: (res.documents as any[]) || [],
@@ -721,7 +729,12 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     if (!user) return;
 
     const template = this.getReceiptCreatedTemplate(receiptId, amount);
-    await this.sendInvoiceCreatedEmail(user_id, receiptId, amount);
+    await this.sendEmail({
+      to: user.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
   }
 
   private getWalletTopUpTemplate(amount: number, refId: string): EmailTemplate {
@@ -980,11 +993,14 @@ Download Receipt: https://arzansite.com/receipts/${receiptId}/download
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
       
-      const { Query } = await import('node-appwrite');
-      const result = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        profilesCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
       
       return result.documents[0] || null;
     } catch (error) {

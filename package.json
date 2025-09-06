@@ -24,7 +24,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "appwrite:schema": "node create-appwrite-schema.js",
     "appwrite:update": "node update-appwrite-schema.js",
-    "appwrite:indexes": "node create-indexes.js"
+    "appwrite:indexes": "node create-indexes.js",
+    "migrate:appwrite": "ts-node -r tsconfig-paths/register scripts/appwrite-migrate.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.10",
@@ -45,9 +46,10 @@
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.7",
     "helmet": "^7.1.0",
+    "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
     "jwks-client": "^2.0.5",
-    "node-appwrite": "^13.0.0",
+    "node-appwrite": "^14.1.0",
     "nodemailer": "^7.0.5",
     "pdfkit": "^0.17.1",
     "pino": "^9.9.0",

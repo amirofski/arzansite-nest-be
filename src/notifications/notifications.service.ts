@@ -2,7 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { EmailService } from '../email/email.service';
-import { ID } from 'node-appwrite';
+import { ID, Query } from 'node-appwrite';
 
 export interface NotificationRequest {
   order_id: string;
@@ -115,12 +115,15 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const preferencesCollection = this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATION_PREFERENCES');
-      const { Query } = await import('node-appwrite');
 
-      const result = await databases.listDocuments(databaseId, preferencesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        preferencesCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
 
       if (result.documents.length > 0) {
         return this.mapToNotificationPreferences(result.documents[0]);
@@ -144,12 +147,15 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const preferencesCollection = this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATION_PREFERENCES');
-      const { Query } = await import('node-appwrite');
 
-      const existingPreferences = await databases.listDocuments(databaseId, preferencesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const existingPreferences = await databases.listDocuments(
+        databaseId,
+        preferencesCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
 
       if (existingPreferences.documents.length > 0) {
         // Update existing preferences
@@ -160,7 +166,7 @@ export class NotificationsService {
           {
             ...this.mapToDatabaseFormat(preferences),
             updated_at: new Date().toISOString(),
-          }
+          },
         );
 
         return this.mapToNotificationPreferences(updatedPreferences);
@@ -175,7 +181,7 @@ export class NotificationsService {
             ...this.mapToDatabaseFormat(preferences),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          }
+          },
         );
 
         return this.mapToNotificationPreferences(newPreferences);
@@ -211,7 +217,6 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const notificationsCollection = this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
-      const { Query } = await import('node-appwrite');
 
       // Build query filters
       const queryFilters = [Query.equal('user_id', user_id)];
@@ -242,12 +247,20 @@ export class NotificationsService {
       queryFilters.push(Query.offset(offset));
 
       // Get notifications
-      const result = await databases.listDocuments(databaseId, notificationsCollection, queryFilters);
+      const result = await databases.listDocuments(
+        databaseId,
+        notificationsCollection,
+        queryFilters,
+      );
 
       // Get total count for pagination
-      const totalResult = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('user_id', user_id)
-      ]);
+      const totalResult = await databases.listDocuments(
+        databaseId,
+        notificationsCollection,
+        [
+          Query.equal('user_id', user_id),
+        ],
+      );
 
       const total = totalResult.total;
       const totalPages = Math.ceil(total / limit);
@@ -274,13 +287,16 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const notificationsCollection = this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
-      const { Query } = await import('node-appwrite');
 
-      const notification = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('$id', notificationId),
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const notification = await databases.listDocuments(
+        databaseId,
+        notificationsCollection,
+        [
+          Query.equal('$id', notificationId),
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
 
       if (notification.documents.length > 0) {
         await databases.updateDocument(
@@ -290,7 +306,7 @@ export class NotificationsService {
           {
             read_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          }
+          },
         );
       }
     } catch (error) {
@@ -306,13 +322,16 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const notificationsCollection = this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
-      const { Query } = await import('node-appwrite');
 
-      const unreadNotifications = await databases.listDocuments(databaseId, notificationsCollection, [
-        Query.equal('user_id', user_id),
-        Query.isNull('read_at'),
-        Query.limit(100), // Limit to prevent overwhelming the system
-      ]);
+      const unreadNotifications = await databases.listDocuments(
+        databaseId,
+        notificationsCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.isNull('read_at'),
+          Query.limit(100), // Limit to prevent overwhelming the system
+        ],
+      );
 
       for (const notification of unreadNotifications.documents) {
         await databases.updateDocument(
@@ -322,7 +341,7 @@ export class NotificationsService {
           {
             read_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          }
+          },
         );
       }
     } catch (error) {
@@ -371,7 +390,7 @@ export class NotificationsService {
           status: 'pending',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }
+        },
       );
 
       return document.$id;
@@ -543,12 +562,15 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
-      const { Query } = await import('node-appwrite');
 
-      const result = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        profilesCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
 
       return result.documents.length > 0 ? result.documents[0].email : null;
     } catch (error) {
@@ -562,12 +584,15 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
-      const { Query } = await import('node-appwrite');
 
-      const result = await databases.listDocuments(databaseId, profilesCollection, [
-        Query.equal('user_id', user_id),
-        Query.limit(1),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        profilesCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.limit(1),
+        ],
+      );
 
       return result.documents.length > 0 ? result.documents[0].phone : null;
     } catch (error) {
@@ -581,12 +606,15 @@ export class NotificationsService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const pushTokensCollection = this.configService.get<string>('APPWRITE_COLLECTION_PUSH_TOKENS');
-      const { Query } = await import('node-appwrite');
 
-      const result = await databases.listDocuments(databaseId, pushTokensCollection, [
-        Query.equal('user_id', user_id),
-        Query.equal('active', true),
-      ]);
+      const result = await databases.listDocuments(
+        databaseId,
+        pushTokensCollection,
+        [
+          Query.equal('user_id', user_id),
+          Query.equal('active', true),
+        ],
+      );
 
       return result.documents.map(doc => doc.token);
     } catch (error) {
@@ -673,7 +701,7 @@ export class NotificationsService {
           failed_channels: failedChannels,
           sent_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }
+        },
       );
     } catch (error) {
       this.logger.warn(`Failed to update notification status: ${error.message}`);

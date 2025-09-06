@@ -114,7 +114,7 @@ export class AuthService {
       await this.appwriteService.getDatabases().createDocument(
         databaseId,
         collectionId,
-        'unique()',
+        ID.unique(),
         {
           user_id,
           title: 'Email Verification',
@@ -126,7 +126,7 @@ export class AuthService {
           is_used: false,
           expires_at,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         }
       );
       
@@ -394,7 +394,7 @@ export class AuthService {
       await this.appwriteService.getDatabases().createDocument(
         databaseId,
         collectionId,
-        'unique()',
+        ID.unique(),
         {
           user_id,
           email,
@@ -403,7 +403,7 @@ export class AuthService {
           is_used: false,
           expires_at: expiresAt.toISOString(),
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         }
       );
     } catch (error) {

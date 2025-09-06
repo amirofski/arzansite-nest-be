@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Client, Databases, Account, Storage, Functions, Messaging, Users, Teams, ID } from 'node-appwrite';
+import { Client, Databases, Account, Storage, Functions, Users, Teams, ID } from 'node-appwrite';
 import { AppwriteConfig } from './appwrite.config';
 
 @Injectable()
@@ -9,29 +9,38 @@ export class AppwriteService implements OnModuleInit {
   private account: Account;
   private storage: Storage;
   private functions: Functions;
-  private messaging: Messaging;
   private users: Users;
   private teams: Teams;
+  // Messaging is not guaranteed in node-appwrite v14; keep a loose reference
+  private messaging: any = null;
 
   constructor(private readonly config: AppwriteConfig) {}
 
   onModuleInit() {
     this.config.validate();
-    
-    // Updated client initialization with latest patterns
+
     this.client = new Client()
       .setEndpoint(this.config.endpoint)
       .setProject(this.config.projectId)
       .setKey(this.config.apiKey);
 
-    // Initialize all services
     this.databases = new Databases(this.client);
     this.account = new Account(this.client);
     this.storage = new Storage(this.client);
     this.functions = new Functions(this.client);
-    this.messaging = new Messaging(this.client);
     this.users = new Users(this.client);
     this.teams = new Teams(this.client);
+
+    // Best effort: attempt to access Messaging if available in this SDK
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const maybeMessaging = (require('node-appwrite') as any).Messaging;
+      if (maybeMessaging) {
+        this.messaging = new maybeMessaging(this.client);
+      }
+    } catch {
+      this.messaging = null;
+    }
   }
 
   // Client accessors
@@ -40,62 +49,48 @@ export class AppwriteService implements OnModuleInit {
   getAccount() { return this.account; }
   getStorage() { return this.storage; }
   getFunctions() { return this.functions; }
-  getMessaging() { return this.messaging; }
   getUsers() { return this.users; }
   getTeams() { return this.teams; }
+  getMessaging() { return this.messaging; }
 
   // Configuration accessors
   getConfig() { return this.config; }
 
-  // Authentication methods - Updated for latest SDK
-  async createUser(email: string, password: string, name?: string) {
+  // Authentication methods - Adjusted for node-appwrite v14 positional forms
+  async createUser(email: string, password: string, name?: string): Promise<any> {
     try {
-      // Use Users API to create users (Account API is for sessions)
-      // Note: Appwrite SDK v13+ requires phone parameter, using empty string as default
-      const user = await this.users.create(
-        ID.unique(),
-        email,
-        password,
-        name,
-        '', // phone - empty string as default since it's required by SDK
-      );
-      
-      console.log('✅ User created successfully with latest SDK');
+      // v14 create signature: create(userId, email, password, name?)
+      const user = await this.users.create(ID.unique(), email, password, name || 'User');
       return user;
-    } catch (error) {
-      console.error('❌ Failed to create user:', error.message);
+    } catch (error: any) {
       throw new Error(`Failed to create user: ${error.message}`);
     }
   }
 
-  async createSession(email: string, password: string) {
+  async createSession(email: string, password: string): Promise<any> {
     try {
-      // Updated method name for latest SDK
-      const session = await this.account.createEmailPasswordSession(email, password);
-      return session;
-    } catch (error) {
+      // v14 positional signature
+      return await this.account.createEmailPasswordSession(email, password);
+    } catch (error: any) {
       throw new Error(`Failed to create session: ${error.message}`);
     }
   }
 
-  async getCurrentUser(jwt: string) {
+  async getCurrentUser(jwt: string): Promise<any> {
     try {
       const client = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
         .setJWT(jwt);
-      
       const account = new Account(client);
-      const user = await account.get();
-      return user;
-    } catch (error) {
+      return await account.get();
+    } catch (error: any) {
       throw new Error(`Failed to get current user: ${error.message}`);
     }
   }
 
-  async getCurrentUserFromSession(session_id: string) {
+  async getCurrentUserFromSession(session_id: string): Promise<any> {
     try {
-      // Heuristic: if token looks like a JWT (has dots), use JWT mode; otherwise try session
       const looksLikeJwt = typeof session_id === 'string' && session_id.includes('.') && session_id.split('.').length === 3;
 
       if (!looksLikeJwt) {
@@ -105,22 +100,19 @@ export class AppwriteService implements OnModuleInit {
             .setProject(this.config.projectId)
             .setSession(session_id);
           const account = new Account(client);
-          const user = await account.get();
-          return user;
-        } catch (sessionErr: any) {
-          // Fall through to try JWT if the provided token was actually a JWT or session failed
+          return await account.get();
+        } catch {
+          // fallthrough
         }
       }
 
-      // Fallback: treat provided value as JWT and try fetching the user
       const jwtClient = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
         .setJWT(session_id);
       const jwtAccount = new Account(jwtClient);
-      const jwtUser = await jwtAccount.get();
-      return jwtUser;
-    } catch (error) {
+      return await jwtAccount.get();
+    } catch (error: any) {
       throw new Error(`Failed to get current user from session: ${error.message}`);
     }
   }
@@ -131,198 +123,138 @@ export class AppwriteService implements OnModuleInit {
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
         .setSession(session_id);
-
       const account = new Account(client);
       await account.deleteSession(session_id);
       return { success: true, message: 'Session deleted successfully' };
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to delete session: ${error.message}`);
     }
   }
 
-  async listUserSessions(user_id: string) {
+  async listUserSessions(_user_id: string) {
     try {
-      const client = new Client()
-        .setEndpoint(this.config.endpoint)
-        .setProject(this.config.projectId)
-        .setKey(this.config.apiKey);
-
-      const account = new Account(client);
-      const sessions = await account.listSessions();
-      return sessions;
-    } catch (error) {
+      // Using current account context
+      return await this.account.listSessions();
+    } catch (error: any) {
       throw new Error(`Failed to list user sessions: ${error.message}`);
     }
   }
 
   async createEmailPasswordSession(email: string, password: string) {
-    try {
-      const client = new Client()
-        .setEndpoint(this.config.endpoint)
-        .setProject(this.config.projectId);
-
-      const account = new Account(client);
-      const session = await account.createEmailPasswordSession(email, password);
-      return session;
-    } catch (error) {
-      throw new Error(`Failed to create email password session: ${error.message}`);
-    }
+    return this.createSession(email, password);
   }
 
   async createVerificationWithUserSession(email: string, password: string, redirectUrl: string) {
     try {
-      // Create a session for the user
       const session = await this.createSession(email, password);
-      
-      // Create a new client instance with the user's session
       const userClient = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
         .setSession(session.$id);
-
       const userAccount = new Account(userClient);
-
-      // Create verification using the authenticated user session
+      // v14 positional
       const verification = await userAccount.createVerification(redirectUrl);
-      
-      // Clean up the session after verification creation
-      try {
-        await this.deleteSession(session.$id);
-      } catch (sessionCleanupError) {
-        console.warn('Failed to clean up session:', sessionCleanupError);
-      }
-
+      try { await this.deleteSession(session.$id); } catch {}
       return verification;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to create verification with user session: ${error.message}`);
     }
   }
 
   async createRecoveryWithUserSession(email: string, password: string, redirectUrl: string) {
     try {
-      // Create a session for the user
       const session = await this.createSession(email, password);
-      
-      // Create a new client instance with the user's session
       const userClient = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
         .setSession(session.$id);
-
       const userAccount = new Account(userClient);
-
-      // Create recovery using the authenticated user session
+      // v14 positional
       const recovery = await userAccount.createRecovery(email, redirectUrl);
-      
-      // Clean up the session after recovery creation
-      try {
-        await this.deleteSession(session.$id);
-      } catch (sessionCleanupError) {
-        console.warn('Failed to clean up session:', sessionCleanupError);
-      }
-
+      try { await this.deleteSession(session.$id); } catch {}
       return recovery;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to create recovery with user session: ${error.message}`);
     }
   }
 
   async createOAuth2Session(provider: string, successUrl: string, failureUrl: string) {
     try {
-      // Updated OAuth2 session creation for latest SDK
       const baseUrl = this.config.endpoint.replace('/v1', '');
       const projectId = this.config.projectId;
-      
-      // Construct the OAuth2 URL according to Appwrite's OAuth2 flow
       const redirectUrl = `${baseUrl}/v1/account/sessions/oauth2/callback/${provider}?project=${projectId}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
-      
-      return {
-        redirectUrl,
-        provider,
-        projectId
-      };
-    } catch (error) {
-      console.error(`Failed to create OAuth2 session for ${provider}:`, error);
+      return { redirectUrl, provider, projectId };
+    } catch (error: any) {
       throw new Error(`Failed to create OAuth2 session: ${error.message}`);
     }
   }
 
   async createSessionFromOAuth(user_id: string, secret: string) {
     try {
-      // Updated method for latest SDK
-      const session = await this.account.createSession(user_id, secret);
-      return session;
-    } catch (error) {
-      console.error('Failed to create session from OAuth:', error);
+      // v14 positional
+      return await this.account.createSession(user_id, secret);
+    } catch (error: any) {
       throw new Error(`Failed to create session from OAuth: ${error.message}`);
     }
   }
 
-  async getOAuthUser(sessionSecret: string) {
+  async getOAuthUser(sessionSecret: string): Promise<any> {
     try {
-      // Create a new client with the session secret
       const client = new Client()
         .setEndpoint(this.config.endpoint)
         .setProject(this.config.projectId)
         .setSession(sessionSecret);
-      
       const account = new Account(client);
-      const user = await account.get();
-      return user;
-    } catch (error) {
-      console.error('Failed to get OAuth user:', error);
+      return await account.get();
+    } catch (error: any) {
       throw new Error(`Failed to get OAuth user: ${error.message}`);
     }
   }
 
-  async updateVerification(user_id: string, secret: string) {
+  async updateVerification(user_id: string, _secret: string): Promise<any> {
     try {
-      // Updated method for latest SDK
-      const updatedUser = await this.users.updateEmailVerification(user_id, true);
-      return updatedUser;
-    } catch (error) {
+      // v14 positional
+      return await this.users.updateEmailVerification(user_id, true);
+    } catch (error: any) {
       throw new Error(`Failed to update email verification: ${error.message}`);
     }
   }
 
-  // Database methods - Updated for latest SDK
-  async createDocument(collectionId: string, data: any, documentId?: string) {
+  // Database methods - v14 positional
+  async createDocument(collectionId: string, data: any, documentId?: string): Promise<any> {
     try {
-      const document = await this.databases.createDocument(
+      return await this.databases.createDocument(
         this.config.databaseId,
         collectionId,
         documentId || ID.unique(),
         data
       );
-      return document;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to create document: ${error.message}`);
     }
   }
 
   async getDocument(collectionId: string, documentId: string) {
     try {
-      const document = await this.databases.getDocument(
+      return await this.databases.getDocument(
         this.config.databaseId,
         collectionId,
         documentId
       );
-      return document;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to get document: ${error.message}`);
     }
   }
 
   async updateDocument(collectionId: string, documentId: string, data: any) {
     try {
-      const document = await this.databases.updateDocument(
+      return await this.databases.updateDocument(
         this.config.databaseId,
         collectionId,
         documentId,
         data
       );
-      return document;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to update document: ${error.message}`);
     }
   }
@@ -335,40 +267,28 @@ export class AppwriteService implements OnModuleInit {
         documentId
       );
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to delete document: ${error.message}`);
     }
   }
 
   async listDocuments(collectionId: string, queries: string[] = []) {
     try {
-      const response = await this.databases.listDocuments(
+      return await this.databases.listDocuments(
         this.config.databaseId,
         collectionId,
         queries
       );
-      return response;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to list documents: ${error.message}`);
     }
   }
 
-  // Storage methods - Updated for latest SDK
-  async uploadFile(bucket_id: string, file: Buffer, file_name: string, mime_type?: string) {
-    try {
-      // For now, return a placeholder since file upload needs to be handled differently
-      // This will need to be implemented with proper file handling or use frontend SDK
-      throw new Error('File upload not implemented in this version. Use frontend Appwrite SDK or implement custom file handling.');
-    } catch (error) {
-      throw new Error(`Failed to upload file: ${error.message}`);
-    }
-  }
-
+  // Storage methods - v14 positional
   async getFile(bucket_id: string, file_id: string) {
     try {
-      const file = await this.storage.getFile(bucket_id, file_id);
-      return file;
-    } catch (error) {
+      return await this.storage.getFile(bucket_id, file_id);
+    } catch (error: any) {
       throw new Error(`Failed to get file: ${error.message}`);
     }
   }
@@ -377,155 +297,75 @@ export class AppwriteService implements OnModuleInit {
     try {
       await this.storage.deleteFile(bucket_id, file_id);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to delete file: ${error.message}`);
     }
   }
 
   async listFiles(bucket_id: string, queries: string[] = []) {
     try {
-      const response = await this.storage.listFiles(bucket_id, queries);
-      return response;
-    } catch (error) {
+      return await this.storage.listFiles(bucket_id, queries);
+    } catch (error: any) {
       throw new Error(`Failed to list files: ${error.message}`);
     }
   }
 
-  // Functions methods - Updated for latest SDK
+  // Functions - v14 positional
   async executeFunction(functionId: string, data?: any, xAsync?: boolean) {
     try {
-      const response = await this.functions.createExecution(
-        functionId,
-        data ? JSON.stringify(data) : undefined,
-        xAsync
-      );
-      return response;
-    } catch (error) {
+      const body = data ? JSON.stringify(data) : undefined;
+      return await this.functions.createExecution(functionId, body, xAsync);
+    } catch (error: any) {
       throw new Error(`Failed to execute function: ${error.message}`);
     }
   }
 
-  // Messaging methods - Updated for latest SDK
+  // Messaging helpers (may be unsupported in v14)
   async createTopic(topicId: string, name: string, subscribe: string[]) {
-    try {
-      const topic = await this.messaging.createTopic(
-        topicId,
-        name,
-        subscribe
-      );
-      return topic;
-    } catch (error) {
-      throw new Error(`Failed to create topic: ${error.message}`);
+    if (!this.messaging || !this.messaging.createTopic) {
+      throw new Error('Messaging API not available in node-appwrite v14');
     }
+    return await this.messaging.createTopic({ topicId, name, subscribe });
   }
 
   async sendMessage(topicId: string, message: string, data?: any) {
-    try {
-      // Send a push notification to a topic (minimal arg variant for SDK compatibility)
-      const res = await this.messaging.createPush(
-        ID.unique(),
-        'Notification',
-        message,
-        topicId ? [topicId] : [],
-        [],
-        [],
-        data ?? undefined,
-      );
-      return res;
-    } catch (error) {
-      throw new Error(`Failed to send message: ${error.message}`);
+    if (!this.messaging || !this.messaging.createPush) {
+      throw new Error('Messaging API not available in node-appwrite v14');
     }
+    return await this.messaging.createPush({
+      messageId: ID.unique(),
+      title: 'Notification',
+      body: message,
+      topics: topicId ? [topicId] : [],
+      users: [],
+      targets: [],
+      data: data ?? undefined,
+    });
   }
 
-  async sendUserPush(
-    user_id: string,
-    title: string,
-    body: string,
-    data?: Record<string, any>,
-  ) {
-    try {
-      const res = await this.messaging.createPush(
-        ID.unique(),
-        title,
-        body,
-        [],
-        [user_id],
-        [],
-        data ?? undefined,
-      );
-      return res;
-    } catch (error) {
-      // Do not break business flow on notification failure
-      // Surface as a soft error for observability
-      // eslint-disable-next-line no-console
-      console.warn('sendUserPush failed:', error?.message || error);
-      return { ok: false } as any;
-    }
-  }
-
-  // Additional utility methods for latest SDK
+  // Utility
   async createJWT() {
     try {
-      const jwt = await this.account.createJWT();
-      return jwt;
-    } catch (error) {
+      return await this.account.createJWT();
+    } catch (error: any) {
       throw new Error(`Failed to create JWT: ${error.message}`);
     }
   }
 
   async createAnonymousSession() {
     try {
-      const session = await this.account.createAnonymousSession();
-      return session;
-    } catch (error) {
+      return await this.account.createAnonymousSession();
+    } catch (error: any) {
       throw new Error(`Failed to create anonymous session: ${error.message}`);
     }
   }
 
-  async updatePassword(password: string, oldPassword?: string) {
+  async updatePassword(password: string, oldPassword?: string): Promise<any> {
     try {
-      const result = await this.account.updatePassword(password, oldPassword);
-      return result;
-    } catch (error) {
+      return await this.account.updatePassword(password, oldPassword);
+    } catch (error: any) {
       throw new Error(`Failed to update password: ${error.message}`);
     }
   }
-
-  async createMfaAuthenticator(type: string) {
-    try {
-      // For now, return a placeholder since MFA needs to be handled differently
-      throw new Error('MFA authenticator creation not implemented in this version. Use frontend Appwrite SDK or implement custom MFA handling.');
-    } catch (error) {
-      throw new Error(`Failed to create MFA authenticator: ${error.message}`);
-    }
-  }
-
-  async deleteMfaAuthenticator(type: string) {
-    try {
-      // For now, return a placeholder since MFA needs to be handled differently
-      throw new Error('MFA authenticator deletion not implemented in this version. Use frontend Appwrite SDK or implement custom MFA handling.');
-    } catch (error) {
-      throw new Error(`Failed to delete MFA authenticator: ${error.message}`);
-    }
-  }
-
-  async getMfaRecoveryCodes() {
-    try {
-      const codes = await this.account.getMfaRecoveryCodes();
-      return codes;
-    } catch (error) {
-      throw new Error(`Failed to get MFA recovery codes: ${error.message}`);
-    }
-  }
-
-  async updateMfaRecoveryCodes() {
-    try {
-      const codes = await this.account.updateMfaRecoveryCodes();
-      return codes;
-    } catch (error) {
-      throw new Error(`Failed to update MFA recovery codes: ${error.message}`);
-    }
-  }
 }
-
 

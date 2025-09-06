@@ -4,7 +4,7 @@ import { SiteConfig } from '../common/types/database.types';
 import { UpdateSiteConfigDto, SiteMode } from './dto/site-config.dto';
 import { SiteConfigGateway } from './site-config.gateway';
 import { ConfigService } from '@nestjs/config';
-import { ID } from 'node-appwrite';
+import { ID, Query } from 'node-appwrite';
 
 @Injectable()
 export class SiteConfigService {
@@ -19,11 +19,14 @@ export class SiteConfigService {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG');
-      const { Query } = await import('node-appwrite');
-      const res = await databases.listDocuments(databaseId, collectionId, [
-        Query.orderDesc('created_at'),
-        Query.limit(1),
-      ]);
+      const res = await databases.listDocuments(
+        databaseId,
+        collectionId,
+        [
+          Query.orderDesc('created_at'),
+          Query.limit(1),
+        ],
+      );
       const doc: any = res.documents[0];
       if (!doc) return { mode: SiteMode.NORMAL };
       return { mode: doc.mode };
@@ -37,11 +40,16 @@ export class SiteConfigService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG');
-    const data = await databases.createDocument(databaseId, collectionId, ID.unique(), {
-      mode: updateSiteConfigDto.mode,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as any);
+    const data = await databases.createDocument(
+      databaseId,
+      collectionId,
+      ID.unique(),
+      {
+        mode: updateSiteConfigDto.mode,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any,
+    );
 
     // Broadcast the change via WebSocket
     this.siteConfigGateway.broadcastModeUpdate(updateSiteConfigDto.mode);
@@ -53,11 +61,14 @@ export class SiteConfigService {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_SITE_CONFIG');
-    const { Query } = await import('node-appwrite');
-    const res = await databases.listDocuments(databaseId, collectionId, [
-      Query.orderDesc('created_at'),
-      Query.limit(limit),
-    ]);
+    const res = await databases.listDocuments(
+      databaseId,
+      collectionId,
+      [
+        Query.orderDesc('created_at'),
+        Query.limit(limit),
+      ],
+    );
     return (res.documents as any) || [];
   }
 }
