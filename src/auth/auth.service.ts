@@ -52,7 +52,7 @@ export class AuthService {
 
         if (emailSent) {
           console.log('Custom verification email sent successfully');
-          await this.storeVerificationToken(created.$id, verificationToken);
+          await this.storeVerificationToken(created.$id, verificationToken, signUpDto.email);
           
           return { 
             message: 'User created successfully. Please check your email to verify your account.',
@@ -96,7 +96,7 @@ export class AuthService {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  private async storeVerificationToken(user_id: string, token: string): Promise<void> {
+  private async storeVerificationToken(user_id: string, token: string, email?: string): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
       // Prefer dedicated auth tokens collection; fallback to notifications if not set
@@ -118,9 +118,11 @@ export class AuthService {
         ID.unique(),
         {
           user_id,
+          email: email || undefined,
           type: 'verification',
+          token,
           token_hash,
-          is_used: false,
+          is_used: 'false',
           expires_at,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -146,7 +148,7 @@ export class AuthService {
       const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
         Query.equal('type', 'verification'),
         Query.equal('token_hash', token_hash),
-        Query.equal('is_used', false),
+        Query.equal('is_used', 'false'),
         Query.greaterThan('expires_at', new Date().toISOString()),
         Query.limit(1),
       ]);
@@ -171,7 +173,7 @@ export class AuthService {
         Query.equal('type', 'verification'),
         Query.equal('token_hash', token_hash),
         Query.equal('user_id', user_id),
-        Query.equal('is_used', false),
+        Query.equal('is_used', 'false'),
         Query.greaterThan('expires_at', new Date().toISOString()),
         Query.limit(1),
       ]);
@@ -202,7 +204,7 @@ export class AuthService {
       const doc = res.documents[0];
       if (doc) {
         await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
-          is_used: true,
+          is_used: 'true',
           updated_at: new Date().toISOString(),
         } as any);
       }
@@ -382,7 +384,8 @@ export class AuthService {
   private async storePasswordResetToken(user_id: string, email: string, token: string, expiresAt: Date): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS')
+        || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
       
       if (!databaseId || !collectionId) {
         throw new Error('Missing database configuration for auth tokens');
@@ -399,12 +402,13 @@ export class AuthService {
           user_id,
           email,
           type: 'password_reset',
+          token,
           token_hash,
-          is_used: false,
+          is_used: 'false',
           expires_at: expiresAt.toISOString(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }
+        } as any
       );
     } catch (error) {
       console.error('Failed to store password reset token:', error);
@@ -537,7 +541,7 @@ export class AuthService {
       const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
         Query.equal('type', 'password_reset'),
         Query.equal('token_hash', token_hash),
-        Query.equal('is_used', false),
+        Query.equal('is_used', 'false'),
         Query.greaterThan('expires_at', new Date().toISOString()),
         Query.limit(1),
       ]);
@@ -560,7 +564,7 @@ export class AuthService {
         Query.equal('type', 'password_reset'),
         Query.equal('token_hash', token_hash),
         Query.equal('email', email),
-        Query.equal('is_used', false),
+        Query.equal('is_used', 'false'),
         Query.greaterThan('expires_at', new Date().toISOString()),
         Query.limit(1),
       ]);
@@ -589,7 +593,7 @@ export class AuthService {
       const doc = res.documents[0];
       if (doc) {
         await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
-          is_used: true,
+          is_used: 'true',
           updated_at: new Date().toISOString(),
         } as any);
       }
@@ -623,7 +627,7 @@ export class AuthService {
 
       // 2) Generate and store verification token
       const token = this.generateVerificationToken();
-      await this.storeVerificationToken(user_id, token);
+      await this.storeVerificationToken(user_id, token, email);
 
       // 3) Build and send link via SMTP
       const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
