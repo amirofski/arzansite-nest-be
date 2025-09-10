@@ -98,12 +98,13 @@ export class AuthService {
 
   private async storeVerificationToken(user_id: string, token: string): Promise<void> {
     try {
-      // Store the verification token in the new notifications collection
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      // Prefer dedicated auth tokens collection; fallback to notifications if not set
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS')
+        || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
       
       if (!databaseId || !collectionId) {
-        console.warn('Email verification storage skipped: Missing database configuration');
+        console.warn('Email verification storage skipped: Missing database configuration (APPWRITE_DATABASE_ID/APPWRITE_COLLECTION_AUTH_TOKENS)');
         return;
       }
 
@@ -117,20 +118,16 @@ export class AuthService {
         ID.unique(),
         {
           user_id,
-          title: 'Email Verification',
-          message: 'Email verification token',
           type: 'verification',
-          priority: 'high',
-          is_read: false,
           token_hash,
           is_used: false,
           expires_at,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }
+        } as any
       );
       
-      console.log('✅ Verification token stored in notifications collection');
+      console.log('✅ Verification token stored');
     } catch (error) {
       console.error('❌ Failed to store verification token:', error);
       // Don't throw error, just log it
@@ -140,7 +137,8 @@ export class AuthService {
   private async findUserIdByToken(token: string): Promise<string | null> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS')
+        || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
       if (!databaseId || !collectionId) return null;
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
@@ -163,7 +161,8 @@ export class AuthService {
   private async validateVerificationToken(user_id: string, token: string): Promise<{ isValid: boolean; reason?: string }> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS')
+        || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
       if (!databaseId || !collectionId) return { isValid: false, reason: 'Configuration error' };
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
@@ -186,7 +185,8 @@ export class AuthService {
   private async markVerificationTokenAsUsed(user_id: string, token: string): Promise<void> {
     try {
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS');
+      const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS')
+        || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
       if (!databaseId || !collectionId) return;
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
@@ -612,87 +612,55 @@ export class AuthService {
 
   async requestEmailVerification(email: string, password: string) {
     try {
-      // This method is called after user login to request verification
-      // It creates a session and then requests verification
-      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
-      
-      // Validate that the frontend URL is allowed by Appwrite
-      // Appwrite only allows localhost or app.arzansite.com for verification URLs
-      // If using arzansite.com, we'll construct the verification URL to use app.arzansite.com
-      let appwriteVerificationUrl = frontendUrl;
-      if (frontendUrl.includes('arzansite.com') && !frontendUrl.includes('app.arzansite.com')) {
-        appwriteVerificationUrl = 'https://app.arzansite.com';
-        console.log(`⚠️ Frontend URL ${frontendUrl} not allowed by Appwrite, using ${appwriteVerificationUrl} for email verification`);
+      // Consistent custom token flow (does not rely on Appwrite sending email)
+      // 1) Find user_id by email
+      const { Query } = await import('node-appwrite');
+      const users = await this.appwriteService.getUsers().list([Query.equal('email', email)]);
+      if (!users.users.length) {
+        throw new BadRequestException('User not found');
       }
-      
-      const verification = await this.appwriteService.createVerificationWithUserSession(
-        email,
-        password,
-        `${appwriteVerificationUrl}/verify-email`
-      );
-      
-      // Extract verification URL from Appwrite response
-      const verificationUrl = this.buildVerificationUrl(verification, verification.userId);
-      
-      // Send confirmation email via custom SMTP
+      const user_id = users.users[0].$id;
+
+      // 2) Generate and store verification token
+      const token = this.generateVerificationToken();
+      await this.storeVerificationToken(user_id, token);
+
+      // 3) Build and send link via SMTP
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
+      const verificationUrl = `${frontendUrl}/verify-email?token=${token}&user_id=${user_id}`;
       const emailSent = await this.emailService.sendConfirmationEmail(
         email,
         verificationUrl,
-        email // We don't have the name here, so use email
+        email
       );
-
       if (!emailSent) {
         throw new BadRequestException('Failed to send verification email');
       }
 
-      return { 
+      return {
         message: 'Verification email sent successfully. Please check your email.',
         verificationEmailSent: true
       };
     } catch (error) {
-      // Provide more specific error messages
-      if (error.message.includes('Invalid `url` param')) {
-        throw new BadRequestException(
-          `Email verification URL validation failed. Please ensure FRONTEND_URL is set to localhost or app.arzansite.com. Current value: ${this.configService.get('FRONTEND_URL')}`
-        );
-      }
       throw new BadRequestException(`Failed to send verification email: ${error.message}`);
     }
   }
 
   async checkEmailVerificationStatus(email: string) {
     try {
-      console.log(`🔍 Checking email verification status for: ${email}`);
-      
-      // Get user by email to check verification status
       const { Query } = await import('node-appwrite');
       const users = await this.appwriteService.getUsers().list([Query.equal('email', email)]);
-      
-      if (users.users.length === 0) {
-        console.log(`❌ User not found for email: ${email}`);
-        throw new BadRequestException('User not found');
-      }
-
+      if (!users.users.length) throw new BadRequestException('User not found');
       const user = users.users[0];
-      console.log(`🔍 Found user: ${user.$id}, Appwrite emailVerification: ${user.emailVerification}`);
-      
-      // Check if user has any valid verification tokens in our system
-      const hasValidVerification = await this.checkUserVerificationStatusInDatabase(user.$id);
-      console.log(`🔍 Database verification check result: ${hasValidVerification}`);
-      
-      const finalResult = hasValidVerification;
-      console.log(`🔍 Final verification result: ${finalResult}`);
-      
       return {
         email: user.email,
-        emailVerified: finalResult,
+        emailVerified: !!user.emailVerification,
         user_id: user.$id,
-        message: finalResult 
+        message: user.emailVerification
           ? 'Email is verified. You can now log in.'
           : 'Email is not verified. Please check your inbox for verification email.'
       };
     } catch (error) {
-      console.error(`❌ Error checking email verification status: ${error.message}`);
       throw new BadRequestException(`Failed to check email verification status: ${error.message}`);
     }
   }
