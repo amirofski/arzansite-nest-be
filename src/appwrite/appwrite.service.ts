@@ -59,8 +59,15 @@ export class AppwriteService implements OnModuleInit {
   // Authentication methods - Adjusted for node-appwrite v14 positional forms
   async createUser(email: string, password: string, name?: string): Promise<any> {
     try {
-      // v14 create signature: create(userId, email, password, name?)
-      const user = await this.users.create(ID.unique(), email, password, name || 'User');
+      // v14 Users.create signature: create(userId, email, phone, password, name?)
+      // We don't collect phone at signup, so pass undefined for the phone slot.
+      const user = await this.users.create(
+        ID.unique(),
+        email,
+        undefined as any,
+        password,
+        name || 'User'
+      );
       return user;
     } catch (error: any) {
       throw new Error(`Failed to create user: ${error.message}`);

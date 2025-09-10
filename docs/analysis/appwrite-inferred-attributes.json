@@ -1,0 +1,213 @@
+{
+  "walletsCollection": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\admin\\admin.service.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\wallets\\wallets.service.ts"
+    ]
+  },
+  "adjustmentsCollection": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\admin\\admin.service.ts"
+    ]
+  },
+  "domainExtensionsCollection": {
+    "keys": [
+      "price",
+      "available",
+      "updated_at"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\admin\\admin.service.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\domains\\domains.service.ts"
+    ]
+  },
+  "collectionId": {
+    "keys": [
+      "file_id",
+      "user_id",
+      "order_id",
+      "bucket_id",
+      "original_name",
+      "mime_type",
+      "size",
+      "created_at",
+      "updated_at",
+      "used",
+      "title",
+      "message",
+      "type",
+      "priority",
+      "is_read",
+      "token_hash",
+      "is_used",
+      "expires_at",
+      "email"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\appwrite\\appwrite.service.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\appwrite\\storage.controller.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\auth\\auth.service.minimal.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\auth\\auth.service.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\email\\email.service.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\payments\\payments.service.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\site-config\\site-config.service.ts"
+    ]
+  },
+  "createDocumentDto.data": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\appwrite\\database.controller.ts"
+    ]
+  },
+  "documentId": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\appwrite\\database.controller.ts"
+    ]
+  },
+  "this.collectionId": {
+    "keys": [
+      "messages",
+      "updated_at",
+      "status",
+      "assignedTo"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\common\\services\\base-appwrite.service.ts",
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\support\\support.service.ts"
+    ]
+  },
+  "invoicesCollection": {
+    "keys": [
+      "user_id",
+      "order_id",
+      "amount",
+      "due_date",
+      "status",
+      "description",
+      "created_at",
+      "updated_at"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\invoices\\invoices.service.ts"
+    ]
+  },
+  "receiptsCollection": {
+    "keys": [
+      "invoice_id",
+      "ref_id",
+      "amount",
+      "format",
+      "created_at",
+      "updated_at"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\invoices\\invoices.service.ts"
+    ]
+  },
+  "config": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\main.ts"
+    ]
+  },
+  "preferencesCollection": {
+    "keys": [
+      "updated_at",
+      "user_id",
+      "created_at"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\notifications\\notifications.service.ts"
+    ]
+  },
+  "notificationsCollection": {
+    "keys": [
+      "read_at",
+      "updated_at",
+      "user_id",
+      "order_id",
+      "notification_type",
+      "message",
+      "priority",
+      "channels",
+      "metadata",
+      "status",
+      "created_at",
+      "sent_channels",
+      "failed_channels",
+      "sent_at"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\notifications\\notifications.service.ts"
+    ]
+  },
+  "UNKNOWN_COLLECTION_EXPR": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\orders\\orders.service.ts"
+    ]
+  },
+  "updateData": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\orders\\orders.service.ts"
+    ]
+  },
+  "profilesCollection": {
+    "keys": [
+      "updated_at",
+      "user_id",
+      "email",
+      "full_name",
+      "created_at"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\profiles\\profiles.service.ts"
+    ]
+  },
+  "mappingCollection": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\uploads\\uploads.service.ts"
+    ]
+  },
+  "transactionsCollection": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\wallets\\wallets.service.ts"
+    ]
+  },
+  "wizardSessionsCollection": {
+    "keys": [
+      "updated_at",
+      "status",
+      "project_files",
+      "created_at",
+      "is_completed"
+    ],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\wizard\\wizard.service.ts"
+    ]
+  },
+  "ordersCollection": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\wizard\\wizard.service.ts"
+    ]
+  },
+  "paymentsCollection": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\wizard\\wizard.service.ts"
+    ]
+  },
+  "designsCollection": {
+    "keys": [],
+    "files": [
+      "C:\\Users\\Amir\\Desktop\\arzansite-be\\src\\wizard\\wizard.service.ts"
+    ]
+  }
+}

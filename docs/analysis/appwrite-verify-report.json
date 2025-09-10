@@ -1,0 +1,329 @@
+{
+  "generatedAt": "2025-09-10T14:40:45.403Z",
+  "databaseId": "6899993d001b0b35b6b5",
+  "endpoint": "http://app.arzansite.com/v1",
+  "project": "6898b35e003067cd7b43",
+  "apply": true,
+  "collections": {
+    "audit_logs": {
+      "slug": "audit_logs",
+      "name": "audit_logs",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "user_id",
+          "action",
+          "resource_type",
+          "resource_id",
+          "ip_address",
+          "user_agent",
+          "details",
+          "created_at",
+          "resource",
+          "metadata"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "68b5f8ba0015b17d25e0l": {
+      "slug": "designs",
+      "name": "designs",
+      "exists": true,
+      "attributes": {
+        "existing": [],
+        "missing": []
+      },
+      "errors": []
+    },
+    "notifications": {
+      "slug": "notifications",
+      "name": "notifications",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "user_id",
+          "title",
+          "message",
+          "type",
+          "action_url",
+          "read_at",
+          "created_at",
+          "updated_at",
+          "priority",
+          "is_read",
+          "order_id",
+          "notification_type",
+          "channels",
+          "metadata",
+          "status",
+          "sent_channels",
+          "failed_channels"
+        ],
+        "missing": [
+          "sent_at"
+        ]
+      },
+      "errors": []
+    },
+    "orders": {
+      "slug": "orders",
+      "name": "orders",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "user_id",
+          "order_number",
+          "title",
+          "description",
+          "total_amount",
+          "site_type",
+          "comments",
+          "session_id",
+          "wizard_data",
+          "created_at",
+          "updated_at",
+          "currency",
+          "status",
+          "payment_status"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "payments": {
+      "slug": "payments",
+      "name": "payments",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "order_id",
+          "user_id",
+          "payment_gateway",
+          "gateway_transaction_id",
+          "gateway_authority",
+          "gateway_ref_id",
+          "amount",
+          "currency",
+          "failure_reason",
+          "paid_at",
+          "created_at",
+          "updated_at",
+          "status",
+          "transaction_type",
+          "zarinpal_authority",
+          "zarinpal_ref_id",
+          "gateway_response"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "project_files": {
+      "slug": "project_files",
+      "name": "project_files",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "user_id",
+          "order_id",
+          "file_name",
+          "file_path",
+          "file_type",
+          "file_size",
+          "mime_type",
+          "storage_bucket",
+          "created_at",
+          "updated_at",
+          "status",
+          "file_id",
+          "bucket_id",
+          "original_name",
+          "size",
+          "description"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "support_tickets": {
+      "slug": "support_tickets",
+      "name": "support_tickets",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "user_id",
+          "ticket_number",
+          "subject",
+          "description",
+          "category",
+          "assigned_to",
+          "resolved_at",
+          "created_at",
+          "updated_at",
+          "priority",
+          "status",
+          "type",
+          "order_id",
+          "transactionId",
+          "attachments",
+          "contactPreference",
+          "userAgent",
+          "ipAddress",
+          "messages"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "system_settings": {
+      "slug": "system_settings",
+      "name": "system_settings",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "setting_key",
+          "setting_value",
+          "description",
+          "category",
+          "created_at",
+          "updated_at",
+          "is_public",
+          "key",
+          "value"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "68b5f8a600385187b3b6": {
+      "slug": "transactions",
+      "name": "transactions",
+      "exists": true,
+      "attributes": {
+        "existing": [],
+        "missing": []
+      },
+      "errors": []
+    },
+    "users": {
+      "slug": "users",
+      "name": "users",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "email",
+          "full_name",
+          "phone",
+          "avatar_url",
+          "email_verified_at",
+          "last_login_at",
+          "created_at",
+          "updated_at",
+          "role",
+          "status",
+          "verification_status"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "user_profiles": {
+      "slug": "user_profiles",
+      "name": "user_profiles",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "user_id",
+          "company_name",
+          "job_title",
+          "bio",
+          "website",
+          "location",
+          "social_links",
+          "created_at",
+          "updated_at",
+          "email",
+          "full_name"
+        ],
+        "missing": []
+      },
+      "errors": []
+    },
+    "68b5f89d0022086da40c": {
+      "slug": "wallets",
+      "name": "wallets",
+      "exists": true,
+      "attributes": {
+        "existing": [],
+        "missing": []
+      },
+      "errors": []
+    },
+    "wizard_sessions": {
+      "slug": "wizard_sessions",
+      "name": "wizard_sessions",
+      "exists": true,
+      "attributes": {
+        "existing": [
+          "session_id",
+          "user_id",
+          "design_data",
+          "progress_data",
+          "last_activity",
+          "created_at",
+          "updated_at",
+          "current_step",
+          "is_completed",
+          "status",
+          "project_files"
+        ],
+        "missing": []
+      },
+      "errors": []
+    }
+  },
+  "summary": {
+    "created": {
+      "database": false,
+      "collections": [
+        {
+          "id": "68b5f8ba0015b17d25e0l",
+          "name": "designs"
+        },
+        {
+          "id": "68b5f8a600385187b3b6",
+          "name": "transactions"
+        },
+        {
+          "id": "68b5f89d0022086da40c",
+          "name": "wallets"
+        }
+      ],
+      "attributes": [
+        {
+          "collectionId": "notifications",
+          "key": "sent_at"
+        }
+      ]
+    },
+    "missing": {
+      "database": false,
+      "collections": [
+        {
+          "id": "68b5f8ba0015b17d25e0l",
+          "name": "designs"
+        },
+        {
+          "id": "68b5f8a600385187b3b6",
+          "name": "transactions"
+        },
+        {
+          "id": "68b5f89d0022086da40c",
+          "name": "wallets"
+        }
+      ],
+      "attributes": []
+    }
+  }
+}
