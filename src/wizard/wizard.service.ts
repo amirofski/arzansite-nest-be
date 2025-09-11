@@ -65,7 +65,7 @@ export class WizardService {
   async saveProgress(saveProgressDto: SaveProgressDto): Promise<WizardOrderDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS') || 'wizard_sessions';
 
     // Build payload with ONLY allowed attributes for wizard_sessions schema
     const now = new Date().toISOString();
@@ -91,13 +91,18 @@ export class WizardService {
     if (existingProgress.documents && existingProgress.documents.length > 0) {
       // Update existing progress
       const existingDoc = existingProgress.documents[0];
-      const updated = await databases.updateDocument(
-        databaseId,
-        wizardSessionsCollection,
-        (existingDoc as any).$id,
-        payload,
-      );
-      return updated as any;
+      try {
+        const updated = await databases.updateDocument(
+          databaseId,
+          wizardSessionsCollection,
+          (existingDoc as any).$id,
+          payload,
+        );
+        return updated as any;
+      } catch (e: any) {
+        console.error('[WizardService.saveProgress] update failed:', e?.response?.message || e?.message || e);
+        throw new BadRequestException('Failed to save progress');
+      }
     } else {
       // Create new progress
       const base: any = {
@@ -106,20 +111,25 @@ export class WizardService {
         project_files: JSON.stringify([]), // store as JSON string to match schema
         created_at: now,
       };
-      const newDoc = await databases.createDocument(
-        databaseId,
-        wizardSessionsCollection,
-        ID.unique(),
-        base,
-      );
-      return newDoc as any;
+      try {
+        const newDoc = await databases.createDocument(
+          databaseId,
+          wizardSessionsCollection,
+          ID.unique(),
+          base,
+        );
+        return newDoc as any;
+      } catch (e: any) {
+        console.error('[WizardService.saveProgress] create failed:', e?.response?.message || e?.message || e);
+        throw new BadRequestException('Failed to create progress');
+      }
     }
   }
 
   async saveSession(session_id: string, wizard_data: Record<string, unknown>, user_id?: string): Promise<{ success: boolean }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS') || 'wizard_sessions';
 
     const existing = await databases.listDocuments(
       databaseId,
@@ -136,24 +146,34 @@ export class WizardService {
     };
 
     if (existing.documents?.[0]) {
-      await databases.updateDocument(
-        databaseId,
-        wizardSessionsCollection,
-        (existing.documents[0] as any).$id,
-        payload,
-      );
+      try {
+        await databases.updateDocument(
+          databaseId,
+          wizardSessionsCollection,
+          (existing.documents[0] as any).$id,
+          payload,
+        );
+      } catch (e: any) {
+        console.error('[WizardService.saveSession] update failed:', e?.response?.message || e?.message || e);
+        throw new BadRequestException('Failed to save session');
+      }
     } else {
-      await databases.createDocument(
-        databaseId,
-        wizardSessionsCollection,
-        ID.unique(),
-        {
-          ...payload,
-          status: OrderStatus.DRAFT,
-          project_files: JSON.stringify([]),
-          created_at: now,
-        },
-      );
+      try {
+        await databases.createDocument(
+          databaseId,
+          wizardSessionsCollection,
+          ID.unique(),
+          {
+            ...payload,
+            status: OrderStatus.DRAFT,
+            project_files: JSON.stringify([]),
+            created_at: now,
+          },
+        );
+      } catch (e: any) {
+        console.error('[WizardService.saveSession] create failed:', e?.response?.message || e?.message || e);
+        throw new BadRequestException('Failed to create session');
+      }
     }
 
     return { success: true };
@@ -193,7 +213,7 @@ export class WizardService {
   async getProgress(session_id: string, user_id?: string): Promise<WizardOrderDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS') || 'wizard_sessions';
 
     const result = await databases.listDocuments(
       databaseId,
@@ -386,7 +406,7 @@ export class WizardService {
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS') || 'wizard_sessions';
 
     const updated = await databases.updateDocument(
       databaseId,
@@ -441,7 +461,7 @@ export class WizardService {
   ): Promise<{ orders: WizardOrderDto[]; total: number; page: number; totalPages: number }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS') || 'wizard_sessions';
 
     const queries: string[] = [Query.orderDesc('updated_at')];
 
