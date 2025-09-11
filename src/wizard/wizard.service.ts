@@ -67,10 +67,11 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
-    // Serialize wizard_data if provided
+    // Build payload with ONLY allowed attributes for wizard_sessions schema
     const now = new Date().toISOString();
     const payload: any = {
-      ...saveProgressDto,
+      session_id: saveProgressDto.session_id,
+      user_id: saveProgressDto.user_id || undefined,
       updated_at: now,
     };
     if (saveProgressDto.wizard_data !== undefined) {
