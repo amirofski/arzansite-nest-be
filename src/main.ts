@@ -68,54 +68,7 @@ async function bootstrap() {
     
     // configService already initialized above
 
-    // Enhanced security middleware with latest configurations
-    app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-          fontSrc: ["'self'", "https://fonts.gstatic.com"],
-          imgSrc: ["'self'", "data:", "https:"],
-          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-          connectSrc: ["'self'", "https://app.arzansite.com"],
-        },
-      },
-      crossOriginEmbedderPolicy: false,
-      crossOriginResourcePolicy: { policy: "cross-origin" },
-    }));
-    
-    app.use(compression({
-      level: 6,
-      threshold: 1024,
-      filter: (req, res) => {
-        if (req.headers['x-no-compression']) {
-          return false;
-        }
-        return compression.filter(req, res);
-      },
-    }));
-    
-    app.use(cookieParser());
-
-    // Enhanced body parser with better limits and security
-    app.use(bodyParser.json({ 
-      limit: '30mb',
-      verify: (req, res, buf) => {
-        try {
-          JSON.parse(buf.toString());
-        } catch (e) {
-          throw new Error('Invalid JSON');
-        }
-      }
-    }));
-    
-    app.use(bodyParser.urlencoded({ 
-      limit: '30mb', 
-      extended: true,
-      parameterLimit: 1000,
-    }));
-
-    // Enhanced CORS configuration (env-driven only)
+    // Enable CORS EARLY so headers are present even if later middleware throws
     const corsEnv = configService.get<string>('CORS_ORIGINS') || '';
     const corsOrigins = corsEnv
       .split(',')
@@ -151,6 +104,60 @@ async function bootstrap() {
       preflightContinue: false,
       optionsSuccessStatus: 204,
     });
+
+    // Enhanced security middleware with latest configurations
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          imgSrc: ["'self'", "data:", "https:"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          connectSrc: ["'self'", "https://app.arzansite.com"],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }));
+    
+    app.use(compression({
+      level: 6,
+      threshold: 1024,
+      filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }));
+    
+    app.use(cookieParser());
+
+    // Enhanced body parser with better limits and security
+    app.use(bodyParser.json({ 
+      limit: '30mb',
+      verify: (req: any, _res, buf: Buffer) => {
+        // Only validate JSON if content-type indicates JSON and body is non-empty
+        const ct = (req.headers?.['content-type'] || '').toString();
+        if (!ct.includes('application/json')) return;
+        if (!buf || buf.length === 0) return;
+        const text = buf.toString('utf-8').trim();
+        if (text.length === 0) return;
+        try {
+          JSON.parse(text);
+        } catch {
+          throw new Error('Invalid JSON payload');
+        }
+      }
+    }));
+    
+    app.use(bodyParser.urlencoded({ 
+      limit: '30mb', 
+      extended: true,
+      parameterLimit: 1000,
+    }));
+
 
     // Enhanced global pipes with better validation
     app.useGlobalPipes(
