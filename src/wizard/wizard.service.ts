@@ -72,6 +72,8 @@ export class WizardService {
     const payload: any = {
       session_id: saveProgressDto.session_id,
       user_id: saveProgressDto.user_id || undefined,
+      current_step: saveProgressDto.current_step || 'start',
+      is_completed: typeof saveProgressDto.is_completed === 'boolean' ? saveProgressDto.is_completed : false,
       updated_at: now,
     };
     if (saveProgressDto.wizard_data !== undefined) {
@@ -141,6 +143,8 @@ export class WizardService {
     const payload: any = {
       session_id,
       user_id: user_id || undefined,
+      current_step: 'start',
+      is_completed: false,
       wizard_data: JSON.stringify(wizard_data || {}),
       updated_at: now,
     };

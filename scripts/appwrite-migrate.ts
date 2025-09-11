@@ -243,10 +243,11 @@ const schemas: CollectionSchema[] = [
     attributes: [
       s('session_id', 256, true),
       s('user_id', 128, false),
+      s('current_step', 64, true),
       s('status', 32, true),
       s('project_files', 16384, false), // JSON string of files or managed separately
       s('wizard_data', 16384, false),   // JSON string of the entire wizard state
-      b('is_completed', false, false, false),
+      b('is_completed', true, false, false),
       s('created_at', 64, true),
       s('updated_at', 64, true),
     ],

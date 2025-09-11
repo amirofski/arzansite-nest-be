@@ -309,7 +309,7 @@ export class SaveProgressDto {
   wizard_data?: Record<string, unknown>;
 }
 
-export class SaveSessionDto {
+export class SaveProgressDto {
   @IsString()
   session_id: string;
 
@@ -317,6 +317,15 @@ export class SaveSessionDto {
   @IsString()
   user_id?: string;
 
+  @IsOptional()
+  @IsString()
+  current_step?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_completed?: boolean;
+
+  @IsOptional()
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       try { return JSON.parse(value); } catch { return value; }
@@ -324,9 +333,8 @@ export class SaveSessionDto {
     return value;
   })
   @IsObject()
-  wizard_data: Record<string, unknown>;
+  wizard_data?: Record<string, unknown>;
 }
-
 export class OrderDto {
   @IsString()
   title: string;
