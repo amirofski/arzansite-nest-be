@@ -1024,6 +1024,17 @@ export class AuthService {
     }
   }
 
+  private async bumpLastActivity(user_id: string): Promise<void> {
+    try {
+      // Update Appwrite user preferences with last_activity timestamp
+      const users = this.appwriteService.getUsers();
+      await users.updatePrefs(user_id, { last_activity: new Date().toISOString() } as any);
+    } catch (err: any) {
+      // Non-fatal
+      console.warn(`⚠️ Failed to update last_activity for ${user_id}:`, err?.message || err);
+    }
+  }
+
   async getMe(user_id: string) {
     try {
       // Get user information directly from Appwrite to access labels
@@ -1035,11 +1046,16 @@ export class AuthService {
       // Check if user has admin label
       const hasAdminLabel = user.labels && user.labels.includes('admin');
       const role = hasAdminLabel ? 'admin' : 'user';
+
+      // Update last activity on each /auth/me call
+      this.bumpLastActivity(user_id).catch(() => undefined);
       
       return { id: user_id, role };
     } catch (error) {
-      console.warn(`Failed to get user labels for ${user_id}:`, error.message);
+      console.warn(`Failed to get user labels for ${user_id}:`, (error as any)?.message || error);
       // Fallback to user role if we can't get labels
+      // Still attempt to bump last activity
+      this.bumpLastActivity(user_id).catch(() => undefined);
       return { id: user_id, role: 'user' };
     }
   }
@@ -1195,6 +1211,9 @@ export class AuthService {
 
       // Get user info using Appwrite session
       const user = await this.appwriteService.getCurrentUser(sessionSecret);
+
+      // Update last activity when frontend calls /auth/oauth/me
+      this.bumpLastActivity(user.$id).catch(() => undefined);
       
       return {
         id: user.$id,

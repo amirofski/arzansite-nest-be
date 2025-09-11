@@ -49,42 +49,68 @@ export class UploadsService {
     return this.appwriteService.getStorage();
   }
 
+  private normalizeKey(key: string): string {
+    return String(key).trim().toLowerCase().replace(/\s+/g, '-').replace(/_/g, '-');
+  }
+
   private getBucketId(bucketKey?: string): string {
-    const config = this.appwriteService.getConfig();
-    const buckets = (config as any).buckets as Record<string, string>;
-    const keys = Object.keys(buckets);
-    if (!keys.length) throw new BadRequestException('No buckets configured');
-    if (!bucketKey) return buckets[keys[0]];
-    const key = String(bucketKey).toLowerCase();
-    if (buckets[key]) return buckets[key];
-    // simple pluralization attempts without hardcoding names
-    if (buckets[`${key}s`]) return buckets[`${key}s`];
-    if (buckets[`${key}es`]) return buckets[`${key}es`];
-    return buckets[keys[0]];
+    const cfg = this.appwriteService.getConfig() as any;
+    const storage = (cfg.storage || {}) as { projectFiles?: string; userAvatars?: string; designAssets?: string };
+    const legacy = (cfg.buckets || {}) as Record<string, string>;
+    const keys = [...Object.keys(legacy)];
+    if (!bucketKey) {
+      return storage.projectFiles || legacy.uploads || legacy.documents || legacy.files || (keys[0] || 'uploads');
+    }
+    const key = this.normalizeKey(bucketKey);
+    const map: Record<string, string | undefined> = {
+      // Friendly names
+      'document': storage.projectFiles || legacy.documents || legacy.uploads,
+      'design': storage.designAssets || legacy.designs,
+      'avatar': storage.userAvatars || legacy.avatars,
+      // Direct friendly-to-storage
+      'project-files': storage.projectFiles,
+      'project_files': storage.projectFiles,
+      'uploads': legacy.uploads || storage.projectFiles,
+      'design-assets': storage.designAssets,
+      'design_assets': storage.designAssets,
+      'users-avatars': storage.userAvatars,
+      'user-avatars': storage.userAvatars,
+      'users_avatars': storage.userAvatars,
+      'user_avatars': storage.userAvatars,
+      'avatars': legacy.avatars || storage.userAvatars,
+      'documents': legacy.documents || storage.projectFiles,
+      'files': legacy.files,
+    };
+    if (map[key]) return map[key] as string;
+    if (legacy[key]) return legacy[key];
+    // assume actual bucket ID
+    return bucketKey;
   }
 
   private getBucketName(bucketKey?: string): string {
     if (!bucketKey) {
-      const config = this.appwriteService.getConfig();
-      const buckets = (config as any).buckets as Record<string, string>;
-      const keys = Object.keys(buckets);
-      return keys[0];
+      const cfg = this.appwriteService.getConfig() as any;
+      const storage = (cfg.storage || {}) as { projectFiles?: string; userAvatars?: string; designAssets?: string };
+      if (storage.projectFiles) return 'project-files';
+      return 'uploads';
     }
-    return String(bucketKey).toLowerCase();
+    const key = this.normalizeKey(bucketKey);
+    if (['document', 'project-files', 'project_files', 'uploads', 'documents'].includes(key)) return 'project-files';
+    if (['design', 'design-assets', 'design_assets'].includes(key)) return 'design-assets';
+    if (['avatar', 'users-avatars', 'user-avatars', 'users_avatars', 'user_avatars', 'avatars'].includes(key)) return 'users_avatars';
+    return key;
   }
 
   /**
    * Map external category names to internal bucket types
    */
   public resolveBucketType(category?: string): string {
-    const key = (category || '').toLowerCase();
-    const config = this.appwriteService.getConfig();
-    const buckets = (config as any).buckets as Record<string, string>;
-    if (!key) return Object.keys(buckets)[0];
-    if (buckets[key]) return key;
-    if (buckets[`${key}s`]) return `${key}s`;
-    if (buckets[`${key}es`]) return `${key}es`;
-    return Object.keys(buckets)[0];
+    const key = this.normalizeKey(category || '');
+    if (!key) return 'project-files';
+    if (['document', 'project-files', 'project_files', 'uploads', 'documents'].includes(key)) return 'project-files';
+    if (['design', 'design-assets', 'design_assets'].includes(key)) return 'design-assets';
+    if (['avatar', 'users-avatars', 'user-avatars', 'users_avatars', 'user_avatars', 'avatars'].includes(key)) return 'users_avatars';
+    return 'project-files';
   }
 
   async getAllUploads(user_id?: string, order_id?: string): Promise<FileUploadResponse> {
@@ -308,20 +334,44 @@ export class UploadsService {
           const databases = this.appwriteService.getDatabases();
           const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
           const mappingCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROJECT_FILES') || 'project_files';
+
+          const now = new Date().toISOString();
+          const bucketNameResolved = this.getBucketName(fileType);
+          const filePath = `/storage/buckets/${bucket_id}/files/${uploadedFile.$id}/view`;
+          const status = 'active';
+
           await databases.createDocument(
             databaseId,
             mappingCollection,
             ID.unique(),
             {
-              file_id: uploadedFile.$id,
+              // Required references
               user_id: user_id,
               order_id: order_id || null,
+
+              // Identifiers
+              file_id: uploadedFile.$id,
               bucket_id: bucket_id,
-              original_name: uploadedFile.name,
-              mime_type: uploadedFile.mime_type,
+
+              // Names
+              file_name: uploadedFile.name,
+              original_name: file.originalname || uploadedFile.name,
+
+              // Paths/URLs
+              file_path: filePath,
+              storage_bucket: bucketNameResolved,
+
+              // Types and sizes
+              file_type: this.resolveBucketType(fileType),
+              file_size: uploadedFile.size,
               size: uploadedFile.size,
+              mime_type: uploadedFile.mime_type,
+
+              // Meta
               description: description || null,
-              created_at: new Date().toISOString(),
+              status,
+              created_at: now,
+              updated_at: now,
             } as any,
           );
         } catch (e) {

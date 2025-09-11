@@ -68,9 +68,10 @@ export class WizardService {
     const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
     // Serialize wizard_data if provided
+    const now = new Date().toISOString();
     const payload: any = {
       ...saveProgressDto,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     };
     if (saveProgressDto.wizard_data !== undefined) {
       payload.wizard_data = JSON.stringify(saveProgressDto.wizard_data);
@@ -101,8 +102,8 @@ export class WizardService {
       const base: any = {
         ...payload,
         status: OrderStatus.DRAFT,
-        project_files: [],
-        created_at: new Date().toISOString(),
+        project_files: JSON.stringify([]), // store as JSON string to match schema
+        created_at: now,
       };
       const newDoc = await databases.createDocument(
         databaseId,
@@ -125,11 +126,12 @@ export class WizardService {
       [Query.equal('session_id', session_id), Query.limit(1)],
     );
 
+    const now = new Date().toISOString();
     const payload: any = {
       session_id,
       user_id: user_id || undefined,
       wizard_data: JSON.stringify(wizard_data || {}),
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     };
 
     if (existing.documents?.[0]) {
@@ -147,8 +149,8 @@ export class WizardService {
         {
           ...payload,
           status: OrderStatus.DRAFT,
-          project_files: [],
-          created_at: new Date().toISOString(),
+          project_files: JSON.stringify([]),
+          created_at: now,
         },
       );
     }

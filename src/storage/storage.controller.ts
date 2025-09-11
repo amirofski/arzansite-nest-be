@@ -21,18 +21,35 @@ export class StorageController {
   // Alias required endpoints
   @UseInterceptors(FileInterceptor('file'))
   @Post('/uploads')
-  async uploadMultipart(@Query('bucket_id') bucket_id: string, @UploadedFile() file: any) {
-    return this.storageService.uploadMultipart(bucket_id, file);
+  async uploadMultipart(
+    @Query('bucket_id') bucket_id?: string,
+    @Query('bucket') bucket?: string,
+    @Query('bucketType') bucketType?: string,
+    @UploadedFile() file?: any,
+  ) {
+    const selected = bucket_id || bucket || bucketType; // accept id or friendly name
+    return this.storageService.uploadMultipart(selected, file);
   }
 
   @Get('/uploads')
-  async listUploads(@Query('bucket_id') bucket_id: string) {
-    return this.storageService.listFiles(bucket_id);
+  async listUploads(
+    @Query('bucket_id') bucket_id?: string,
+    @Query('bucket') bucket?: string,
+    @Query('bucketType') bucketType?: string,
+  ) {
+    const selected = bucket_id || bucket || bucketType;
+    return this.storageService.listFiles(selected);
   }
 
   @Delete('/uploads/:id')
-  async deleteUpload(@Query('bucket_id') bucket_id: string, @Param('id') id: string) {
-    return this.storageService.deleteFile(bucket_id, id);
+  async deleteUpload(
+    @Query('bucket_id') bucket_id?: string,
+    @Query('bucket') bucket?: string,
+    @Query('bucketType') bucketType?: string,
+    @Param('id') id?: string,
+  ) {
+    const selected = bucket_id || bucket || bucketType;
+    return this.storageService.deleteFile(selected as string, id as string);
   }
 
   @Get('/uploads/signed-url')

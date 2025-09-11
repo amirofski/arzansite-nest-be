@@ -1,39 +1,9 @@
 # Frontend API Guide (Comprehensive)
 
-Generated at: 2025-09-10T13:45:59.082Z
-Updated at: 2024-12-20 - Revised payment flow and transaction patterns
+Generated at: 2025-09-11T15:30:38.530Z
 
 Base URL: {{API_BASE_URL}}
 Auth: Bearer {{ACCESS_TOKEN}} where required
-
-## Important Notes on Payment Flow
-
-### Collections Overview
-- **transactions**: Unified ledger for all financial activities (deposits, payments, refunds)
-- **invoices**: Created for order payments, linked to orders and receipts
-- **receipts**: Created for all successful payments (both wallet deposits and order payments)
-- **payments**: Legacy collection, kept for backward compatibility only
-- **wizard_sessions**: Stores order session data (renamed from orders in wizard context)
-- **orders**: Actual finalized orders collection
-
-### Payment Patterns
-
-#### Wallet Deposits
-1. User initiates deposit via `/wallets/me/deposit`
-2. Payment gateway redirects to callback
-3. Verification via `/wallets/me/deposit/verify` creates:
-   - A receipt (no invoice for wallet deposits)
-   - A transaction entry (type: 'deposit')
-   - Updates wallet balance
-
-#### Order Payments
-1. User completes order via `/payments/request`
-2. Payment gateway redirects to callback  
-3. Verification via `/payments/verify` creates:
-   - An invoice (if not exists) marked as PAID
-   - A receipt linked to the invoice
-   - A transaction entry (type: 'payment') with order/invoice references
-   - Updates order status
 
 ## AdminController
 
@@ -1478,8 +1448,6 @@ async function call_HealthController_check(params, token) {
 
 ## InvoicesController
 
-**Note**: Invoices are created only for order payments, not for wallet deposits.
-
 ### GET /invoices
 Client example (fetch):
 
@@ -1549,8 +1517,6 @@ async function call_InvoicesController_UseGuards(params, token) {
 ```
 
 ### POST /invoices/:id/pay
-**Note**: This endpoint initiates payment for an invoice. Upon successful payment verification, a receipt will be created and linked to this invoice.
-
 Client example (fetch):
 
 ```js path=null start=null
@@ -1848,8 +1814,6 @@ async function call_OrdersController_updateOrder(params, token) {
 
 ## PaymentsController
 
-**Important**: The payments collection is legacy. New integrations should use the transactions collection for payment tracking.
-
 ### POST /payments/cancel
 Client example (fetch):
 
@@ -1953,12 +1917,6 @@ async function call_PaymentsController_ApiOperation(params, token) {
 ```
 
 ### POST /payments/verify
-**Important**: This endpoint verifies Zarinpal payment and:
-- Creates/updates invoice as PAID
-- Generates a payment receipt
-- Logs transaction in the unified ledger
-- Updates order payment status
-
 Client example (fetch):
 
 ```js path=null start=null
@@ -2031,10 +1989,6 @@ async function call_ProfilesController_updateMyProfile(params, token) {
 
 
 ## ReceiptsController
-
-**Note**: Receipts are created for all successful payments:
-- Wallet deposits (no invoice link)
-- Order payments (linked to invoice)
 
 ### GET /receipts
 Client example (fetch):
@@ -2282,12 +2236,6 @@ async function call_SupportController_ApiOperation(params, token) {
 
 
 ## TransactionsController
-
-**Important**: Transactions collection is the unified ledger for all financial activities:
-- Type 'deposit': Wallet recharge transactions
-- Type 'payment': Order payment transactions (audit only, no balance change)
-- Type 'refund': Refund transactions
-- Type 'adjustment': Admin adjustments
 
 ### GET /transactions
 Client example (fetch):
@@ -2670,11 +2618,6 @@ async function call_WalletsController_ApiOperation(params, token) {
 ```
 
 ### POST /wallets/me/deposit/verify
-**Important**: Verifies wallet deposit payment and:
-- Creates a receipt (no invoice for deposits)
-- Logs transaction as type 'deposit'
-- Updates wallet balance
-
 Client example (fetch):
 
 ```js path=null start=null
@@ -2761,8 +2704,6 @@ async function call_WalletsController_ApiOperation(params, token) {
 
 
 ## WizardController
-
-**Note**: The wizard manages order sessions (wizard_sessions collection). Methods like getOrder/updateOrder are being renamed to getSession/updateSession for clarity.
 
 ### POST /wizard/calculate-price
 Client example (fetch):
