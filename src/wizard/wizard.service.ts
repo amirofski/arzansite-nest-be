@@ -67,6 +67,15 @@ export class WizardService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
+    // Serialize wizard_data if provided
+    const payload: any = {
+      ...saveProgressDto,
+      updated_at: new Date().toISOString(),
+    };
+    if (saveProgressDto.wizard_data !== undefined) {
+      payload.wizard_data = JSON.stringify(saveProgressDto.wizard_data);
+    }
+
     // Check if progress already exists
     const existingProgress = await databases.listDocuments(
       databaseId,
@@ -83,39 +92,109 @@ export class WizardService {
       const updated = await databases.updateDocument(
         databaseId,
         wizardSessionsCollection,
-        existingDoc.$id,
-        {
-          ...saveProgressDto,
-          updated_at: new Date().toISOString(),
-        },
+        (existingDoc as any).$id,
+        payload,
       );
       return updated as any;
     } else {
       // Create new progress
+      const base: any = {
+        ...payload,
+        status: OrderStatus.DRAFT,
+        project_files: [],
+        created_at: new Date().toISOString(),
+      };
       const newDoc = await databases.createDocument(
         databaseId,
         wizardSessionsCollection,
         ID.unique(),
-        {
-          ...saveProgressDto,
-          status: OrderStatus.DRAFT,
-          project_files: [],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
+        base,
       );
       return newDoc as any;
     }
   }
 
+  async saveSession(session_id: string, wizard_data: Record<string, unknown>, user_id?: string): Promise<{ success: boolean }> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
+
+    const existing = await databases.listDocuments(
+      databaseId,
+      wizardSessionsCollection,
+      [Query.equal('session_id', session_id), Query.limit(1)],
+    );
+
+    const payload: any = {
+      session_id,
+      user_id: user_id || undefined,
+      wizard_data: JSON.stringify(wizard_data || {}),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existing.documents?.[0]) {
+      await databases.updateDocument(
+        databaseId,
+        wizardSessionsCollection,
+        (existing.documents[0] as any).$id,
+        payload,
+      );
+    } else {
+      await databases.createDocument(
+        databaseId,
+        wizardSessionsCollection,
+        ID.unique(),
+        {
+          ...payload,
+          status: OrderStatus.DRAFT,
+          project_files: [],
+          created_at: new Date().toISOString(),
+        },
+      );
+    }
+
+    return { success: true };
+  }
+
+  // Non-breaking session wrapper methods (aliases)
+  async getSession(session_id: string, user_id?: string): Promise<WizardOrderDto> {
+    return this.getProgress(session_id, user_id);
+  }
+
+  async updateSession(session_id: string, wizard_data: Record<string, unknown>, user_id?: string): Promise<{ success: boolean }> {
+    return this.saveSession(session_id, wizard_data, user_id);
+  }
+
+  async listSessions(
+    status?: OrderStatus,
+    page: number = 1,
+    limit: number = 20,
+    search?: string
+  ): Promise<{ sessions: WizardOrderDto[]; total: number; page: number; totalPages: number }> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
+
+    const queries: string[] = [Query.orderDesc('updated_at')];
+    if (status) queries.push(Query.equal('status', status));
+    if (search) queries.push(Query.search('primaryDomain', search));
+    const offset = (page - 1) * limit;
+    queries.push(Query.offset(offset));
+    queries.push(Query.limit(limit));
+
+    const result = await databases.listDocuments(databaseId, wizardSessionsCollection, queries);
+    const total = result.total;
+    return { sessions: (result.documents as any) || [], total, page, totalPages: Math.ceil(total / limit) };
+  }
+
   async getProgress(session_id: string, user_id?: string): Promise<WizardOrderDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const wizardOrdersCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_ORDERS');
+    const wizardSessionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WIZARD_SESSIONS');
 
     const result = await databases.listDocuments(
       databaseId,
-      wizardOrdersCollection,
+      wizardSessionsCollection,
       [
         Query.equal('session_id', session_id),
         Query.limit(1),
@@ -133,7 +212,18 @@ export class WizardService {
       throw new ForbiddenException('Access denied');
     }
 
+    // If wizard_data exists as string, parse for consumers
+    if (typeof progress.wizard_data === 'string') {
+      try { progress.wizard_data = JSON.parse(progress.wizard_data); } catch {}
+    }
+
     return progress;
+  }
+
+  async loadProgress(session_id: string): Promise<{ success: boolean; data: Record<string, unknown> }> {
+    const doc = await this.getProgress(session_id);
+    const data = doc && (doc as any).wizard_data ? (doc as any).wizard_data : {};
+    return { success: true, data: data as any };
   }
 
   async getUserProgress(user_id: string): Promise<WizardOrderDto[]> {

@@ -7,7 +7,7 @@ export enum ReceiptFormat {
 
 export class ReceiptResponseDto {
   id: string;
-  invoiceId: string;
+  invoiceId?: string;
   refId: string;
   amount: number;
   format: ReceiptFormat;

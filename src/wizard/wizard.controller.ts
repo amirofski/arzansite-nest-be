@@ -79,6 +79,14 @@ export class WizardController {
     return this.wizardService.saveProgress(saveProgressDto);
   }
 
+  // New alias for frontend: POST /wizard/save-session { session_id, wizard_data }
+  @Post('save-session')
+  @ApiOperation({ summary: 'Save Wizard Session (alias)', description: 'Upserts wizard_data for a session_id' })
+  @ApiResponse({ status: 200, description: 'Session saved successfully' })
+  async saveSession(@Body() body: { session_id: string; wizard_data: Record<string, unknown>; user_id?: string }) {
+    return this.wizardService.saveSession(body.session_id, body.wizard_data, body.user_id);
+  }
+
   @Get('progress/:session_id')
   @ApiOperation({ summary: 'Get Wizard Progress by Session ID' })
   @ApiParam({ name: 'session_id', description: 'Session ID' })
@@ -89,6 +97,20 @@ export class WizardController {
     @Query('user_id') user_id?: string,
   ): Promise<WizardOrderDto> {
     return this.wizardService.getProgress(session_id, user_id);
+  }
+
+  // New alias for frontend: GET /wizard/load-progress/:session_id
+  @Get('load-progress/:session_id')
+  @ApiOperation({ summary: 'Load Wizard Progress (alias)', description: 'Returns { success, data } containing saved wizard_data' })
+  async loadProgress(@Param('session_id') session_id: string) {
+    return this.wizardService.loadProgress(session_id);
+  }
+
+  // New alias for frontend: GET /wizard/progress?session_id=...
+  @Get('progress')
+  @ApiOperation({ summary: 'Load Wizard Progress by query', description: 'Returns { success, data } by session_id query parameter' })
+  async loadProgressByQuery(@Query('session_id') session_id: string) {
+    return this.wizardService.loadProgress(session_id);
   }
 
   @Get('progress/user/:user_id')

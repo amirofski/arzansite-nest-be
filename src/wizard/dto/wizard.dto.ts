@@ -297,6 +297,22 @@ export class SaveProgressDto {
   @ValidateNested()
   @Type(() => PaymentOptionsDto)
   paymentOptions?: PaymentOptionsDto;
+
+  @IsOptional()
+  @IsObject()
+  wizard_data?: Record<string, unknown>;
+}
+
+export class SaveSessionDto {
+  @IsString()
+  session_id: string;
+
+  @IsOptional()
+  @IsString()
+  user_id?: string;
+
+  @IsObject()
+  wizard_data: Record<string, unknown>;
 }
 
 export class OrderDto {

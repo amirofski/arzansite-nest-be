@@ -18,32 +18,47 @@ export class ReceiptsService {
     const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    // Get user's invoices first
-    const userInvoices = await databases.listDocuments(
-      databaseId,
-      invoicesCollection,
-      [
-        Query.equal('user_id', user_id),
-      ],
-    );
-
-    const invoiceIds = userInvoices.documents.map(inv => inv.$id);
-    
-    if (invoiceIds.length === 0) {
-      return [];
+    if (isAdmin) {
+      const all = await databases.listDocuments(databaseId, receiptsCollection, [Query.orderDesc('created_at')]);
+      return all.documents.map(doc => this.mapToResponseDto(doc));
     }
 
-    // Get receipts for user's invoices
-    const receipts = await databases.listDocuments(
+    // Query wallet receipts directly by user_id
+    const walletReceipts = await databases.listDocuments(
       databaseId,
       receiptsCollection,
       [
-        Query.equal('invoice_id', invoiceIds),
+        Query.equal('user_id', user_id),
         Query.orderDesc('created_at'),
       ],
     );
 
-    return receipts.documents.map(doc => this.mapToResponseDto(doc));
+    // Additionally, include receipts linked to user's invoices (for older records without user_id)
+    const userInvoices = await databases.listDocuments(
+      databaseId,
+      invoicesCollection,
+      [Query.equal('user_id', user_id), Query.limit(1000)],
+    );
+    const invoiceIds = userInvoices.documents.map(inv => inv.$id);
+
+    let invoiceReceipts: any[] = [];
+    if (invoiceIds.length > 0) {
+      const res = await databases.listDocuments(
+        databaseId,
+        receiptsCollection,
+        [Query.equal('invoice_id', invoiceIds), Query.orderDesc('created_at')],
+      );
+      invoiceReceipts = res.documents as any[];
+    }
+
+    // Merge and de-duplicate by $id
+    const map: Record<string, any> = {};
+    for (const doc of [...(walletReceipts.documents as any[]), ...invoiceReceipts]) {
+      map[(doc as any).$id] = doc;
+    }
+    const merged = Object.values(map);
+
+    return merged.map(doc => this.mapToResponseDto(doc));
   }
 
   async getReceipt(receiptId: string, user_id: string, isAdmin: boolean = false): Promise<ReceiptResponseDto> {
@@ -63,12 +78,18 @@ export class ReceiptsService {
 
     // Check access rights
     if (!isAdmin) {
-      const invoice = await databases.getDocument(
-        databaseId,
-        invoicesCollection,
-        receipt.invoice_id,
-      );
-      if (invoice.user_id !== user_id) {
+      if (receipt.user_id && receipt.user_id === user_id) {
+        // direct user-owned wallet receipt
+      } else if (receipt.invoice_id) {
+        const invoice = await databases.getDocument(
+          databaseId,
+          invoicesCollection,
+          receipt.invoice_id,
+        );
+        if (invoice.user_id !== user_id) {
+          throw new BadRequestException('Access denied');
+        }
+      } else {
         throw new BadRequestException('Access denied');
       }
     }
@@ -97,7 +118,9 @@ export class ReceiptsService {
     doc.fontSize(20).text('Payment Receipt', { align: 'center' });
     doc.moveDown();
     doc.fontSize(12).text(`Receipt ID: ${receipt.id}`);
-    doc.text(`Invoice ID: ${receipt.invoiceId}`);
+    if (receipt.invoiceId) {
+      doc.text(`Invoice ID: ${receipt.invoiceId}`);
+    }
     doc.text(`Reference ID: ${receipt.refId}`);
     doc.text(`Amount: ${receipt.amount.toLocaleString()} Rials`);
     doc.text(`Date: ${new Date(receipt.created_at).toLocaleDateString()}`);
@@ -133,7 +156,7 @@ export class ReceiptsService {
         </div>
         <div class="receipt-info">
           <p><strong>Receipt ID:</strong> ${receipt.id}</p>
-          <p><strong>Invoice ID:</strong> ${receipt.invoiceId}</p>
+          ${receipt.invoiceId ? `<p><strong>Invoice ID:</strong> ${receipt.invoiceId}</p>` : ''}
           <p><strong>Reference ID:</strong> ${receipt.refId}</p>
           <p class="amount">Amount: ${receipt.amount.toLocaleString()} Rials</p>
           <p><strong>Date:</strong> ${new Date(receipt.created_at).toLocaleDateString()}</p>
@@ -155,7 +178,7 @@ export class ReceiptsService {
   private mapToResponseDto(receipt: any): ReceiptResponseDto {
     return {
       id: receipt.$id,
-      invoiceId: receipt.invoice_id,
+      invoiceId: receipt.invoice_id || undefined,
       refId: receipt.ref_id,
       amount: receipt.amount,
       format: receipt.format,

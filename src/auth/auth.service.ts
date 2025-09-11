@@ -112,22 +112,48 @@ export class AuthService {
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h
 
-      await this.appwriteService.getDatabases().createDocument(
-        databaseId,
-        collectionId,
-        ID.unique(),
-        {
-          user_id,
-          email: email || undefined,
-          type: 'verification',
-          token,
-          token_hash,
-          is_used: 'false',
-          expires_at,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as any
-      );
+      const db = this.appwriteService.getDatabases();
+      try {
+        await db.createDocument(
+          databaseId,
+          collectionId,
+          ID.unique(),
+          {
+            user_id,
+            email: email || undefined,
+            type: 'verification',
+            token,
+            token_hash,
+            is_used: 'false',
+            expires_at,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as any
+        );
+      } catch (err: any) {
+        const t = String(err?.response?.type || err?.type || '');
+        if (t.includes('document_invalid')) {
+          // Fallback for boolean-typed is_used
+          await db.createDocument(
+            databaseId,
+            collectionId,
+            ID.unique(),
+            {
+              user_id,
+              email: email || undefined,
+              type: 'verification',
+              token,
+              token_hash,
+              is_used: false as any,
+              expires_at,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as any
+          );
+        } else {
+          throw err;
+        }
+      }
       
       console.log('✅ Verification token stored');
     } catch (error) {
@@ -145,13 +171,31 @@ export class AuthService {
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
-        Query.equal('type', 'verification'),
-        Query.equal('token_hash', token_hash),
-        Query.equal('is_used', 'false'),
-        Query.greaterThan('expires_at', new Date().toISOString()),
-        Query.limit(1),
-      ]);
+      const db = this.appwriteService.getDatabases();
+      let res: any;
+      try {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'verification'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('is_used', 'false'),
+          Query.greaterThan('expires_at', new Date().toISOString()),
+          Query.limit(1),
+        ]);
+      } catch (e: any) {
+        const t = String(e?.response?.type || e?.type || '');
+        if (t.includes('general_query_invalid')) {
+          // Fallback for boolean-typed is_used
+          res = await db.listDocuments(databaseId, collectionId, [
+            Query.equal('type', 'verification'),
+            Query.equal('token_hash', token_hash),
+            Query.equal('is_used', false as any),
+            Query.greaterThan('expires_at', new Date().toISOString()),
+            Query.limit(1),
+          ]);
+        } else {
+          throw e;
+        }
+      }
       const doc = res.documents[0];
       return doc ? (doc as any).user_id : null;
     } catch (error) {
@@ -169,14 +213,32 @@ export class AuthService {
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
-        Query.equal('type', 'verification'),
-        Query.equal('token_hash', token_hash),
-        Query.equal('user_id', user_id),
-        Query.equal('is_used', 'false'),
-        Query.greaterThan('expires_at', new Date().toISOString()),
-        Query.limit(1),
-      ]);
+      const db = this.appwriteService.getDatabases();
+      let res: any;
+      try {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'verification'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('user_id', user_id),
+          Query.equal('is_used', 'false'),
+          Query.greaterThan('expires_at', new Date().toISOString()),
+          Query.limit(1),
+        ]);
+      } catch (e: any) {
+        const t = String(e?.response?.type || e?.type || '');
+        if (t.includes('general_query_invalid')) {
+          res = await db.listDocuments(databaseId, collectionId, [
+            Query.equal('type', 'verification'),
+            Query.equal('token_hash', token_hash),
+            Query.equal('user_id', user_id),
+            Query.equal('is_used', false as any),
+            Query.greaterThan('expires_at', new Date().toISOString()),
+            Query.limit(1),
+          ]);
+        } else {
+          throw e;
+        }
+      }
       return { isValid: !!res.documents[0] };
     } catch (error) {
       console.error('❌ Failed to validate verification token:', error);
@@ -194,19 +256,43 @@ export class AuthService {
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
       const db = this.appwriteService.getDatabases();
-      const res = await db.listDocuments(databaseId, collectionId, [
-        Query.equal('type', 'verification'),
-        Query.equal('token_hash', token_hash),
-        Query.equal('user_id', user_id),
-        Query.equal('is_used', false),
-        Query.limit(1),
-      ]);
+      let res: any;
+      try {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'verification'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('user_id', user_id),
+          Query.equal('is_used', 'false'),
+          Query.limit(1),
+        ]);
+      } catch (e: any) {
+        const t = String(e?.response?.type || e?.type || '');
+        if (t.includes('general_query_invalid')) {
+          res = await db.listDocuments(databaseId, collectionId, [
+            Query.equal('type', 'verification'),
+            Query.equal('token_hash', token_hash),
+            Query.equal('user_id', user_id),
+            Query.equal('is_used', false as any),
+            Query.limit(1),
+          ]);
+        } else {
+          throw e;
+        }
+      }
       const doc = res.documents[0];
       if (doc) {
-        await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
-          is_used: 'true',
-          updated_at: new Date().toISOString(),
-        } as any);
+        try {
+          await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
+            is_used: 'true',
+            updated_at: new Date().toISOString(),
+          } as any);
+        } catch (e: any) {
+          // Fallback for boolean-typed is_used
+          await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
+            is_used: true as any,
+            updated_at: new Date().toISOString(),
+          } as any);
+        }
       }
     } catch (error) {
       console.error('❌ Failed to mark verification token as used:', error);
@@ -394,22 +480,47 @@ export class AuthService {
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
 
-      await this.appwriteService.getDatabases().createDocument(
-        databaseId,
-        collectionId,
-        ID.unique(),
-        {
-          user_id,
-          email,
-          type: 'password_reset',
-          token,
-          token_hash,
-          is_used: 'false',
-          expires_at: expiresAt.toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as any
-      );
+      const db = this.appwriteService.getDatabases();
+      try {
+        await db.createDocument(
+          databaseId,
+          collectionId,
+          ID.unique(),
+          {
+            user_id,
+            email,
+            type: 'password_reset',
+            token,
+            token_hash,
+            is_used: 'false',
+            expires_at: expiresAt.toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as any
+        );
+      } catch (err: any) {
+        const t = String(err?.response?.type || err?.type || '');
+        if (t.includes('document_invalid')) {
+          await db.createDocument(
+            databaseId,
+            collectionId,
+            ID.unique(),
+            {
+              user_id,
+              email,
+              type: 'password_reset',
+              token,
+              token_hash,
+              is_used: false as any,
+              expires_at: expiresAt.toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as any
+          );
+        } else {
+          throw err;
+        }
+      }
     } catch (error) {
       console.error('Failed to store password reset token:', error);
       throw new Error('Failed to store password reset token');
@@ -538,13 +649,30 @@ export class AuthService {
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
-        Query.equal('type', 'password_reset'),
-        Query.equal('token_hash', token_hash),
-        Query.equal('is_used', 'false'),
-        Query.greaterThan('expires_at', new Date().toISOString()),
-        Query.limit(1),
-      ]);
+      const db = this.appwriteService.getDatabases();
+      let res: any;
+      try {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'password_reset'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('is_used', 'false'),
+          Query.greaterThan('expires_at', new Date().toISOString()),
+          Query.limit(1),
+        ]);
+      } catch (e: any) {
+        const t = String(e?.response?.type || e?.type || '');
+        if (t.includes('general_query_invalid')) {
+          res = await db.listDocuments(databaseId, collectionId, [
+            Query.equal('type', 'password_reset'),
+            Query.equal('token_hash', token_hash),
+            Query.equal('is_used', false as any),
+            Query.greaterThan('expires_at', new Date().toISOString()),
+            Query.limit(1),
+          ]);
+        } else {
+          throw e;
+        }
+      }
       return res.documents[0] || null;
     } catch (error) {
       console.error('Failed to find password reset record by token:', error);
@@ -560,14 +688,32 @@ export class AuthService {
       const crypto = require('crypto');
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
-      const res = await this.appwriteService.getDatabases().listDocuments(databaseId, collectionId, [
-        Query.equal('type', 'password_reset'),
-        Query.equal('token_hash', token_hash),
-        Query.equal('email', email),
-        Query.equal('is_used', 'false'),
-        Query.greaterThan('expires_at', new Date().toISOString()),
-        Query.limit(1),
-      ]);
+      const db = this.appwriteService.getDatabases();
+      let res: any;
+      try {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'password_reset'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('email', email),
+          Query.equal('is_used', 'false'),
+          Query.greaterThan('expires_at', new Date().toISOString()),
+          Query.limit(1),
+        ]);
+      } catch (e: any) {
+        const t = String(e?.response?.type || e?.type || '');
+        if (t.includes('general_query_invalid')) {
+          res = await db.listDocuments(databaseId, collectionId, [
+            Query.equal('type', 'password_reset'),
+            Query.equal('token_hash', token_hash),
+            Query.equal('email', email),
+            Query.equal('is_used', false as any),
+            Query.greaterThan('expires_at', new Date().toISOString()),
+            Query.limit(1),
+          ]);
+        } else {
+          throw e;
+        }
+      }
       return res.documents[0] || null;
     } catch (error) {
       console.error('Failed to validate password reset token:', error);
@@ -584,18 +730,40 @@ export class AuthService {
       const token_hash = crypto.createHash('sha256').update(token).digest('hex');
       const { Query } = await import('node-appwrite');
       const db = this.appwriteService.getDatabases();
-      const res = await db.listDocuments(databaseId, collectionId, [
-        Query.equal('type', 'password_reset'),
-        Query.equal('token_hash', token_hash),
-        Query.equal('is_used', false),
-        Query.limit(1),
-      ]);
+      let res: any;
+      try {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'password_reset'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('is_used', 'false'),
+          Query.limit(1),
+        ]);
+      } catch (e: any) {
+        const t = String(e?.response?.type || e?.type || '');
+        if (t.includes('general_query_invalid')) {
+          res = await db.listDocuments(databaseId, collectionId, [
+            Query.equal('type', 'password_reset'),
+            Query.equal('token_hash', token_hash),
+            Query.equal('is_used', false as any),
+            Query.limit(1),
+          ]);
+        } else {
+          throw e;
+        }
+      }
       const doc = res.documents[0];
       if (doc) {
-        await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
-          is_used: 'true',
-          updated_at: new Date().toISOString(),
-        } as any);
+        try {
+          await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
+            is_used: 'true',
+            updated_at: new Date().toISOString(),
+          } as any);
+        } catch (e: any) {
+          await db.updateDocument(databaseId, collectionId, (doc as any).$id, {
+            is_used: true as any,
+            updated_at: new Date().toISOString(),
+          } as any);
+        }
       }
     } catch (error) {
       console.error('Failed to mark password reset token as used:', error);

@@ -90,12 +90,12 @@ const schemas: CollectionSchema[] = [
     id: process.env.APPWRITE_COLLECTION_TRANSACTIONS || 'transactions',
     attributes: [
       s('user_id', 128, true),
-      s('wallet_id', 128, true),
+      s('wallet_id', 128, false), // optional for non-wallet audit entries
       s('type', 32, true),
       s('status', 32, true),
       i('amount', true),
-      i('balance_before', true),
-      i('balance_after', true),
+      i('balance_before', false), // optional for non-wallet audit entries
+      i('balance_after', false),  // optional for non-wallet audit entries
       s('description', 1024, false),
       s('reference_id', 256, false),
       s('reference_type', 64, false),
@@ -105,8 +105,10 @@ const schemas: CollectionSchema[] = [
     ],
     indexes: [
       idx('user_id_idx', ['user_id']),
+      idx('type_idx', ['type']),
       idx('reference_id_idx', ['reference_id']),
       idx('reference_type_idx', ['reference_type']),
+      idx('ref_type_idx', ['reference_id', 'type']),
       idx('created_at_idx', ['created_at'], ['DESC']),
     ],
   },
@@ -119,6 +121,14 @@ const schemas: CollectionSchema[] = [
       i('total_amount', true),
       s('status', 32, true),
       s('payment_status', 32, true),
+      s('comments', 2048, false),
+      i('total_pages', false),
+      i('total_sections', false),
+      s('payment_gateway', 64, false),
+      s('callback_url', 512, false),
+      s('return_url', 512, false),
+      s('zarinpal_authority', 128, false),
+      s('zarinpal_ref_id', 128, false),
       s('session_id', 256, false),
       s('site_type', 64, false),
       s('wizard_data', 16384, false),
@@ -128,6 +138,9 @@ const schemas: CollectionSchema[] = [
     indexes: [
       idx('user_id_idx', ['user_id']),
       idx('status_idx', ['status']),
+      idx('payment_status_idx', ['payment_status']),
+      idx('zarinpal_authority_idx', ['zarinpal_authority']),
+      idx('zarinpal_ref_id_idx', ['zarinpal_ref_id']),
       idx('session_id_idx', ['session_id']),
       idx('created_at_idx', ['created_at'], ['DESC']),
     ],
@@ -150,6 +163,8 @@ const schemas: CollectionSchema[] = [
       idx('authority_idx', ['zarinpal_authority']),
       idx('user_id_idx', ['user_id']),
       idx('order_id_idx', ['order_id']),
+      idx('status_idx', ['status']),
+      idx('created_at_idx', ['created_at'], ['DESC']),
     ],
   },
   {
@@ -169,14 +184,22 @@ const schemas: CollectionSchema[] = [
   {
     id: process.env.APPWRITE_COLLECTION_RECEIPTS || 'receipts',
     attributes: [
-      s('invoice_id', 128, true),
+      s('user_id', 128, false),
+      s('invoice_id', 128, false), // optional to support wallet receipts without invoices
       s('ref_id', 128, true),
+      s('reference_type', 64, false),
+      s('reference_id', 256, false),
       i('amount', true),
       s('format', 16, true),
       s('created_at', 64, true),
       s('updated_at', 64, true),
     ],
-    indexes: [idx('invoice_id_idx', ['invoice_id'])],
+    indexes: [
+      idx('user_id_idx', ['user_id']),
+      idx('invoice_id_idx', ['invoice_id']),
+      idx('reference_idx', ['reference_type', 'reference_id']),
+      idx('created_at_idx', ['created_at'], ['DESC']),
+    ],
   },
   {
     id: process.env.APPWRITE_COLLECTION_NOTIFICATIONS || 'notifications',

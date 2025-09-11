@@ -13,6 +13,8 @@ import {
   PaymentRefundDto,
   PaymentCancelDto,
 } from './dto/payment.dto';
+import { InvoicesService } from '../invoices/invoices.service';
+import { CreateInvoiceDto, InvoiceStatus } from '../invoices/dto/invoice.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -22,6 +24,7 @@ export class PaymentsService {
     private ordersService: OrdersService,
     private walletsService: WalletsService,
     private zarinPalService: ZarinPalService,
+    private invoicesService: InvoicesService,
   ) {}
 
   async requestPayment(
@@ -128,12 +131,108 @@ export class PaymentsService {
 
         // Update order payment status (only for regular orders)
         if (!isWalletDeposit) {
+          // Fix: pass the authenticated user_id, not a status string
           await this.ordersService.updateOrderPayment(
             paymentVerifyDto.order_id,
-            'paid',
+            user_id,
             paymentVerifyDto.authority,
             refId,
           );
+
+          // Ensure an invoice exists, mark it PAID, and generate a receipt
+          let createdInvoiceId: string | undefined;
+          try {
+            // Try to find an existing invoice by order_id
+            const databases = this.appwriteService.getDatabases();
+            const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+            const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+            const existing = await databases.listDocuments(
+              databaseId,
+              invoicesCollection,
+              [Query.equal('order_id', paymentVerifyDto.order_id), Query.limit(1)],
+            );
+
+            if (existing.documents && existing.documents.length > 0) {
+              createdInvoiceId = (existing.documents[0] as any).$id;
+            } else {
+              // Create a new invoice if missing
+              const dueDate = new Date().toISOString();
+              const created = await this.invoicesService.createInvoice(user_id, {
+                order_id: paymentVerifyDto.order_id!,
+                amount: orderAmount,
+                dueDate,
+                description: `Auto-generated invoice for order ${paymentVerifyDto.order_id}`,
+              } as CreateInvoiceDto);
+              createdInvoiceId = created.id;
+            }
+
+            // Mark invoice paid and generate receipt
+            if (createdInvoiceId) {
+              await this.invoicesService.updateInvoiceStatus(createdInvoiceId, InvoiceStatus.PAID);
+              await this.invoicesService.generateReceipt(createdInvoiceId, refId, orderAmount);
+            }
+          } catch (e) {
+            // Non-fatal: continue even if invoice/receipt handling fails
+          }
+
+          // Log a read-only audit transaction for this order payment (no wallet change)
+          try {
+            const databases = this.appwriteService.getDatabases();
+            const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+            const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
+
+            // Idempotency guard: check if an order payment with same refId already exists
+            const existingTx = await databases.listDocuments(
+              databaseId,
+              transactionsCollection,
+              [
+                Query.equal('reference_id', paymentVerifyDto.order_id),
+                Query.equal('type', TransactionType.PAYMENT),
+                Query.limit(25),
+                Query.orderDesc('created_at'),
+              ],
+            );
+            let duplicate = false;
+            for (const doc of (existingTx.documents || [])) {
+              const meta = (doc as any).metadata;
+              if (meta) {
+                try {
+                  const parsed = typeof meta === 'string' ? JSON.parse(meta) : meta;
+                  if (parsed?.zarinpal_ref_id === refId || parsed?.zarinpal_authority === paymentVerifyDto.authority) {
+                    duplicate = true;
+                    break;
+                  }
+                } catch {}
+              }
+            }
+
+            if (!duplicate) {
+              const now = new Date().toISOString();
+              await databases.createDocument(
+                databaseId,
+                transactionsCollection,
+                ID.unique(),
+                {
+                  user_id,
+                  type: TransactionType.PAYMENT,
+                  status: 'completed',
+                  amount: orderAmount,
+                  description: 'Order payment via ZarinPal',
+                  reference_type: 'order',
+                  reference_id: paymentVerifyDto.order_id,
+                  metadata: JSON.stringify({
+                    zarinpal_authority: paymentVerifyDto.authority,
+                    zarinpal_ref_id: refId,
+                    invoice_id: typeof createdInvoiceId !== 'undefined' ? createdInvoiceId : undefined,
+                    gateway: 'zarinpal',
+                  }),
+                  created_at: now,
+                  updated_at: now,
+                } as any,
+              );
+            }
+          } catch (_) {}
+
           // Notify user for successful order payment
           try {
             await (this.appwriteService as any).sendUserPush(
@@ -158,6 +257,28 @@ export class PaymentsService {
             referenceId: paymentVerifyDto.authority,
             metadata: { refId, source: 'zarinpal' },
           });
+          // Create a receipt for the wallet deposit (no invoice)
+          try {
+            const databases = this.appwriteService.getDatabases();
+            const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+            const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
+            await databases.createDocument(
+              databaseId,
+              receiptsCollection,
+              ID.unique(),
+              {
+                user_id,
+                invoice_id: null,
+                ref_id: refId,
+                reference_type: 'wallet_deposit',
+                reference_id: paymentVerifyDto.authority,
+                amount: orderAmount,
+                format: 'pdf',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              } as any,
+            );
+          } catch (_) {}
           // Notify user for successful wallet deposit
           try {
             await (this.appwriteService as any).sendUserPush(
