@@ -265,59 +265,6 @@ export class SaveProgressDto {
   user_id?: string;
 
   @IsOptional()
-  @IsEnum(SiteType)
-  site_type?: SiteType;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => WebsiteFrameworkDto)
-  website_framework?: WebsiteFrameworkDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => BrandingDto)
-  branding?: BrandingDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => AdditionalServicesDto)
-  additional_services?: AdditionalServicesDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => DomainsDto)
-  domains?: DomainsDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PricingDto)
-  pricing?: PricingDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PaymentOptionsDto)
-  paymentOptions?: PaymentOptionsDto;
-
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      try { return JSON.parse(value); } catch { return value; }
-    }
-    return value;
-  })
-  @IsObject()
-  wizard_data?: Record<string, unknown>;
-}
-
-export class SaveProgressDto {
-  @IsString()
-  session_id: string;
-
-  @IsOptional()
-  @IsString()
-  user_id?: string;
-
-  @IsOptional()
   @IsString()
   current_step?: string;
 
