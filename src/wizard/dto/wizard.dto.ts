@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsBoolean, IsNumber, IsArray, IsEnum, IsObject, ValidateNested, IsDateString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export enum SiteType {
   PERSONAL = 'personal',
@@ -299,6 +299,12 @@ export class SaveProgressDto {
   paymentOptions?: PaymentOptionsDto;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try { return JSON.parse(value); } catch { return value; }
+    }
+    return value;
+  })
   @IsObject()
   wizard_data?: Record<string, unknown>;
 }
@@ -311,6 +317,12 @@ export class SaveSessionDto {
   @IsString()
   user_id?: string;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try { return JSON.parse(value); } catch { return value; }
+    }
+    return value;
+  })
   @IsObject()
   wizard_data: Record<string, unknown>;
 }
