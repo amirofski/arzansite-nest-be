@@ -16,6 +16,15 @@ export class OrdersService extends BaseAppwriteService {
   protected readonly collectionId = 'orders';
   private readonly logger = new Logger(OrdersService.name);
 
+  private generateOrderNumber(): string {
+    const now = new Date();
+    const dateStr = now.getFullYear().toString()
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0');
+    const randomNum = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    return `ORD-${dateStr}-${randomNum}`;
+  }
+
   constructor(
     appwriteService: AppwriteService,
     configService: ConfigService,
@@ -73,6 +82,7 @@ export class OrdersService extends BaseAppwriteService {
 
     const orderData = {
       // Basic order fields
+      order_number: this.generateOrderNumber(),
       title,
       description,
       total_amount: totalAmount,
@@ -128,6 +138,7 @@ export class OrdersService extends BaseAppwriteService {
     }
 
     const orderData = {
+      order_number: this.generateOrderNumber(),
       user_id: userId,
       title: createOrderDto.title,
       description: createOrderDto.description,

@@ -296,6 +296,7 @@ export class WizardService {
       // Create orderData with ONLY fields that exist in the orders collection
       // Based on the actual schema, only include fields that are defined
       const orderData = {
+        order_number: this.generateOrderNumber(),
         user_id: mapped_user_id, // Required field - exists in schema
         title: completeOrderDto.order.title, // Required field - exists in schema
         description: completeOrderDto.order.description, // Required field - exists in schema
@@ -811,6 +812,15 @@ export class WizardService {
     // For now, return a placeholder URL
     // In production, this would trigger an async job to generate the actual preview
     return `https://preview.arzansite.com/orders/${order_id}/preview`;
+  }
+
+  private generateOrderNumber(): string {
+    const now = new Date();
+    const dateStr = now.getFullYear().toString()
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0');
+    const randomNum = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    return `ORD-${dateStr}-${randomNum}`;
   }
 
   private async sendOrderConfirmationEmails(orderDoc: any, invoiceDoc: any, completeOrderDto: CompleteOrderDto): Promise<void> {
