@@ -12,41 +12,66 @@ export class ReceiptsService {
     private configService: ConfigService,
   ) {}
 
-  async getReceipts(user_id: string, isAdmin: boolean = false): Promise<ReceiptResponseDto[]> {
+  async getReceipts(
+    user_id: string,
+    isAdmin: boolean = false,
+    page: number = 1,
+    limit: number = 20,
+    from?: string,
+    to?: string,
+  ): Promise<ReceiptResponseDto[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
     if (isAdmin) {
-      const all = await databases.listDocuments(databaseId, receiptsCollection, [Query.orderDesc('created_at')]);
+      const queries: string[] = [Query.orderDesc('created_at')];
+      if (from) queries.push(Query.greaterThanEqual('created_at', from));
+      if (to) queries.push(Query.lessThanEqual('created_at', to));
+      const offset = (page - 1) * limit;
+      queries.push(Query.offset(offset));
+      queries.push(Query.limit(limit));
+      const all = await databases.listDocuments(databaseId, receiptsCollection, queries);
       return all.documents.map(doc => this.mapToResponseDto(doc));
     }
 
-    // Query wallet receipts directly by user_id
-    const walletReceipts = await databases.listDocuments(
-      databaseId,
-      receiptsCollection,
-      [
-        Query.equal('user_id', user_id),
-        Query.orderDesc('created_at'),
-      ],
-    );
+    // Query wallet receipts directly by user_id (if field exists)
+    const walletQueries: string[] = [Query.orderDesc('created_at')];
+    if (from) walletQueries.push(Query.greaterThanEqual('created_at', from));
+    if (to) walletQueries.push(Query.lessThanEqual('created_at', to));
+    let walletReceipts: any = { documents: [] };
+    try {
+      walletReceipts = await databases.listDocuments(
+        databaseId,
+        receiptsCollection,
+        [Query.equal('user_id', user_id), ...walletQueries],
+      );
+    } catch (_) {
+      // user_id may not exist on receipts; ignore
+      walletReceipts = { documents: [] };
+    }
 
-    // Additionally, include receipts linked to user's invoices (for older records without user_id)
+    // Include receipts linked to user's invoices
+    const invQueries: string[] = [Query.equal('user_id', user_id), Query.limit(1000)];
+    if (from) invQueries.push(Query.greaterThanEqual('created_at', from));
+    if (to) invQueries.push(Query.lessThanEqual('created_at', to));
     const userInvoices = await databases.listDocuments(
       databaseId,
       invoicesCollection,
-      [Query.equal('user_id', user_id), Query.limit(1000)],
+      invQueries,
     );
     const invoiceIds = userInvoices.documents.map(inv => inv.$id);
 
     let invoiceReceipts: any[] = [];
     if (invoiceIds.length > 0) {
+      const recQueries: string[] = [Query.equal('invoice_id', invoiceIds), Query.orderDesc('created_at')];
+      if (from) recQueries.push(Query.greaterThanEqual('created_at', from));
+      if (to) recQueries.push(Query.lessThanEqual('created_at', to));
       const res = await databases.listDocuments(
         databaseId,
         receiptsCollection,
-        [Query.equal('invoice_id', invoiceIds), Query.orderDesc('created_at')],
+        recQueries,
       );
       invoiceReceipts = res.documents as any[];
     }
@@ -58,7 +83,12 @@ export class ReceiptsService {
     }
     const merged = Object.values(map);
 
-    return merged.map(doc => this.mapToResponseDto(doc));
+    // Apply pagination on merged results
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const paged = merged.slice(start, end);
+
+    return paged.map(doc => this.mapToResponseDto(doc));
   }
 
   async getReceipt(receiptId: string, user_id: string, isAdmin: boolean = false): Promise<ReceiptResponseDto> {

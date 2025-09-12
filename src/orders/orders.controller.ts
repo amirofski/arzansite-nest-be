@@ -29,11 +29,17 @@ export class OrdersController {
     @User() user: UserPayload,
     @Query('mine') mine?: string,
     @Query('admin') admin?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const isAdmin = admin === 'true' && user.role === 'admin';
     const isMine = mine === 'true' || !isAdmin;
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
     
-    return this.ordersService.getOrders(user.id, isAdmin);
+    return this.ordersService.getOrders(user.id, isAdmin, pageNum, limitNum, from, to);
   }
 
   @Post()

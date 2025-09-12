@@ -115,31 +115,20 @@ export class InvoicesController {
   @ApiOkResponse({
     description: 'List of invoices retrieved successfully',
     type: [InvoiceResponseDto],
-    schema: {
-      example: [
-        {
-          id: 'invoice_123456',
-          user_id: 'user_789',
-          order_id: 'order_123456',
-          amount: 5000000,
-          dueDate: '2024-12-31T23:59:59.000Z',
-          status: 'pending',
-          description: 'Website design services',
-          created_at: '2024-12-01T10:00:00.000Z',
-          updated_at: '2024-12-01T10:00:00.000Z'
-        }
-      ]
-    }
   })
+  @ApiQuery({ name: 'from', required: false, type: String, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, type: String, description: 'Created-at to (ISO 8601)' })
   @ApiUnauthorizedResponse({
     description: 'User not authenticated'
   })
   async getInvoices(
     @User() user: UserPayload,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<InvoiceResponseDto[]> {
-    return this.invoicesService.getInvoices(user.id, user.role === 'admin');
+    return this.invoicesService.getInvoices(user.id, user.role === 'admin', page, limit, from, to);
   }
 
   @Get(':id')
@@ -303,6 +292,8 @@ export class InvoicesController {
     description: 'All invoices retrieved successfully',
     type: [InvoiceResponseDto]
   })
+  @ApiQuery({ name: 'from', required: false, type: String, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, type: String, description: 'Created-at to (ISO 8601)' })
   @ApiForbiddenResponse({
     description: 'Access denied - admin role required'
   })
@@ -313,9 +304,11 @@ export class InvoicesController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('status') status?: string,
-    @Query('user_id') user_id?: string
+    @Query('user_id') user_id?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<InvoiceResponseDto[]> {
     // Admin endpoint to get all invoices with filtering
-    return this.invoicesService.getInvoices('', true);
+    return this.invoicesService.getInvoices('', true, page, limit, from, to);
   }
 }

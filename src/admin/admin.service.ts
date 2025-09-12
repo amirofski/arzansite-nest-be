@@ -130,6 +130,8 @@ export class AdminService {
     limit: number = 50,
     status?: string,
     user_id?: string,
+    from?: string,
+    to?: string,
   ): Promise<any[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -139,6 +141,8 @@ export class AdminService {
     const q: string[] = [Query.orderDesc('created_at'), Query.offset((page - 1) * limit), Query.limit(limit)];
     if (status) q.push(Query.equal('status', status));
     if (user_id) q.push(Query.equal('user_id', user_id));
+    if (from) q.push(Query.greaterThanEqual('created_at', from));
+    if (to) q.push(Query.lessThanEqual('created_at', to));
 
     const invoices = await databases.listDocuments(databaseId, invoicesCollection, q);
 
@@ -164,6 +168,8 @@ export class AdminService {
     limit: number = 50,
     status?: string,
     user_id?: string,
+    from?: string,
+    to?: string,
   ): Promise<any[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
@@ -173,6 +179,8 @@ export class AdminService {
     const q: string[] = [Query.orderDesc('created_at'), Query.offset((page - 1) * limit), Query.limit(limit)];
     if (status) q.push(Query.equal('status', status));
     if (user_id) q.push(Query.equal('user_id', user_id));
+    if (from) q.push(Query.greaterThanEqual('created_at', from));
+    if (to) q.push(Query.lessThanEqual('created_at', to));
 
     const payments = await databases.listDocuments(databaseId, transactionsCollection, q);
 

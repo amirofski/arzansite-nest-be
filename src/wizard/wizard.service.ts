@@ -322,6 +322,34 @@ export class WizardService {
         orderData,
       );
 
+      // Auto-create invoice for the order
+      let invoiceDoc: any = null;
+      try {
+        const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+        if (invoicesCollection) {
+          invoiceDoc = await databases.createDocument(
+            databaseId,
+            invoicesCollection,
+            ID.unique(),
+            {
+              user_id: mapped_user_id,
+              order_id: orderDoc.$id,
+              amount: priceRials,
+              due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: 'pending',
+              description: `Invoice for order ${orderDoc.$id}`,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as any,
+          );
+
+          // Notify user
+          await this.emailService.sendInvoiceCreatedEmail(mapped_user_id, invoiceDoc.$id, priceRials);
+        }
+      } catch (e: any) {
+        console.error('Failed to auto-create invoice:', e?.message || e);
+      }
+
       // 3. Create payment record for the order
       const paymentData = {
         order_id: orderDoc.$id,
@@ -371,6 +399,7 @@ export class WizardService {
       return {
         success: true,
         order_id: orderDoc.$id,
+        invoiceId: invoiceDoc ? invoiceDoc.$id : undefined,
         paymentId: paymentDoc.$id,
         message: 'Order completed successfully',
         order: {

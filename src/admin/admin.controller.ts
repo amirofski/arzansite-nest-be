@@ -226,6 +226,8 @@ export class AdminController {
     description: 'Filter by user ID',
     example: 'user_456'
   })
+  @ApiQuery({ name: 'from', required: false, type: String, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, type: String, description: 'Created-at to (ISO 8601)' })
   @ApiOkResponse({
     description: 'All invoices retrieved successfully',
     schema: {
@@ -258,9 +260,11 @@ export class AdminController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('status') status?: string,
-    @Query('user_id') user_id?: string
+    @Query('user_id') user_id?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<any[]> {
-    return this.adminService.getAllInvoices(page, limit, status, user_id);
+    return this.adminService.getAllInvoices(page, limit, status, user_id, from, to);
   }
 
   @Get('payments')
@@ -296,6 +300,8 @@ export class AdminController {
     description: 'Filter by user ID',
     example: 'user_456'
   })
+  @ApiQuery({ name: 'from', required: false, type: String, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, type: String, description: 'Created-at to (ISO 8601)' })
   @ApiOkResponse({
     description: 'All payment transactions retrieved successfully',
     schema: {
@@ -328,9 +334,11 @@ export class AdminController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('status') status?: string,
-    @Query('user_id') user_id?: string
+    @Query('user_id') user_id?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<any[]> {
-    return this.adminService.getAllPayments(page, limit, status, user_id);
+    return this.adminService.getAllPayments(page, limit, status, user_id, from, to);
   }
 
   @Get('dashboard/stats')

@@ -58,29 +58,20 @@ export class ReceiptsController {
   @ApiOkResponse({
     description: 'List of receipts retrieved successfully',
     type: [ReceiptResponseDto],
-    schema: {
-      example: [
-        {
-          id: 'receipt_123456',
-          invoiceId: 'invoice_789',
-          refId: 'PAY_REF_456',
-          amount: 5000000,
-          format: 'pdf',
-          created_at: '2024-12-01T10:00:00.000Z',
-          updated_at: '2024-12-01T10:00:00.000Z'
-        }
-      ]
-    }
   })
+  @ApiQuery({ name: 'from', required: false, type: String, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, type: String, description: 'Created-at to (ISO 8601)' })
   @ApiUnauthorizedResponse({
     description: 'User not authenticated'
   })
   async getReceipts(
     @User() user: UserPayload,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<ReceiptResponseDto[]> {
-    return this.receiptsService.getReceipts(user.id, user.role === 'admin');
+    return this.receiptsService.getReceipts(user.id, user.role === 'admin', page, limit, from, to);
   }
 
   @Get(':id')
@@ -185,6 +176,8 @@ export class ReceiptsController {
     description: 'All receipts retrieved successfully',
     type: [ReceiptResponseDto]
   })
+  @ApiQuery({ name: 'from', required: false, type: String, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, type: String, description: 'Created-at to (ISO 8601)' })
   @ApiForbiddenResponse({
     description: 'Access denied - admin role required'
   })
@@ -193,9 +186,11 @@ export class ReceiptsController {
   })
   async getAllReceipts(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<ReceiptResponseDto[]> {
     // Admin endpoint to get all receipts
-    return this.receiptsService.getReceipts('', true);
+    return this.receiptsService.getReceipts('', true, page, limit, from, to);
   }
 }

@@ -34,12 +34,28 @@ export class OrdersService extends BaseAppwriteService {
     super(appwriteService, configService);
   }
 
-  async getOrders(userId: string, isAdmin: boolean = false): Promise<Order[]> {
+  async getOrders(
+    userId: string,
+    isAdmin: boolean = false,
+    page: number = 1,
+    limit: number = 20,
+    from?: string,
+    to?: string,
+  ): Promise<Order[]> {
     const queries: string[] = [Query.orderDesc('created_at')];
-    
+
     if (!isAdmin) {
       queries.push(Query.equal('user_id', userId));
     }
+    if (from) {
+      queries.push(Query.greaterThanEqual('created_at', from));
+    }
+    if (to) {
+      queries.push(Query.lessThanEqual('created_at', to));
+    }
+    const offset = (page - 1) * limit;
+    queries.push(Query.offset(offset));
+    queries.push(Query.limit(limit));
 
     const result = await this.listDocuments<Order>(queries);
     return result.documents;
@@ -116,6 +132,33 @@ export class OrdersService extends BaseAppwriteService {
 
     try {
       const order = await this.createDocument<Order>(orderData);
+
+      // Auto-create invoice for the order
+      try {
+        const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+        if (invoicesCollection) {
+          const now = Date.now();
+          const invoice = await this.databases.createDocument(
+            this.databaseId,
+            invoicesCollection,
+            ID.unique(),
+            {
+              user_id: userId,
+              order_id: order.id,
+              amount: totalAmount,
+              due_date: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: 'pending',
+              description: `Invoice for order ${order.id}`,
+              created_at: new Date(now).toISOString(),
+              updated_at: new Date(now).toISOString(),
+            } as any,
+          );
+          // Notify user
+          await this.emailService.sendInvoiceCreatedEmail(userId, (invoice as any).$id, totalAmount);
+        }
+      } catch (e: any) {
+        this.logger.warn(`Auto-invoice creation failed for order ${order.id}: ${e?.message || e}`);
+      }
       
       // Initialize order progress
       await this.initializeOrderProgress(order.id);
@@ -159,6 +202,32 @@ export class OrdersService extends BaseAppwriteService {
 
     try {
       const order = await this.createDocument<Order>(orderData);
+
+      // Auto-create invoice for the order
+      try {
+        const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+        if (invoicesCollection) {
+          const now = Date.now();
+          const invoice = await this.databases.createDocument(
+            this.databaseId,
+            invoicesCollection,
+            ID.unique(),
+            {
+              user_id: userId,
+              order_id: order.id,
+              amount: createOrderDto.total_amount,
+              due_date: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: 'pending',
+              description: `Invoice for order ${order.id}`,
+              created_at: new Date(now).toISOString(),
+              updated_at: new Date(now).toISOString(),
+            } as any,
+          );
+          await this.emailService.sendInvoiceCreatedEmail(userId, (invoice as any).$id, createOrderDto.total_amount);
+        }
+      } catch (e: any) {
+        this.logger.warn(`Auto-invoice creation failed for enhanced order ${order.id}: ${e?.message || e}`);
+      }
       
       // Initialize order progress
       await this.initializeOrderProgress(order.id);

@@ -57,15 +57,27 @@ export class InvoicesService {
     return this.mapToResponseDto(invoice);
   }
 
-  async getInvoices(user_id: string, isAdmin: boolean = false): Promise<InvoiceResponseDto[]> {
+  async getInvoices(
+    user_id: string,
+    isAdmin: boolean = false,
+    page: number = 1,
+    limit: number = 20,
+    from?: string,
+    to?: string,
+  ): Promise<InvoiceResponseDto[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
 
-    const queries = [Query.orderDesc('created_at')];
+    const queries: string[] = [Query.orderDesc('created_at')];
     if (!isAdmin) {
       queries.push(Query.equal('user_id', user_id));
     }
+    if (from) queries.push(Query.greaterThanEqual('created_at', from));
+    if (to) queries.push(Query.lessThanEqual('created_at', to));
+    const offset = (page - 1) * limit;
+    queries.push(Query.offset(offset));
+    queries.push(Query.limit(limit));
 
     const result = await databases.listDocuments(
       databaseId,

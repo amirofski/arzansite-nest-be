@@ -453,6 +453,7 @@ export class GetDesignDto {
 export class OrderResponseDto {
   success: boolean;
   order_id: string;
+  invoiceId?: string; // optional: present when auto-invoice is created
   paymentId: string;
   message: string;
   order: {
