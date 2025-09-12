@@ -814,14 +814,6 @@ export class WizardService {
     return `https://preview.arzansite.com/orders/${order_id}/preview`;
   }
 
-  private generateOrderNumber(): string {
-    const now = new Date();
-    const dateStr = now.getFullYear().toString()
-      + String(now.getMonth() + 1).padStart(2, '0')
-      + String(now.getDate()).padStart(2, '0');
-    const randomNum = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    return `ORD-${dateStr}-${randomNum}`;
-  }
 
   private async sendOrderConfirmationEmails(orderDoc: any, invoiceDoc: any, completeOrderDto: CompleteOrderDto): Promise<void> {
     try {
