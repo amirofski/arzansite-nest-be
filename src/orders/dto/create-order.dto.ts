@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsUUID, IsEnum, IsObject } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsObject } from 'class-validator';
 
 export enum PaymentStatus {
   PENDING = 'pending',
@@ -35,7 +35,7 @@ export class CreateOrderDto {
   total_sections?: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   user_id?: string;
 
   @IsOptional()
