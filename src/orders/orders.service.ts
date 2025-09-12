@@ -89,6 +89,7 @@ export class OrdersService extends BaseAppwriteService {
       user_id: userId,
       status: 'pending',
       payment_status: createOrderDto.payment_status || 'pending',
+      site_type: createOrderDto.site_type || (wiz?.site_type as string) || 'personal',
       comments: createOrderDto.comments,
       total_pages: createOrderDto.total_pages || (Array.isArray(wiz?.website_framework?.dynamicDesign?.pages) ? wiz.website_framework.dynamicDesign.pages.length : 0),
       total_sections: createOrderDto.total_sections ||
@@ -103,6 +104,10 @@ export class OrdersService extends BaseAppwriteService {
       payment_gateway: createOrderDto.payment_gateway,
       callback_url: createOrderDto.callback_url,
       return_url: createOrderDto.return_url,
+
+      // Session and currency
+      session_id: createOrderDto.session_id,
+      currency: 'IRR',
       
       // Timestamps
       created_at: new Date().toISOString(),
