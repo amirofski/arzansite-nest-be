@@ -205,7 +205,7 @@ export class WizardController {
   }
 
   @Post('upload-files')
-  @ApiOperation({ summary: 'Upload Project Files' })
+  @ApiOperation({ summary: 'Upload Project Files (deprecated - proxies to storage)', description: 'Use POST /storage/upload/:bucketId instead. This endpoint will be removed after the transition.', deprecated: true })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -213,6 +213,7 @@ export class WizardController {
       properties: {
         order_id: { type: 'string' },
         session_id: { type: 'string' },
+        description: { type: 'string' },
         files: {
           type: 'array',
           items: {
@@ -225,12 +226,40 @@ export class WizardController {
   })
   @ApiResponse({ status: 201, description: 'Files uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @UseInterceptors(FilesInterceptor('files', 10))
   async uploadFiles(
-    @Body() fileUploadDto: { order_id: string; session_id: string },
-            @UploadedFiles() files: Express.Multer.File[],
+    @Body() fileUploadDto: { order_id: string; session_id: string; description?: string },
+    @UploadedFiles() files: Express.Multer.File[],
+    @Request() req: any,
   ) {
-    return this.wizardService.uploadFiles(fileUploadDto.order_id, fileUploadDto.session_id, files);
+    // PROXY to central storage endpoint: /storage/upload/:bucketId
+    const bucketId = process.env.APPWRITE_STORAGE_PROJECT_FILES || this.wizardService['appwriteService']?.getConfig()?.storage?.projectFiles;
+    if (!bucketId) {
+      return { success: false, message: 'Storage bucket not configured' };
+    }
+
+    // Forward each file individually as storage upload does single-file handling
+    const results: any[] = [];
+    const errors: string[] = [];
+    for (const file of files || []) {
+      try {
+        // Reuse the service upload logic (it writes project_files too)
+        const { uploadedFiles, errors: errs } = await this.wizardService.uploadFiles(
+          fileUploadDto.order_id,
+          fileUploadDto.session_id,
+          [file],
+          req.user?.user_id || req.user?.id,
+          fileUploadDto.description,
+        );
+        if (uploadedFiles?.length) results.push(uploadedFiles[0]);
+        if (errs?.length) errors.push(...errs);
+      } catch (e: any) {
+        errors.push(e?.message || 'Upload failed');
+      }
+    }
+    return { success: errors.length === 0, uploaded: results, errors };
   }
 
   @Get('files/:file_id')
@@ -323,7 +352,19 @@ export class WizardController {
 
   @Post('calculate-price')
   @ApiOperation({ summary: 'Calculate Order Price' })
-  @ApiResponse({ status: 200, description: 'Price calculated successfully' })
+  @ApiBody({
+    description: 'Order pricing inputs',
+    schema: {
+      type: 'object',
+      properties: {
+        site_type: { type: 'string', example: 'BUSINESS' },
+        website_framework: { type: 'object', example: { dynamicDesign: { pages: [{ sections: ["hero","features"]}] } } },
+        additional_services: { type: 'object', example: { seoOptimization: true, analyticsSetup: true } },
+        paymentCycle: { type: 'string', example: 'ANNUAL' },
+      }
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Price calculated successfully', schema: { example: { basePrice: 800000, pagesCost: 200000, sectionsCost: 100000, additionalServicesCost: 300000, domainCost: 50000, totalPrice: 1450000, monthlyPrice: 1450000, annualPrice: 17400000, annualDiscount: 255000 } } })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async calculatePrice(@Body() calculatePriceDto: CalculatePriceDto) {
     return this.wizardService.calculatePricing(calculatePriceDto);

@@ -19,7 +19,7 @@ export class ReceiptsService {
     limit: number = 20,
     from?: string,
     to?: string,
-  ): Promise<ReceiptResponseDto[]> {
+  ): Promise<{ items: ReceiptResponseDto[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
@@ -33,7 +33,15 @@ export class ReceiptsService {
       queries.push(Query.offset(offset));
       queries.push(Query.limit(limit));
       const all = await databases.listDocuments(databaseId, receiptsCollection, queries);
-      return all.documents.map(doc => this.mapToResponseDto(doc));
+      return {
+        items: all.documents.map(doc => this.mapToResponseDto(doc)),
+        pagination: {
+          page,
+          limit,
+          total: all.total,
+          pages: Math.max(1, Math.ceil(all.total / limit)),
+        },
+      };
     }
 
     // Query wallet receipts directly by user_id (if field exists)
@@ -88,7 +96,15 @@ export class ReceiptsService {
     const end = start + limit;
     const paged = merged.slice(start, end);
 
-    return paged.map(doc => this.mapToResponseDto(doc));
+    return {
+      items: paged.map(doc => this.mapToResponseDto(doc)),
+      pagination: {
+        page,
+        limit,
+        total: merged.length,
+        pages: Math.max(1, Math.ceil(merged.length / limit)),
+      },
+    };
   }
 
   async getReceipt(receiptId: string, user_id: string, isAdmin: boolean = false): Promise<ReceiptResponseDto> {

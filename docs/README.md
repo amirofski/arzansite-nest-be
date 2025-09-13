@@ -294,6 +294,13 @@ THROTTLE_LIMIT=100
 
 ### Profiles
 
+Note: Legacy /uploads endpoints removed. Use /storage APIs for file operations.
+
+### Magic Link Auth
+
+- Request: POST /api/auth/magic-link/request { email, redirectUrl? }
+- Verify: POST /api/auth/magic-link/verify { token, user_id? }
+
 - `GET /api/profiles/me` - Get user profile
 - `PATCH /api/profiles/me` - Update user profile
 - `GET /api/profiles` - List all profiles (admin)

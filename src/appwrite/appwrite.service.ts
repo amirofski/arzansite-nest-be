@@ -187,9 +187,11 @@ export class AppwriteService implements OnModuleInit {
 
   async createOAuth2Session(provider: string, successUrl: string, failureUrl: string) {
     try {
+      // Appwrite OAuth start URL: /v1/account/sessions/oauth2/{provider}
+      // Appwrite will handle callback internally and finally redirect to success/failure URLs
       const baseUrl = this.config.endpoint.replace('/v1', '');
       const projectId = this.config.projectId;
-      const redirectUrl = `${baseUrl}/v1/account/sessions/oauth2/callback/${provider}?project=${projectId}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
+      const redirectUrl = `${baseUrl}/v1/account/sessions/oauth2/${provider}?project=${projectId}&success=${encodeURIComponent(successUrl)}&failure=${encodeURIComponent(failureUrl)}`;
       return { redirectUrl, provider, projectId };
     } catch (error: any) {
       throw new Error(`Failed to create OAuth2 session: ${error.message}`);

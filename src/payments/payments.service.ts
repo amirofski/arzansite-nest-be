@@ -138,6 +138,14 @@ export class PaymentsService {
             paymentVerifyDto.authority,
             refId,
           );
+          // Mark order payment status as succeeded
+          try {
+            await this.ordersService.updateOrder(
+              paymentVerifyDto.order_id,
+              user_id,
+              { payment_status: 'succeeded' } as any,
+            );
+          } catch (_) {}
 
           // Ensure an invoice exists, mark it PAID, and generate a receipt
           let createdInvoiceId: string | undefined;
@@ -382,22 +390,35 @@ export class PaymentsService {
     return { success: true };
   }
 
-  async getOrderPayments(order_id: string, user_id: string): Promise<PaymentTransaction[]> {
+  async getOrderPayments(order_id: string, user_id: string, page: number = 1, limit: number = 20, from?: string, to?: string): Promise<{ items: PaymentTransaction[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
     // Verify order ownership
     await this.ordersService.getOrder(order_id, user_id);
 
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
+    const offset = (page - 1) * limit;
     const res = await databases.listDocuments(
       databaseId,
       collectionId,
       [
         Query.equal('order_id', order_id),
         Query.orderDesc('created_at'),
+        ...(from ? [Query.greaterThanEqual('created_at', from)] : []),
+        ...(to ? [Query.lessThanEqual('created_at', to)] : []),
+        Query.offset(offset),
+        Query.limit(limit),
       ],
     );
-    return (res.documents as any) || [];
+    return {
+      items: (res.documents as any) || [],
+      pagination: {
+        page,
+        limit,
+        total: res.total,
+        pages: Math.max(1, Math.ceil(res.total / limit)),
+      },
+    };
   }
 
   /**

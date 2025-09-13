@@ -14,16 +14,15 @@ import { SiteConfigModule } from './site-config/site-config.module';
 import { DomainsModule } from './domains/domains.module';
 import { EmailModule } from './email/email.module';
 import { HealthController } from './health/health.controller';
-import { StorageModule } from './storage/storage.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 import { AdminModule } from './admin/admin.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { WizardModule } from './wizard/wizard.module';
-import { UploadsModule } from './uploads/uploads.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SupportModule } from './support/support.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -65,16 +64,15 @@ import { SupportModule } from './support/support.module';
     SiteConfigModule,
     DomainsModule,
     EmailModule,
-    StorageModule,
     InvoicesModule,
     ReceiptsModule,
     AdminModule,
     ScheduledTasksModule,
     WizardModule,
-    UploadsModule,
     AnalyticsModule,
     NotificationsModule,
     SupportModule,
+    StorageModule,
   ],
   controllers: [HealthController],
 })

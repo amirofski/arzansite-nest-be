@@ -64,7 +64,7 @@ export class InvoicesService {
     limit: number = 20,
     from?: string,
     to?: string,
-  ): Promise<InvoiceResponseDto[]> {
+  ): Promise<{ items: InvoiceResponseDto[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
@@ -84,7 +84,15 @@ export class InvoicesService {
       invoicesCollection,
       queries,
     );
-    return result.documents.map(doc => this.mapToResponseDto(doc));
+    return {
+      items: result.documents.map(doc => this.mapToResponseDto(doc)),
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        pages: Math.max(1, Math.ceil(result.total / limit)),
+      },
+    };
   }
 
   async getInvoice(invoiceId: string, user_id: string, isAdmin: boolean = false): Promise<InvoiceResponseDto> {

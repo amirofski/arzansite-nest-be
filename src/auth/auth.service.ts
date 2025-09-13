@@ -1502,4 +1502,257 @@ export class AuthService {
       };
     }
   }
+
+  // Magic Link: Request a magic login link via email
+  async requestMagicLink(email: string, redirectUrl?: string) {
+    try {
+      const { Query } = await import('node-appwrite');
+      // Find user
+      const users = await this.appwriteService.getUsers().list([Query.equal('email', email)]);
+      if (!users.users.length) {
+        // Do not disclose existence
+        return { message: 'If an account with that email exists, a sign-in link has been sent.' };
+      }
+      const user = users.users[0];
+
+      // Generate token and store
+      const token = this.generateSecureToken();
+      await this.storeMagicLinkToken(user.$id, email, token);
+
+      // Build magic URL (frontend handles token submission to backend verify endpoint)
+      const frontendUrl = this.configService.get('FRONTEND_URL', 'https://arzansite.com');
+      const target = redirectUrl || `${frontendUrl}/auth/magic`; // frontend route to capture token
+      const magicUrl = `${target}?token=${token}&user_id=${user.$id}`;
+
+      // Send email via SMTP
+      const sent = await this.emailService.sendMagicLinkEmail(email, magicUrl, user.name || email);
+      if (!sent) {
+        throw new BadRequestException('Failed to send magic link email');
+      }
+
+      return { message: 'If an account with that email exists, a sign-in link has been sent.' };
+    } catch (error) {
+      throw new BadRequestException(`Failed to send magic link: ${error.message}`);
+    }
+  }
+
+  // Magic Link: Verify token and issue backend JWTs (no Appwrite email needed)
+  async verifyMagicLink(token: string, user_id?: string) {
+    try {
+      // If user_id missing, derive from record
+      let targetUserId = user_id;
+      if (!targetUserId) {
+        const rec = await this.findMagicLinkRecordByToken(token);
+        if (!rec) throw new BadRequestException('Invalid or expired magic link');
+        targetUserId = rec.user_id;
+      }
+
+      // Validate token record
+      const rec = await this.validateMagicLinkToken(token, targetUserId);
+      if (!rec) throw new BadRequestException('Invalid or expired magic link');
+
+      // Mark used
+      await this.markMagicLinkTokenAsUsed(token);
+
+      // Fetch user info from Appwrite
+      const users = this.appwriteService.getUsers();
+      const user = await users.get(targetUserId);
+
+      // Ensure email verification true in Appwrite (optional but useful)
+      try { await this.appwriteService.updateVerification(targetUserId, token); } catch {}
+
+      // Create profile if missing
+      try { await this.profilesService.createProfileIfNotExists(targetUserId, user.email); } catch {}
+
+      // Issue backend JWTs
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
+
+      const payload = {
+        sub: user.$id,
+        email: user.email,
+        name: user.name,
+        emailVerified: true,
+        type: 'access',
+        auth_method: 'magic'
+      };
+      const accessToken = jwt.sign(payload, secret, { expiresIn: this.configService.get('JWT_EXPIRES_IN', '1h') });
+      const refreshToken = jwt.sign({ sub: user.$id, email: user.email, type: 'refresh', auth_method: 'magic' }, secret, { expiresIn: '7d' });
+
+      // Bump last activity
+      this.bumpLastActivity(user.$id).catch(() => undefined);
+
+      return {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        user: {
+          id: user.$id,
+          email: user.email,
+          name: user.name,
+          emailVerification: true,
+          role: await this.getUserRole(user.$id)
+        },
+        auth_method: 'magic'
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new BadRequestException(`Magic link verification failed: ${error.message}`);
+    }
+  }
+
+  // === Magic link token helpers (stored in auth_tokens collection) ===
+  private async storeMagicLinkToken(user_id: string, email: string, token: string): Promise<void> {
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS') || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
+    if (!databaseId || !collectionId) return;
+    const crypto = require('crypto');
+    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
+    const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+    const db = this.appwriteService.getDatabases();
+    try {
+      await db.createDocument(
+        databaseId,
+        collectionId,
+        ID.unique(),
+        {
+          user_id,
+          email,
+          type: 'magic_link',
+          token,
+          token_hash,
+          is_used: 'false',
+          expires_at,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any,
+      );
+    } catch (err: any) {
+      const t = String(err?.response?.type || err?.type || '');
+      if (t.includes('document_invalid')) {
+        await db.createDocument(
+          databaseId,
+          collectionId,
+          ID.unique(),
+          {
+            user_id,
+            email,
+            type: 'magic_link',
+            token,
+            token_hash,
+            is_used: false as any,
+            expires_at,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as any,
+        );
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  private async findMagicLinkRecordByToken(token: string): Promise<any> {
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS') || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
+    if (!databaseId || !collectionId) return null;
+    const crypto = require('crypto');
+    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
+    const { Query } = await import('node-appwrite');
+    const db = this.appwriteService.getDatabases();
+    let res: any;
+    try {
+      res = await db.listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'magic_link'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('is_used', 'false'),
+        Query.greaterThan('expires_at', new Date().toISOString()),
+        Query.limit(1),
+      ]);
+    } catch (e: any) {
+      const t = String(e?.response?.type || e?.type || '');
+      if (t.includes('general_query_invalid')) {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'magic_link'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('is_used', false as any),
+          Query.greaterThan('expires_at', new Date().toISOString()),
+          Query.limit(1),
+        ]);
+      } else { throw e; }
+    }
+    return res.documents[0] || null;
+  }
+
+  private async validateMagicLinkToken(token: string, user_id: string): Promise<any> {
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS') || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
+    if (!databaseId || !collectionId) return null;
+    const crypto = require('crypto');
+    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
+    const { Query } = await import('node-appwrite');
+    const db = this.appwriteService.getDatabases();
+    let res: any;
+    try {
+      res = await db.listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'magic_link'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('user_id', user_id),
+        Query.equal('is_used', 'false'),
+        Query.greaterThan('expires_at', new Date().toISOString()),
+        Query.limit(1),
+      ]);
+    } catch (e: any) {
+      const t = String(e?.response?.type || e?.type || '');
+      if (t.includes('general_query_invalid')) {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'magic_link'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('user_id', user_id),
+          Query.equal('is_used', false as any),
+          Query.greaterThan('expires_at', new Date().toISOString()),
+          Query.limit(1),
+        ]);
+      } else { throw e; }
+    }
+    return res.documents[0] || null;
+  }
+
+  private async markMagicLinkTokenAsUsed(token: string): Promise<void> {
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_AUTH_TOKENS') || this.configService.get<string>('APPWRITE_COLLECTION_NOTIFICATIONS');
+    if (!databaseId || !collectionId) return;
+    const crypto = require('crypto');
+    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
+    const { Query } = await import('node-appwrite');
+    const db = this.appwriteService.getDatabases();
+    let res: any;
+    try {
+      res = await db.listDocuments(databaseId, collectionId, [
+        Query.equal('type', 'magic_link'),
+        Query.equal('token_hash', token_hash),
+        Query.equal('is_used', 'false'),
+        Query.limit(1),
+      ]);
+    } catch (e: any) {
+      const t = String(e?.response?.type || e?.type || '');
+      if (t.includes('general_query_invalid')) {
+        res = await db.listDocuments(databaseId, collectionId, [
+          Query.equal('type', 'magic_link'),
+          Query.equal('token_hash', token_hash),
+          Query.equal('is_used', false as any),
+          Query.limit(1),
+        ]);
+      } else { throw e; }
+    }
+    const doc = res.documents[0];
+    if (doc) {
+      try {
+        await db.updateDocument(databaseId, collectionId, (doc as any).$id, { is_used: 'true', updated_at: new Date().toISOString() } as any);
+      } catch (_) {
+        await db.updateDocument(databaseId, collectionId, (doc as any).$id, { is_used: true as any, updated_at: new Date().toISOString() } as any);
+      }
+    }
+  }
 }

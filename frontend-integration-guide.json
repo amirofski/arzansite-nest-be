@@ -165,6 +165,14 @@
     ]
   },
 
+  "auth_magic_link": {
+    "endpoints": [
+      { "POST": "/auth/magic-link/request", "body": { "email": "string", "redirectUrl?": "string" } },
+      { "POST": "/auth/magic-link/verify", "body": { "token": "string", "user_id?": "string" } }
+    ],
+    "notes": ["Magic link is delivered via backend SMTP only (Appwrite email not required)", "Token expires in ~15 minutes and is single-use"]
+  },
+
   "wallets": {
     "endpoints": [
       { "GET": "/wallets/me", "auth": "JWT" },
@@ -221,12 +229,15 @@
   },
 
   "uploads": {
+    "note": "Uploads endpoints consolidated under /storage; old /uploads endpoints are removed.",
     "endpoints": [
-      { "GET": "/uploads?user_id?&order_id?" },
-      { "POST": "/uploads", "multipart": true, "fields": ["file", "order_id?", "fileType? (document|design|avatar)"] },
-      { "POST": "/uploads/multi", "multipart": true, "fields": ["files[]", "order_id?", "fileType?", "description?"] },
-      { "DELETE": "/uploads/:id?bucketType=document|design|avatar" }
-    ]
+      { "POST": "/storage/upload/:bucketId", "multipart": true, "fields": ["file", "order_id?"], "auth": "JWT" },
+      { "GET": "/storage/:bucketId", "auth": "JWT", "query": { "queries?": [] } },
+      { "GET": "/storage/:bucketId/:fileId", "auth": "JWT" },
+      { "GET": "/storage/:bucketId/:fileId/url", "auth": "JWT" },
+      { "DELETE": "/storage/:bucketId/:fileId", "auth": "JWT" }
+    ],
+    "buckets": ["projectFiles", "userAvatars", "designAssets"]
   },
 
   "profiles": {

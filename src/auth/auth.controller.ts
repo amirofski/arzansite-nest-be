@@ -28,7 +28,8 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto, LoginWithJwtDto } from './dto/auth.dto';
+import { SignUpDto, SignInDto, RefreshTokenDto, VerifyEmailDto, LoginWithJwtDto, RequestMagicLinkDto, VerifyMagicLinkDto } from './dto/auth.dto';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
 import { Response } from 'express';
@@ -668,25 +669,6 @@ export class AuthController {
     return this.authService.getMe(user.id);
   }
 
-  // Legacy endpoint for backward compatibility
-  @Post('verify-email')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Email verification (legacy)',
-    description: 'Legacy endpoint - use /auth/verify instead',
-    deprecated: true,
-  })
-  @ApiBody({ type: VerifyEmailDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Use /auth/verify endpoint instead',
-  })
-  async verifyEmailLegacy(@Body() verifyEmailDto: VerifyEmailDto & { email?: string }) {
-    return { 
-      message: 'This endpoint is deprecated. Use /auth/verify with query parameters instead.',
-      redirectTo: '/auth/verify'
-    };
-  }
 
   @Post('oauth/start')
   @ApiOperation({
@@ -1198,6 +1180,26 @@ export class AuthController {
   })
   async exchangeJwt(@Body() body: { appwriteJwt: string }) {
     return this.authService.exchangeAppwriteJwt(body.appwriteJwt);
+  }
+
+  @Post('magic-link/request')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request magic login link', description: 'Sends a one-time login link to the provided email via SMTP (no Appwrite email required).' })
+  @ApiBody({ type: RequestMagicLinkDto })
+  @ApiResponse({ status: 200, description: 'Magic link email sent if user exists' })
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { ttl: 1000, limit: 3 } })
+  async requestMagicLink(@Body() body: RequestMagicLinkDto) {
+    return this.authService.requestMagicLink(body.email, body.redirectUrl);
+  }
+
+  @Post('magic-link/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify magic login token', description: 'Verifies the magic link token and issues backend JWTs.' })
+  @ApiBody({ type: VerifyMagicLinkDto })
+  @ApiResponse({ status: 200, description: 'Magic link verified; tokens returned' })
+  async verifyMagicLink(@Body() body: VerifyMagicLinkDto) {
+    return this.authService.verifyMagicLink(body.token, body.user_id);
   }
 
   @Post('session-auth')

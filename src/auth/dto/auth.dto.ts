@@ -78,7 +78,7 @@ export class LoginWithJwtDto {
   @ApiProperty({
     description: 'Appwrite user email address',
     example: 'user@example.com',
-    pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
+    pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\.[a-zA-Z]{2,}$',
   })
   @IsEmail()
   email: string;
@@ -90,4 +90,26 @@ export class LoginWithJwtDto {
   })
   @IsString()
   jwt: string;
+}
+
+export class RequestMagicLinkDto {
+  @ApiProperty({ description: 'User email address', example: 'user@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ description: 'Optional frontend redirect URL after verification (will be embedded in email link)', required: false })
+  @IsOptional()
+  @IsString()
+  redirectUrl?: string;
+}
+
+export class VerifyMagicLinkDto {
+  @ApiProperty({ description: 'Magic link token from email', example: 'abc123...', minLength: 24 })
+  @IsString()
+  token: string;
+
+  @ApiProperty({ description: 'User ID (optional, improves lookup)', required: false })
+  @IsOptional()
+  @IsString()
+  user_id?: string;
 }

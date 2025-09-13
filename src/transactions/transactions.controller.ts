@@ -22,32 +22,40 @@ export class TransactionsController {
   @UseGuards(RolesGuard)
   @Roles('admin')
   @ApiOperation({ summary: 'List all transactions (admin only)' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Max items to return (default 50)' })
-  @ApiQuery({ name: 'offset', required: false, description: 'Items to skip (default 0)' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default 1)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 50)' })
+  @ApiQuery({ name: 'from', required: false, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, description: 'Created-at to (ISO 8601)' })
   @ApiResponse({ status: 200, description: 'Transactions retrieved' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getAllTransactions(
+    @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    const limitNum = limit ? parseInt(limit) : 50;
-    const offsetNum = offset ? parseInt(offset) : 0;
-    return this.transactionsService.getTransactions(undefined, limitNum, offsetNum);
+    const limitNum = limit ? parseInt(limit, 10) : 50;
+    const pageNum = page ? parseInt(page, 10) : 1;
+    return this.transactionsService.getTransactions(undefined, pageNum, limitNum, from, to);
   }
 
   @Get('my')
   @ApiOperation({ summary: 'List current user transactions' })
+  @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'offset', required: false })
+  @ApiQuery({ name: 'from', required: false, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, description: 'Created-at to (ISO 8601)' })
   @ApiResponse({ status: 200, description: 'Transactions retrieved' })
   async getMyTransactions(
     @User() user: UserPayload,
+    @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    const limitNum = limit ? parseInt(limit) : 50;
-    const offsetNum = offset ? parseInt(offset) : 0;
-    return this.transactionsService.getTransactions(user.id, limitNum, offsetNum);
+    const limitNum = limit ? parseInt(limit, 10) : 50;
+    const pageNum = page ? parseInt(page, 10) : 1;
+    return this.transactionsService.getTransactions(user.id, pageNum, limitNum, from, to);
   }
 
   @Get(':id')
@@ -62,8 +70,16 @@ export class TransactionsController {
   @Get('order/:order_id')
   @ApiOperation({ summary: 'List transactions for an order' })
   @ApiParam({ name: 'order_id', description: 'Order ID' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default 1)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 20)' })
   @ApiResponse({ status: 200, description: 'Transactions retrieved' })
-  async getTransactionsByOrder(@Param('order_id') order_id: string) {
-    return this.transactionsService.getTransactionsByOrder(order_id);
+  async getTransactionsByOrder(
+    @Param('order_id') order_id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.transactionsService.getTransactionsByOrder(order_id, pageNum, limitNum);
   }
 }

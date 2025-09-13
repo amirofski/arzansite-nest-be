@@ -41,7 +41,7 @@ export class OrdersService extends BaseAppwriteService {
     limit: number = 20,
     from?: string,
     to?: string,
-  ): Promise<Order[]> {
+  ): Promise<{ items: Order[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
     const queries: string[] = [Query.orderDesc('created_at')];
 
     if (!isAdmin) {
@@ -58,7 +58,15 @@ export class OrdersService extends BaseAppwriteService {
     queries.push(Query.limit(limit));
 
     const result = await this.listDocuments<Order>(queries);
-    return result.documents;
+    return {
+      items: result.documents,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        pages: Math.max(1, Math.ceil(result.total / limit)),
+      },
+    };
   }
 
   async getOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<Order> {

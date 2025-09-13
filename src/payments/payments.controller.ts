@@ -18,7 +18,8 @@ import {
 } from './dto/payment.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { Query, Param as RouteParam } from '@nestjs/common';
 
 @ApiTags('Payments')
 @ApiBearerAuth()
@@ -42,8 +43,22 @@ export class PaymentsController {
 
   @Post('request')
   @ApiOperation({ summary: 'Create payment request' })
-  @ApiBody({ type: PaymentRequestDto })
-  @ApiResponse({ status: 201, description: 'Payment request created' })
+  @ApiBody({
+    description: 'Create a payment request',
+    schema: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number', example: 250000 },
+        description: { type: 'string', example: 'Order payment for #123' },
+        callback_url: { type: 'string', example: 'https://example.com/callback?order_id=123' },
+        order_id: { type: 'string', example: 'ord_123' },
+        mobile: { type: 'string', example: '09120000000' },
+        email: { type: 'string', example: 'user@example.com' },
+      },
+      required: ['amount', 'description']
+    }
+  })
+  @ApiResponse({ status: 201, description: 'Payment request created', schema: { example: { success: true, authority: 'A00000000000000000000000000123456789', paymentUrl: 'https://sandbox.zarinpal.com/pg/StartPay/A00000000000000000000000000123456789', amount: 250000, description: 'Order payment for #123', order_id: 'ord_123', details: { gateway: 'ZarinPal', sandbox: true } } } })
   async requestPayment(
     @User() user: UserPayload,
     @Body() paymentRequestDto: PaymentRequestDto,
@@ -122,8 +137,17 @@ export class PaymentsController {
 
   @Post('verify')
   @ApiOperation({ summary: 'Verify payment' })
-  @ApiBody({ type: PaymentVerifyDto })
-  @ApiResponse({ status: 200, description: 'Payment verified' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        authority: { type: 'string', example: 'A00000000000000000000000000123456789' },
+        amount: { type: 'number', example: 250000 },
+      },
+      required: ['authority', 'amount']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Payment verified', schema: { example: { success: true, refId: 123456789, authority: 'A00000000000000000000000000123456789', amount: 250000, details: { cardHash: 'XXXX-XXXX-XXXX-1234' } } } })
   async verifyPayment(
     @User() user: UserPayload,
     @Body() paymentVerifyDto: PaymentVerifyDto,
@@ -185,8 +209,17 @@ export class PaymentsController {
 
   @Post('refund')
   @ApiOperation({ summary: 'Refund order payment' })
-  @ApiBody({ type: PaymentRefundDto })
-  @ApiResponse({ status: 200, description: 'Refund logged' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        order_id: { type: 'string', example: 'ord_123' },
+        amount: { type: 'number', example: 250000 },
+      },
+      required: ['order_id', 'amount']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Refund logged', schema: { example: { success: true, message: 'Refund requested', order_id: 'ord_123', amount: 250000 } } })
   async refundPayment(
     @User() user: UserPayload,
     @Body() paymentRefundDto: PaymentRefundDto,
@@ -203,8 +236,16 @@ export class PaymentsController {
 
   @Post('cancel')
   @ApiOperation({ summary: 'Cancel payment' })
-  @ApiBody({ type: PaymentCancelDto })
-  @ApiResponse({ status: 200, description: 'Cancellation logged' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        order_id: { type: 'string', example: 'ord_123' },
+      },
+      required: ['order_id']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Cancellation logged', schema: { example: { success: true, message: 'Cancellation requested', order_id: 'ord_123' } } })
   async cancelPayment(
     @User() user: UserPayload,
     @Body() paymentCancelDto: PaymentCancelDto,
@@ -221,18 +262,28 @@ export class PaymentsController {
   @Get('orders/:order_id')
   @ApiOperation({ summary: 'Get payments for an order' })
   @ApiParam({ name: 'order_id', description: 'Order ID' })
-  @ApiResponse({ status: 200, description: 'Payments retrieved' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default 1)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 20)' })
+  @ApiQuery({ name: 'from', required: false, description: 'Created-at from (ISO 8601)' })
+  @ApiQuery({ name: 'to', required: false, description: 'Created-at to (ISO 8601)' })
+  @ApiResponse({ status: 200, description: 'Payments retrieved', schema: { example: { total: 1, page: 1, items: [{ id: 'pay_1', order_id: 'ord_123', amount: 250000, status: 'verified', created_at: '2024-01-01T00:00:00.000Z' }] } } })
   async getOrderPayments(
     @User() user: UserPayload,
-    @Param('order_id') order_id: string,
+    @RouteParam('order_id') order_id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     this.logger.log(`Getting payments for order ${order_id} by user ${user.id}`);
-    return this.paymentsService.getOrderPayments(order_id, user.id);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.paymentsService.getOrderPayments(order_id, user.id, pageNum, limitNum, from, to);
   }
 
   @Get('status')
   @ApiOperation({ summary: 'Payment gateway status' })
-  @ApiResponse({ status: 200, description: 'Status retrieved' })
+  @ApiResponse({ status: 200, description: 'Status retrieved', schema: { example: { configured: true, merchantId: 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX', gateway: 'ZarinPal', mode: 'sandbox' } } })
   async getPaymentGatewayStatus() {
     this.logger.log('Getting payment gateway status');
     

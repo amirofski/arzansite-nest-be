@@ -15,7 +15,15 @@ The backend now acts as a gateway to all Appwrite functionality, providing:
 
 All endpoints are prefixed with `/api` (e.g., `/api/auth/signup`)
 
-## Authentication
+### Authentication
+
+Magic Link (no Appwrite Mail):
+- POST /auth/magic-link/request { email, redirectUrl? } -> Sends SMTP email with magic link.
+- POST /auth/magic-link/verify { token, user_id? } -> Verifies token and returns backend JWTs.
+
+OAuth via Appwrite:
+- POST /auth/oauth/start -> returns redirectUrl to Appwrite provider URL.
+- POST /auth/oauth/:provider/callback -> finalize session (sets cookie) and redirects to frontend.
 
 ### Endpoints
 
@@ -169,40 +177,48 @@ List documents with optional queries.
 
 ## Storage Operations
 
+Note: Legacy /uploads endpoints were removed. Use /storage endpoints for upload/list/delete and URL generation.
+
+The backend exposes a single, consolidated storage API under `/storage` (Uploads endpoints were removed). All endpoints require a backend JWT in the Authorization header.
+
 ### Endpoints
 
 #### POST `/storage/upload/:bucketId`
 Upload a file to the specified bucket.
 
-**Headers:** `Authorization: Bearer <access_token>`
+Headers: `Authorization: Bearer <access_token>`
 
-**Form Data:**
-- `file`: File to upload
+Multipart form-data:
+- `file`: File to upload (required)
+- `order_id`: Optional order reference
 
-**Note:** File upload is currently a placeholder due to InputFile limitations in the current node-appwrite version.
+Notes:
+- Allowed MIME: image/png, image/jpeg, image/webp, application/pdf, text/plain
+- Max size: 10MB (enforced by interceptor in code)
+- Only buckets configured in env (APPWRITE_STORAGE_PROJECT_FILES, APPWRITE_STORAGE_USER_AVATARS, APPWRITE_STORAGE_DESIGN_ASSETS) are accepted
+- Metadata is persisted to the `project_files` collection when available
+
+Response example:
+```json
+{
+  "success": true,
+  "file_id": "unique-file-id",
+  "bucket_id": "bucket-id",
+  "name": "uploaded.png"
+}
+```
 
 #### GET `/storage/:bucketId/:fileId`
 Get file information.
 
-**Headers:** `Authorization: Bearer <access_token>`
-
 #### DELETE `/storage/:bucketId/:fileId`
 Delete a file.
 
-**Headers:** `Authorization: Bearer <access_token>`
-
 #### GET `/storage/:bucketId`
-List files in a bucket.
-
-**Headers:** `Authorization: Bearer <access_token>`
-
-**Query Parameters:**
-- `queries`: Array of query strings (optional)
+List files (supports `queries[]` as optional query parameter).
 
 #### GET `/storage/:bucketId/:fileId/url`
 Get a viewable URL for a file.
-
-**Headers:** `Authorization: Bearer <access_token>`
 
 ## Functions
 

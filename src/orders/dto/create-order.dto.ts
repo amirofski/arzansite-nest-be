@@ -1,4 +1,5 @@
 import { IsString, IsNumber, IsOptional, IsEnum, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum PaymentStatus {
   PENDING = 'pending',
@@ -31,7 +32,8 @@ export class CreateOrderDto {
   total_pages?: number;
 
   @IsOptional()
-  @IsString()
+  @IsNumber()
+  @Type(() => Number)
   total_sections?: number;
 
   @IsOptional()

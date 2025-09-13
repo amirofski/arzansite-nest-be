@@ -263,7 +263,7 @@ export class AdminController {
     @Query('user_id') user_id?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
-  ): Promise<any[]> {
+  ): Promise<any> {
     return this.adminService.getAllInvoices(page, limit, status, user_id, from, to);
   }
 
@@ -337,7 +337,7 @@ export class AdminController {
     @Query('user_id') user_id?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
-  ): Promise<any[]> {
+  ): Promise<any> {
     return this.adminService.getAllPayments(page, limit, status, user_id, from, to);
   }
 
@@ -474,6 +474,23 @@ export class AdminController {
   })
   async getSystemMetrics(): Promise<SystemMetricsDto> {
     return this.adminService.getSystemMetrics();
+  }
+
+  // Users listing (Admin)
+  @Get('users')
+  @ApiOperation({ summary: 'List users (Admin only)' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by email or full_name' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default 1)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 20)' })
+  @ApiOkResponse({ description: 'Users retrieved successfully' })
+  async listUsers(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.adminService.getAllUsers(pageNum, limitNum, search);
   }
 
   // Wallet Adjustment History Endpoint

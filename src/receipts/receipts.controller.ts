@@ -70,7 +70,7 @@ export class ReceiptsController {
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('from') from?: string,
     @Query('to') to?: string,
-  ): Promise<ReceiptResponseDto[]> {
+  ): Promise<any> {
     return this.receiptsService.getReceipts(user.id, user.role === 'admin', page, limit, from, to);
   }
 
@@ -189,7 +189,7 @@ export class ReceiptsController {
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('from') from?: string,
     @Query('to') to?: string,
-  ): Promise<ReceiptResponseDto[]> {
+  ): Promise<any> {
     // Admin endpoint to get all receipts
     return this.receiptsService.getReceipts('', true, page, limit, from, to);
   }

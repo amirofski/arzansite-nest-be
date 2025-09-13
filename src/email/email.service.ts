@@ -270,7 +270,10 @@ export class EmailService {
         databaseId,
         collectionId,
         ID.unique(),
-        logData,
+        {
+          ...logData,
+          template_type: logData.template_type || (logData.subject?.toLowerCase().includes('magic') ? 'magic_link' : this.getTemplateType(logData.subject)),
+        } as any,
       );
       this.logger.debug(`📝 Email logged to database: ${logData.success ? 'SUCCESS' : 'FAILED'}`);
     } catch (error) {
@@ -332,6 +335,17 @@ export class EmailService {
   async sendPasswordResetEmail(to: string, resetUrl: string, userName?: string): Promise<boolean> {
     this.logger.log(`📧 Sending password reset email to ${to}`);
     const template = this.getPasswordResetTemplate(resetUrl, userName);
+    return this.sendEmail({
+      to,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  async sendMagicLinkEmail(to: string, magicUrl: string, userName?: string): Promise<boolean> {
+    this.logger.log(`📧 Sending magic login link to ${to}`);
+    const template = this.getMagicLinkTemplate(magicUrl, userName);
     return this.sendEmail({
       to,
       subject: template.subject,
@@ -559,6 +573,66 @@ We received a request to reset your password for your ArzanSite account. Click t
 Reset Password: ${resetUrl}
 
 Security Notice: This password reset link will expire in 1 hour. If you didn't request a password reset, please ignore this email.
+
+© 2024 ArzanSite. All rights reserved.
+      `,
+    };
+  }
+
+  private getMagicLinkTemplate(magicUrl: string, userName?: string): EmailTemplate {
+    return {
+      subject: 'Your Magic Login Link - ArzanSite',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #06beb6 0%, #48b1bf 100%); padding: 40px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">Magic Login</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Sign in securely without a password</p>
+          </div>
+          
+          <div style="padding: 40px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Hello ${userName || 'there'}!</h2>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+              Click the button below to sign in to your account. This link will expire shortly for your security.
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${magicUrl}" 
+                 style="background: #06beb6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Sign in to ArzanSite
+              </a>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+              If the button doesn't work, you can copy and paste this link into your browser:
+            </p>
+            
+            <p style="color: #06beb6; word-break: break-all; margin-bottom: 20px;">
+              ${magicUrl}
+            </p>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p style="color: #856404; margin: 0; font-size: 14px;">
+                <strong>Important:</strong> This magic link will expire in 15 minutes and can be used only once.
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+            <p>&copy; 2024 ArzanSite. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+      text: `
+Your Magic Login Link - ArzanSite
+
+Hello ${userName || 'there'}!
+
+Click the link below to sign in to your account. This link will expire in 15 minutes and can be used only once.
+
+${magicUrl}
+
+If you didn't request this link, you can safely ignore this email.
 
 © 2024 ArzanSite. All rights reserved.
       `,

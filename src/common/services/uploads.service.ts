@@ -1,17 +1,21 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { AppwriteService } from '../appwrite/appwrite.service';
+import { AppwriteService } from '../../appwrite/appwrite.service';
+import { ConfigService } from '@nestjs/config';
 import { ID } from 'node-appwrite';
+import { InputFile } from 'node-appwrite/dist/inputFile';
 
 @Injectable()
-export class StorageService {
-  constructor(private readonly appwriteService: AppwriteService) {}
+export class UploadsService {
+  constructor(
+    private readonly appwriteService: AppwriteService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async uploadFile(
     bucket_id: string,
     file: Express.Multer.File,
     order_id?: string | null,
     user_id?: string | null,
-    description?: string | null,
   ): Promise<{ success: boolean; file_id: string; name: string; bucket_id: string; order_id?: string | null; user_id?: string | null }> {
     if (!file) throw new BadRequestException('No file provided');
 
@@ -20,7 +24,6 @@ export class StorageService {
     const config = this.appwriteService.getConfig();
 
     const buffer = file.buffer ?? require('fs').readFileSync((file as any).path);
-    const { InputFile } = require('node-appwrite/file');
     const inputFile = InputFile.fromBuffer(buffer, file.originalname);
 
     const uploaded = await storage.createFile(bucket_id, ID.unique(), inputFile);
@@ -31,7 +34,6 @@ export class StorageService {
       const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
       const now = new Date().toISOString();
 
-      const fileUrl = `${config.endpoint}/storage/buckets/${uploaded.bucketId}/files/${uploaded.$id}/view?project=${config.projectId}`;
       await databases.createDocument(
         databaseId,
         collectionId,
@@ -41,16 +43,9 @@ export class StorageService {
           user_id: user_id || null,
           order_id: order_id || null,
           bucket_id: uploaded.bucketId,
-          storage_bucket: uploaded.bucketId,
           original_name: file.originalname,
-          file_name: uploaded.name,
           mime_type: uploaded.mimeType,
-          file_type: uploaded.mimeType,
           size: uploaded.sizeOriginal,
-          file_size: uploaded.sizeOriginal,
-          file_path: fileUrl,
-          description: description || null,
-          status: 'active',
           created_at: now,
           updated_at: now,
         } as any,
@@ -70,5 +65,3 @@ export class StorageService {
     };
   }
 }
-
-

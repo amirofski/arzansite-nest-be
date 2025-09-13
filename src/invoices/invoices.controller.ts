@@ -127,7 +127,7 @@ export class InvoicesController {
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('from') from?: string,
     @Query('to') to?: string,
-  ): Promise<InvoiceResponseDto[]> {
+  ): Promise<any> {
     return this.invoicesService.getInvoices(user.id, user.role === 'admin', page, limit, from, to);
   }
 
@@ -307,7 +307,7 @@ export class InvoicesController {
     @Query('user_id') user_id?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
-  ): Promise<InvoiceResponseDto[]> {
+  ): Promise<any> {
     // Admin endpoint to get all invoices with filtering
     return this.invoicesService.getInvoices('', true, page, limit, from, to);
   }

@@ -1,8 +1,13 @@
+"use server";
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
-import { StorageService } from '../storage/storage.service';
+// import removed: legacy storage service
 import { DomainsService } from '../domains/domains.service';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
 import { PaymentsService } from '../payments/payments.service';
 import { ID, Query } from 'node-appwrite';
@@ -56,10 +61,10 @@ export class WizardService {
   constructor(
     private appwriteService: AppwriteService,
     private configService: ConfigService,
-    private storageService: StorageService,
     private domainsService: DomainsService,
     private emailService: EmailService,
     private paymentsService: PaymentsService,
+    private storageService: StorageService,
   ) {}
 
   async saveProgress(saveProgressDto: SaveProgressDto): Promise<WizardOrderDto> {
@@ -529,54 +534,39 @@ export class WizardService {
   async uploadFiles(
     order_id: string,
     session_id: string,
-    files: Express.Multer.File[]
+    files: Express.Multer.File[],
+    user_id?: string,
+    description?: string,
   ): Promise<{ uploadedFiles: any[]; errors: string[] }> {
     // Verify order exists and user has access
-    const order = await this.getOrder(order_id, session_id, true); // Allow session-based access
+    const accessId = user_id || session_id;
+    const isAdminBypass = !user_id; // maintain old behavior when only session_id is provided
+    await this.getOrder(order_id, accessId, isAdminBypass);
 
     const uploadedFiles: any[] = [];
     const errors: string[] = [];
 
+    const bucket_id = this.appwriteService.getConfig().storage.projectFiles || this.configService.get<string>('APPWRITE_STORAGE_PROJECT_FILES');
+    if (!bucket_id) {
+      throw new BadRequestException('Project files bucket is not configured');
+    }
+
     for (const file of files) {
       try {
-        // Validate file
         if (!this.isValidFile(file)) {
           errors.push(`Invalid file: ${file.originalname}`);
           continue;
         }
-
-        // Upload to storage
-        const bucket_id = this.configService.get<string>('APPWRITE_STORAGE_PROJECT_FILES');
-        const uploadResult = await this.storageService.uploadMultipart(bucket_id, file);
-
-        if (uploadResult.file_id === 'placeholder-file-id') {
-          // Handle case where storage service is not fully implemented
-          errors.push(`File upload not implemented: ${file.originalname}`);
-          continue;
-        }
-
-        // Create file record
-        const fileRecord = {
-          id: uploadResult.file_id,
-          filename: file.filename || file.originalname,
+        const res = await this.storageService.uploadFile(bucket_id, file, order_id, user_id || null, description || null);
+        uploadedFiles.push({
+          id: res.file_id,
+          bucket_id: res.bucket_id,
+          filename: res.name,
           original_name: file.originalname,
-          mime_type: file.mimetype,
-          size: file.size,
-          url: uploadResult.file_id, // This should be the actual URL
-          uploadedAt: new Date(),
-        };
-
-        // Update order with new file
-        await this.updateOrder(
-          order_id,
-          { project_files: [...order.project_files, fileRecord] },
-          order.user_id || session_id,
-          false
-        );
-
-        uploadedFiles.push(fileRecord);
-      } catch (error) {
-        errors.push(`Failed to upload ${file.originalname}: ${error.message}`);
+          // mime and url can be derived by calling storage URL endpoint if needed
+        });
+      } catch (error: any) {
+        errors.push(`Failed to upload ${file.originalname}: ${error.message || error}`);
       }
     }
 
@@ -586,33 +576,82 @@ export class WizardService {
   async deleteFile(order_id: string, file_id: string, user_id: string, isAdmin: boolean = false): Promise<void> {
     const order = await this.getOrder(order_id, user_id, isAdmin);
 
-    // Find and remove file from order
-    const updatedFiles = order.project_files.filter((file: any) => file.id !== file_id);
-    
-    if (updatedFiles.length === order.project_files.length) {
-      throw new NotFoundException('File not found in order');
-    }
+    const storage = this.appwriteService.getStorage();
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const projectFilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROJECT_FILES') || 'project_files';
+    const bucket_id = this.appwriteService.getConfig().storage.projectFiles || this.configService.get<string>('APPWRITE_STORAGE_PROJECT_FILES');
 
-    // Update order
-    await this.updateOrder(
-      order_id,
-      { project_files: updatedFiles },
-      user_id,
-      isAdmin
-    );
-
-    // Delete from storage
+    // Delete the file from storage
     try {
-      const bucket_id = this.configService.get<string>('APPWRITE_STORAGE_PROJECT_FILES');
-      await this.storageService.deleteFile(bucket_id, file_id);
-    } catch (error) {
-      console.error('Failed to delete file from storage:', error);
+      await storage.deleteFile(bucket_id, file_id);
+    } catch (e: any) {
+      // If file already deleted or not found, continue to update DB
+      // eslint-disable-next-line no-console
+      console.warn('Storage delete warning:', e?.message || e);
     }
+
+    // Mark the project_files record as deleted
+    try {
+      const result = await databases.listDocuments(
+        databaseId,
+        projectFilesCollection,
+        [Query.equal('file_id', file_id), Query.limit(1)],
+      );
+      if (result.documents?.[0]) {
+        await databases.updateDocument(
+          databaseId,
+          projectFilesCollection,
+          (result.documents[0] as any).$id,
+          { status: 'deleted', updated_at: new Date().toISOString() } as any,
+        );
+      }
+    } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to update project_files status:', e?.message || e);
+    }
+
+    // Remove from order doc if it contains project_files array
+    try {
+      const current = (order as any).project_files || [];
+      if (Array.isArray(current) && current.length > 0) {
+        const updatedFiles = current.filter((f: any) => f.id !== file_id);
+        await this.updateOrder(order_id, { project_files: updatedFiles } as any, user_id, isAdmin);
+      }
+    } catch (_) {}
   }
 
   async listOrderFiles(order_id: string, user_id: string, isAdmin: boolean = false): Promise<any[]> {
-    const order = await this.getOrder(order_id, user_id, isAdmin);
-    return order.project_files || [];
+    // Verify access
+    await this.getOrder(order_id, user_id, isAdmin);
+
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const projectFilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROJECT_FILES') || 'project_files';
+
+    const result = await databases.listDocuments(
+      databaseId,
+      projectFilesCollection,
+      [
+        Query.equal('order_id', order_id),
+        Query.equal('status', 'active'),
+        Query.orderDesc('created_at'),
+      ],
+    );
+
+    return (result.documents || []).map((doc: any) => ({
+      id: doc.file_id,
+      bucket_id: doc.bucket_id || doc.storage_bucket,
+      filename: doc.file_name || doc.original_name,
+      original_name: doc.original_name,
+      mime_type: doc.mime_type,
+      size: doc.size || doc.file_size,
+      url: doc.file_path,
+      description: doc.description || null,
+      created_at: doc.created_at,
+      updated_at: doc.updated_at,
+      status: doc.status,
+    }));
   }
 
   async getAvailableDomainExtensions(): Promise<any[]> {

@@ -25,9 +25,9 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ID } from 'node-appwrite';
 import { AppwriteService } from './appwrite.service';
 import { JwtGuard } from '../common/guards/jwt.guard';
+import { UploadsService } from '../common/services/uploads.service';
 import {
   ListFilesDto,
   ListFilesResponseDto,
@@ -40,7 +40,7 @@ import {
 @UseGuards(JwtGuard)
 @ApiBearerAuth()
 export class StorageController {
-  constructor(private readonly appwriteService: AppwriteService) {}
+  constructor(private readonly appwriteService: AppwriteService, private readonly uploadsService: UploadsService) {}
 
   @Post('upload/:bucket_id')
   @HttpCode(HttpStatus.CREATED)
@@ -75,6 +75,20 @@ export class StorageController {
           format: 'binary',
           description: 'File to upload',
         },
+        order_id: {
+          type: 'string',
+          description: 'Optional order ID to associate the file with',
+        },
+      },
+      required: ['file']
+    },
+    examples: {
+      default: {
+        summary: 'Upload file linked to an order',
+        value: {
+          file: '(binary)',
+          order_id: 'ord_abc123',
+        },
       },
     },
   })
@@ -82,14 +96,21 @@ export class StorageController {
     status: 201,
     description: 'File uploaded successfully',
     schema: {
-      type: 'object',
-      properties: {
-        file_id: { type: 'string', example: 'unique-file-id' },
-        message: { type: 'string', example: 'File uploaded successfully' },
+      example: {
+        success: true,
+        file_id: 'file_abc123',
+        name: 'contract.pdf',
+        bucket_id: 'project-files',
+        order_id: 'ord_abc123',
+        user_id: 'user_123',
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request',
+    schema: { example: { statusCode: 400, message: 'No file provided' } },
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async uploadFile(
     @Param('bucket_id') bucket_id: string,
@@ -101,85 +122,18 @@ export class StorageController {
       throw new BadRequestException('No file provided');
     }
 
-    // Enforce bucket allowlist
-    const config = this.appwriteService.getConfig();
-    const allowedBuckets = new Set([
-      config.storage.projectFiles,
-      config.storage.userAvatars,
-      config.storage.designAssets,
-    ].filter(Boolean));
-    if (!allowedBuckets.has(bucket_id)) {
+    // Enforce bucket allowlist (support modern storage.* and legacy buckets.*)
+    const config = this.appwriteService.getConfig() as any;
+    const modern = [config.storage?.projectFiles, config.storage?.userAvatars, config.storage?.designAssets].filter(Boolean);
+    const legacy = config.buckets ? Object.values(config.buckets).filter(Boolean) : [];
+    const allowedBuckets = new Set<string>([...modern as string[], ...legacy as string[]]);
+    if (allowedBuckets.size > 0 && !allowedBuckets.has(bucket_id)) {
       throw new BadRequestException('Bucket not allowed');
     }
 
-    // Use underlying UploadsService implementation which handles Storage + DB mapping
-    // Resolve to uploads service by delegating through AppwriteService storage APIs
-    const fs = require('fs');
-    const os = require('os');
-    const path = require('path');
-
-    const user_id = req?.user?.id || req?.user?.user_id;
-    const adminTeamId = process.env.APPWRITE_ADMIN_TEAM_ID;
-    const id = ID.unique();
-    const tmp = path.join(os.tmpdir(), `${id}_${file.originalname}`);
-
-    try {
-      // Write buffer to temp file then stream (SDK expects a stream/file handle server-side)
-      const buffer = file.buffer ?? fs.readFileSync(file.path);
-      fs.writeFileSync(tmp, buffer);
-      const stream = fs.createReadStream(tmp);
-
-      const storage = this.appwriteService.getStorage();
-      const permissions = [
-        user_id ? `read("user:${user_id}")` : undefined,
-        user_id ? `write("user:${user_id}")` : undefined,
-        adminTeamId ? `read("team:${adminTeamId}")` : undefined,
-        adminTeamId ? `write("team:${adminTeamId}")` : undefined,
-      ].filter(Boolean) as string[];
-
-      const uploaded = await storage.createFile(bucket_id, id, stream, permissions);
-
-      // Persist metadata to project_files collection
-      try {
-        const databases = this.appwriteService.getDatabases();
-        const databaseId = this.appwriteService.getConfig().databaseId;
-        const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
-        const now = new Date().toISOString();
-
-      await databases.createDocument(
-        databaseId,
-        collectionId,
-        ID.unique(),
-        {
-          file_id: uploaded.$id,
-          user_id: user_id || null,
-          order_id: order_id || null,
-          bucket_id: uploaded.bucketId,
-          original_name: uploaded.name,
-          mime_type: uploaded.mimeType,
-          size: uploaded.sizeOriginal,
-          created_at: now,
-          updated_at: now,
-        },
-        permissions,
-      );
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('Failed to create project_files record:', (e as any)?.message);
-      }
-
-      return {
-        success: true,
-        file_id: uploaded.$id,
-        name: uploaded.name,
-        bucket_id: uploaded.bucketId,
-        permissions,
-        order_id: order_id || null,
-        user_id: user_id || null,
-      };
-    } finally {
-      try { fs.unlinkSync(tmp); } catch (_) {}
-    }
+    // Delegate to shared storage service to handle upload + DB record
+    const user_id = req?.user?.id || req?.user?.user_id || null;
+    return await this.uploadsService.uploadFile(bucket_id, file, order_id, user_id);
   }
 
   @Get(':bucket_id/:file_id')
@@ -221,15 +175,8 @@ export class StorageController {
   })
   @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
   @ApiParam({ name: 'file_id', description: 'File ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'File deleted successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-      },
-    },
+  @ApiResponse({ status: 200, description: 'File deleted successfully',
+    schema: { example: { success: true } },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'File not found' })
@@ -287,7 +234,7 @@ export class StorageController {
   @ApiResponse({
     status: 200,
     description: 'File URL retrieved successfully',
-    type: FileUrlResponseDto,
+    schema: { example: { url: 'https://<endpoint>/storage/buckets/project-files/files/file_abc123/view?project=<projectId>', file_id: 'file_abc123' } },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'File not found' })

@@ -4,7 +4,7 @@ import { AppwriteService } from './appwrite.service';
 import { AppwriteConfig } from './appwrite.config';
 import { AppwriteFunctionsController } from './functions.controller';
 import { DatabaseController } from './database.controller';
-import { StorageController } from './storage.controller';
+// import removed: StorageController (moved to src/storage)
 import { MessagingController } from './messaging.controller';
 
 @Module({
@@ -13,7 +13,7 @@ import { MessagingController } from './messaging.controller';
   controllers: [
     AppwriteFunctionsController,
     DatabaseController,
-    StorageController,
+    // StorageController moved to StorageModule
     MessagingController,
   ],
   exports: [AppwriteService, AppwriteConfig],

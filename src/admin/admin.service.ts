@@ -132,7 +132,7 @@ export class AdminService {
     user_id?: string,
     from?: string,
     to?: string,
-  ): Promise<any[]> {
+  ): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
@@ -160,7 +160,15 @@ export class AdminService {
       }),
     );
 
-    return enriched;
+    return {
+      items: enriched,
+      pagination: {
+        page,
+        limit,
+        total: invoices.total,
+        pages: Math.max(1, Math.ceil(invoices.total / limit)),
+      },
+    };
   }
 
   async getAllPayments(
@@ -170,7 +178,7 @@ export class AdminService {
     user_id?: string,
     from?: string,
     to?: string,
-  ): Promise<any[]> {
+  ): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
@@ -198,7 +206,15 @@ export class AdminService {
       }),
     );
 
-    return enriched;
+    return {
+      items: enriched,
+      pagination: {
+        page,
+        limit,
+        total: payments.total,
+        pages: Math.max(1, Math.ceil(payments.total / limit)),
+      },
+    };
   }
 
   async getDashboardStats(): Promise<AdminDashboardStatsDto> {
@@ -239,6 +255,40 @@ export class AdminService {
       pendingInvoices: pendingInvoicesCount,
       overdueInvoices: overdueInvoicesCount,
       totalTransactions,
+    };
+  }
+
+  async getAllUsers(page: number = 1, limit: number = 20, search?: string): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES') || this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+
+    const offset = (page - 1) * limit;
+    const queries: string[] = [Query.orderDesc('created_at'), Query.offset(offset), Query.limit(limit)];
+    if (search) {
+      try {
+        queries.push(Query.search('email', search));
+      } catch (_) {}
+    }
+
+    const res = await databases.listDocuments(databaseId, profilesCollection, queries);
+    const items = res.documents.map((p: any) => ({
+      id: p.user_id || p.$id,
+      full_name: p.full_name || p.name || null,
+      email: p.email || null,
+      phone: p.phone || p.phone_number || null,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+    }));
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total: res.total,
+        pages: Math.max(1, Math.ceil(res.total / limit)),
+      },
     };
   }
 
