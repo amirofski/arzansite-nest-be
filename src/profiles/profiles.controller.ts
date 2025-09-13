@@ -7,6 +7,8 @@ import {
   Param,
   UploadedFile,
   UseInterceptors,
+  BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { ProfilesService } from './profiles.service';
 import { StorageService } from '../storage/storage.service';
@@ -74,14 +76,18 @@ export class ProfilesController {
   }))
   async uploadAvatar(@User() user: UserPayload, @UploadedFile() file: Express.Multer.File) {
     if (!file) {
-      throw new Error('No file provided');
+      throw new BadRequestException('No file provided');
     }
-    const cfg = this.appwriteService.getConfig();
-    const bucketId = cfg.storage?.userAvatars || process.env.APPWRITE_STORAGE_USER_AVATARS;
-    if (!bucketId) throw new Error('Avatar bucket not configured');
-    const uploaded = await this.storageService.uploadFile(bucketId, file, null, user.id, 'avatar');
-    const url = uploaded.url;
-    await this.profilesService.updateProfile(user.id, { avatar_url: url });
-    return { success: true, avatar_url: url };
+    const cfg = this.appwriteService.getConfig() as any;
+    const bucketId = cfg.storage?.userAvatars || cfg.buckets?.avatars || process.env.APPWRITE_STORAGE_USER_AVATARS || process.env.APPWRITE_BUCKET_AVATARS;
+    if (!bucketId) throw new BadRequestException('Avatar bucket not configured. Set APPWRITE_STORAGE_USER_AVATARS or APPWRITE_BUCKET_AVATARS.');
+    try {
+      const uploaded = await this.storageService.uploadFile(bucketId, file, null, user.id, 'avatar');
+      const url = uploaded.url;
+      await this.profilesService.updateProfile(user.id, { avatar_url: url });
+      return { success: true, avatar_url: url };
+    } catch (e: any) {
+      throw new InternalServerErrorException(`Avatar upload failed: ${e?.message || 'unknown error'}`);
+    }
   }
 }
