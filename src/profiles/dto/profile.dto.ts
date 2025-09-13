@@ -12,4 +12,8 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsString()
+  avatar_url?: string;
 }

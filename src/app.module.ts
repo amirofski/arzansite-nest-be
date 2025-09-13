@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { validationSchema } from './config/validation';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -23,6 +24,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SupportModule } from './support/support.module';
 import { StorageModule } from './storage/storage.module';
+import { BannedGuard } from './common/guards/banned.guard';
 
 @Module({
   imports: [
@@ -75,5 +77,11 @@ import { StorageModule } from './storage/storage.module';
     StorageModule,
   ],
   controllers: [HealthController],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: BannedGuard,
+    },
+  ],
 })
 export class AppModule {}

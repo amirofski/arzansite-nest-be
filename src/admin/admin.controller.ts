@@ -369,7 +369,46 @@ export class AdminController {
     return this.adminService.getDashboardStats();
   }
 
-  // User Management Endpoint
+  // Users Management
+  @Get('users')
+  @ApiOperation({ summary: 'List users', description: 'Lists users from the users collection with pagination and optional search (email).' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'search', required: false, type: String, example: 'user@example.com' })
+  @ApiOkResponse({ description: 'Users listed successfully', schema: { example: { items: [{ id: 'user_1', email: 'user@example.com', full_name: 'John Doe', phone: '+98912...', role: 'user', status: 'active', verification_status: 'verified', avatar_url: 'https://...', auth: { emailVerification: true, labels: ['admin'] } }], pagination: { page: 1, limit: 20, total: 1, pages: 1 } } } })
+  async listUsers(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('search') search?: string
+  ) {
+    return this.adminService.getAllUsers(page, limit, search);
+  }
+
+  @Get('users/:user_id')
+  @ApiOperation({ summary: 'Get user details', description: 'Gets user details by user_id from users collection and enriches with Appwrite Auth info if available.' })
+  @ApiParam({ name: 'user_id', description: 'User ID', example: 'user_123' })
+  @ApiOkResponse({ description: 'User details retrieved', schema: { example: { id: 'user_1', email: 'user@example.com', full_name: 'John Doe', phone: '+98912...', role: 'user', status: 'active', verification_status: 'verified', avatar_url: 'https://...', auth: { emailVerification: true, labels: ['admin'] } } } })
+  async getUser(@Param('user_id') user_id: string) {
+    return this.adminService.getUser(user_id);
+  }
+
+  @Post('users/:user_id/ban')
+  @ApiOperation({ summary: 'Ban user', description: 'Sets user status to banned in users collection.' })
+  @ApiParam({ name: 'user_id', description: 'User ID', example: 'user_123' })
+  @ApiOkResponse({ description: 'User banned', schema: { example: { success: true, user_id: 'user_1', status: 'banned' } } })
+  async banUser(@Param('user_id') user_id: string) {
+    return this.adminService.banUser(user_id);
+  }
+
+  @Post('users/:user_id/unban')
+  @ApiOperation({ summary: 'Unban user', description: 'Sets user status to active in users collection.' })
+  @ApiParam({ name: 'user_id', description: 'User ID', example: 'user_123' })
+  @ApiOkResponse({ description: 'User unbanned', schema: { example: { success: true, user_id: 'user_1', status: 'active' } } })
+  async unbanUser(@Param('user_id') user_id: string) {
+    return this.adminService.unbanUser(user_id);
+  }
+
+  // User Management Endpoint (legacy delete - consider removing later)
   @Delete('users/:user_id')
   @ApiOperation({
     summary: 'Delete user account',
@@ -476,22 +515,6 @@ export class AdminController {
     return this.adminService.getSystemMetrics();
   }
 
-  // Users listing (Admin)
-  @Get('users')
-  @ApiOperation({ summary: 'List users (Admin only)' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by email or full_name' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number (default 1)' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 20)' })
-  @ApiOkResponse({ description: 'Users retrieved successfully' })
-  async listUsers(
-    @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 20;
-    return this.adminService.getAllUsers(pageNum, limitNum, search);
-  }
 
   // Wallet Adjustment History Endpoint
   @Get('wallets/:wallet_id/adjustments')

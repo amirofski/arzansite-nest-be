@@ -353,8 +353,9 @@ export class AuthService {
         
         console.log('✅ User email verification completed and Appwrite status updated');
         
-        // Ensure profile exists after verification
+        // Ensure profile exists after verification and mark verified in users collection
         await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+        await this.profilesService.markVerified(user.$id);
         
         // Send welcome email via custom SMTP
         const welcomeEmailSent = await this.emailService.sendWelcomeEmail(
@@ -383,8 +384,9 @@ export class AuthService {
         // Get user details and return success
         const user = await this.appwriteService.getUsers().get(targetUserId);
         
-        // Ensure profile exists after verification
+        // Ensure profile exists after verification and mark verified in users collection
         await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+        await this.profilesService.markVerified(user.$id);
         
         // Send welcome email via custom SMTP
         const welcomeEmailSent = await this.emailService.sendWelcomeEmail(
@@ -880,8 +882,9 @@ export class AuthService {
       
       console.log(`✅ Email verified for user: ${session.userId}`);
 
-      // Create profile if it doesn't exist
+      // Create profile if it doesn't exist and mark login timestamp
       await this.profilesService.createProfileIfNotExists(session.userId, signInDto.email);
+      this.profilesService.markLogin(session.userId).catch(() => undefined);
 
       // Issue backend JWT for backend operations
       const payload = { 
@@ -1137,9 +1140,10 @@ export class AuthService {
         domain: this.configService.get('NODE_ENV') === 'production' ? '.arzansite.com' : undefined,
       });
 
-      // Create profile if it doesn't exist
+      // Create profile if it doesn't exist and mark login timestamp
       try {
         await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+        this.profilesService.markLogin(user.$id).catch(() => undefined);
       } catch (profileError) {
         console.warn('⚠️ Failed to create profile for OAuth user:', profileError);
       }

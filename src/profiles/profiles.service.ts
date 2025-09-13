@@ -15,7 +15,7 @@ export class ProfilesService {
   async getProfile(user_id: string): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
 
     const existing = await databases.listDocuments(
       databaseId,
@@ -33,7 +33,7 @@ export class ProfilesService {
   async updateProfile(user_id: string, updateProfileDto: UpdateProfileDto): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
 
     const existing = await databases.listDocuments(
       databaseId,
@@ -61,7 +61,7 @@ export class ProfilesService {
   async createProfileIfNotExists(user_id: string, email: string): Promise<Profile> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
 
     const existing = await databases.listDocuments(
       databaseId,
@@ -79,9 +79,16 @@ export class ProfilesService {
       profilesCollection,
       ID.unique(),
       {
-        user_id: user_id, // use snake_case for database
+        user_id: user_id,
         email,
         full_name: '',
+        phone: '',
+        avatar_url: '',
+        role: 'user',
+        status: 'active',
+        verification_status: 'unverified',
+        email_verified_at: null,
+        last_login_at: null,
         created_at: now,
         updated_at: now,
       },
@@ -92,7 +99,7 @@ export class ProfilesService {
   async getAllProfiles(): Promise<Profile[]> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
 
     const res = await databases.listDocuments(
       databaseId,
@@ -100,5 +107,32 @@ export class ProfilesService {
       [Query.orderDesc('created_at')],
     );
     return (res.documents as any) || [];
+  }
+
+  async markVerified(user_id: string): Promise<void> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
+    const existing = await databases.listDocuments(databaseId, profilesCollection, [Query.equal('user_id', user_id), Query.limit(1)]);
+    if (existing.documents[0]) {
+      await databases.updateDocument(databaseId, profilesCollection, (existing.documents[0] as any).$id, {
+        verification_status: 'verified',
+        email_verified_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any);
+    }
+  }
+
+  async markLogin(user_id: string): Promise<void> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
+    const existing = await databases.listDocuments(databaseId, profilesCollection, [Query.equal('user_id', user_id), Query.limit(1)]);
+    if (existing.documents[0]) {
+      await databases.updateDocument(databaseId, profilesCollection, (existing.documents[0] as any).$id, {
+        last_login_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any);
+    }
   }
 }

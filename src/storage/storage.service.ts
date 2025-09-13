@@ -12,12 +12,13 @@ export class StorageService {
     order_id?: string | null,
     user_id?: string | null,
     description?: string | null,
-  ): Promise<{ success: boolean; file_id: string; name: string; bucket_id: string; order_id?: string | null; user_id?: string | null }> {
+  ): Promise<{ success: boolean; file_id: string; name: string; bucket_id: string; order_id?: string | null; user_id?: string | null; url?: string; mime_type?: string }> {
     if (!file) throw new BadRequestException('No file provided');
 
     const storage = this.appwriteService.getStorage();
     const databases = this.appwriteService.getDatabases();
     const config = this.appwriteService.getConfig();
+    let fileUrl: string | undefined;
 
     const buffer = file.buffer ?? require('fs').readFileSync((file as any).path);
     const { InputFile } = require('node-appwrite/file');
@@ -31,7 +32,7 @@ export class StorageService {
       const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
       const now = new Date().toISOString();
 
-      const fileUrl = `${config.endpoint}/storage/buckets/${uploaded.bucketId}/files/${uploaded.$id}/view?project=${config.projectId}`;
+      fileUrl = `${config.endpoint}/storage/buckets/${uploaded.bucketId}/files/${uploaded.$id}/view?project=${config.projectId}`;
       await databases.createDocument(
         databaseId,
         collectionId,
@@ -67,6 +68,8 @@ export class StorageService {
       bucket_id: uploaded.bucketId,
       order_id: order_id || null,
       user_id: user_id || null,
+      url: fileUrl,
+      mime_type: uploaded.mimeType,
     };
   }
 }

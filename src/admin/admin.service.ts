@@ -31,13 +31,13 @@ export class AdminService {
 
   async getAllWallets(
     page: number = 1,
-    limit: number = 50,
+    limit: number = 20,
     search?: string,
-  ): Promise<any[]> {
+  ): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const walletsCollection = this.configService.get<string>('APPWRITE_COLLECTION_WALLETS');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
 
     const q: string[] = [Query.orderDesc('updated_at'), Query.offset((page - 1) * limit), Query.limit(limit)];
 
@@ -261,35 +261,109 @@ export class AdminService {
   async getAllUsers(page: number = 1, limit: number = 20, search?: string): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES') || this.configService.get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
 
     const offset = (page - 1) * limit;
-    const queries: string[] = [Query.orderDesc('created_at'), Query.offset(offset), Query.limit(limit)];
+    let itemsDocs: any[] = [];
+
     if (search) {
+      const cap = page * limit;
+      const results: Record<string, any> = {};
+      const pushDocs = (docs: any[]) => {
+        for (const d of docs) {
+          const key = d.user_id || d.$id;
+          if (!results[key]) results[key] = d;
+        }
+      };
       try {
-        queries.push(Query.search('email', search));
+        const emailRes = await databases.listDocuments(databaseId, profilesCollection, [Query.search('email', search), Query.orderDesc('created_at'), Query.limit(cap)]);
+        pushDocs(emailRes.documents || []);
       } catch (_) {}
+      try {
+        const nameRes = await databases.listDocuments(databaseId, profilesCollection, [Query.search('full_name', search), Query.orderDesc('created_at'), Query.limit(cap)]);
+        pushDocs(nameRes.documents || []);
+      } catch (_) {}
+      try {
+        const phoneRes = await databases.listDocuments(databaseId, profilesCollection, [Query.search('phone', search), Query.orderDesc('created_at'), Query.limit(cap)]);
+        pushDocs(phoneRes.documents || []);
+      } catch (_) {}
+      const combined = Object.values(results) as any[];
+      combined.sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
+      itemsDocs = combined.slice(offset, offset + limit);
+      const total = combined.length;
+      const items = await this.enrichWithAuth(itemsDocs);
+      return {
+        items,
+        pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
+      };
     }
 
-    const res = await databases.listDocuments(databaseId, profilesCollection, queries);
-    const items = res.documents.map((p: any) => ({
-      id: p.user_id || p.$id,
-      full_name: p.full_name || p.name || null,
-      email: p.email || null,
-      phone: p.phone || p.phone_number || null,
-      created_at: p.created_at,
-      updated_at: p.updated_at,
-    }));
-
+    const res = await databases.listDocuments(databaseId, profilesCollection, [Query.orderDesc('created_at'), Query.offset(offset), Query.limit(limit)]);
+    itemsDocs = res.documents as any[];
+    const items = await this.enrichWithAuth(itemsDocs);
     return {
       items,
-      pagination: {
-        page,
-        limit,
-        total: res.total,
-        pages: Math.max(1, Math.ceil(res.total / limit)),
-      },
+      pagination: { page, limit, total: res.total, pages: Math.max(1, Math.ceil(res.total / limit)) },
     };
+  }
+
+  async getUser(user_id: string): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
+    const res = await databases.listDocuments(databaseId, profilesCollection, [Query.equal('user_id', user_id), Query.limit(1)]);
+    if (!res.documents[0]) throw new NotFoundException('User not found');
+    const profile = res.documents[0] as any;
+    try {
+      const authUser = await this.appwriteService.getUsers().get(user_id);
+      return { ...profile, auth: { email: authUser.email, emailVerification: authUser.emailVerification, labels: authUser.labels } };
+    } catch {
+      return profile;
+    }
+  }
+
+  async banUser(user_id: string): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
+    const res = await databases.listDocuments(databaseId, profilesCollection, [Query.equal('user_id', user_id), Query.limit(1)]);
+    if (!res.documents[0]) throw new NotFoundException('User not found');
+    const updated = await databases.updateDocument(databaseId, profilesCollection, (res.documents[0] as any).$id, { status: 'banned', updated_at: new Date().toISOString() } as any);
+    return { success: true, user_id, status: updated['status'] };
+  }
+
+  async unbanUser(user_id: string): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_USERS') || 'users';
+    const res = await databases.listDocuments(databaseId, profilesCollection, [Query.equal('user_id', user_id), Query.limit(1)]);
+    if (!res.documents[0]) throw new NotFoundException('User not found');
+    const updated = await databases.updateDocument(databaseId, profilesCollection, (res.documents[0] as any).$id, { status: 'active', updated_at: new Date().toISOString() } as any);
+    return { success: true, user_id, status: updated['status'] };
+  }
+
+  private async enrichWithAuth(docs: any[]): Promise<any[]> {
+    const users = this.appwriteService.getUsers();
+    return await Promise.all(docs.map(async (p: any) => {
+      const base = {
+        id: p.user_id || p.$id,
+        full_name: p.full_name || p.name || null,
+        email: p.email || null,
+        phone: p.phone || p.phone_number || null,
+        avatar_url: p.avatar_url || null,
+        role: p.role || 'user',
+        status: p.status || 'active',
+        verification_status: p.verification_status || null,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+      };
+      try {
+        const authUser = await users.get(base.id);
+        return { ...base, auth: { emailVerification: !!authUser.emailVerification, labels: authUser.labels || [] } };
+      } catch {
+        return base;
+      }
+    }));
   }
 
   private mapToAdjustmentResponseDto(adjustment: any): WalletAdjustmentResponseDto {
