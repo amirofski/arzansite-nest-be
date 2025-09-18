@@ -15,6 +15,8 @@ import {
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { CreateUnifiedOrderDto, SubmitMode } from './dto/create-unified.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard, Roles } from '../common/guards/roles.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
@@ -48,6 +50,26 @@ export class OrdersController {
     @Body() createOrderDto: CreateOrderDto,
   ) {
     return this.ordersService.createOrder(user.id, createOrderDto);
+  }
+
+  // New unified create endpoint expected by frontend
+  @Post('create')
+  async createUnified(
+    @User() user: UserPayload,
+    @Body() dto: CreateUnifiedOrderDto,
+  ) {
+    const res = await this.ordersService.createFromUnified(user.id, dto);
+    return res;
+  }
+
+  // Admin/webhook status updates
+  @Post('update-status')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async updateStatus(
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.ordersService.updateStatusAdmin(dto);
   }
 
   @Get(':id')

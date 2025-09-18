@@ -136,7 +136,7 @@ export class PaymentsController {
   }
 
   @Post('verify')
-  @ApiOperation({ summary: 'Verify payment' })
+  @ApiOperation({ summary: 'Verify payment (idempotent)' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -147,64 +147,12 @@ export class PaymentsController {
       required: ['authority', 'amount']
     }
   })
-  @ApiResponse({ status: 200, description: 'Payment verified', schema: { example: { success: true, refId: 123456789, authority: 'A00000000000000000000000000123456789', amount: 250000, details: { cardHash: 'XXXX-XXXX-XXXX-1234' } } } })
+  @ApiResponse({ status: 200, description: 'Payment verified (idempotent)', schema: { example: { success: true, refId: '123456789', authority: 'A...', amount: 250000 } } })
   async verifyPayment(
     @User() user: UserPayload,
     @Body() paymentVerifyDto: PaymentVerifyDto,
   ) {
-    this.logger.log(`Payment verification from user ${user.id}: ${JSON.stringify({
-      authority: paymentVerifyDto.authority,
-      amount: paymentVerifyDto.amount
-    })}`);
-
-    // Validate ZarinPal configuration
-    if (!this.zarinPalService.isConfigured()) {
-      this.logger.error('ZarinPal payment gateway not configured');
-      throw new BadRequestException('Payment gateway not configured');
-    }
-
-    // Validate authority
-    if (!paymentVerifyDto.authority || paymentVerifyDto.authority.trim().length === 0) {
-      throw new BadRequestException('Invalid payment authority');
-    }
-
-    // Validate amount
-    if (!Number.isFinite(paymentVerifyDto.amount) || paymentVerifyDto.amount <= 0) {
-      throw new BadRequestException('Invalid payment amount');
-    }
-
-    try {
-      // Use the simplified verification method
-      const result = await this.zarinPalService.verifySimplePayment({
-        authority: paymentVerifyDto.authority,
-        amount: paymentVerifyDto.amount,
-      });
-
-      if (!result.success) {
-        this.logger.error(`Payment verification failed: ${result.error}`);
-        throw new BadRequestException(result.error || 'Payment verification failed');
-      }
-
-      this.logger.log(`Payment verified successfully for user ${user.id}. Ref ID: ${result.refId}`);
-
-      // Return the verification result
-      return {
-        success: true,
-        refId: result.refId,
-        authority: paymentVerifyDto.authority,
-        amount: paymentVerifyDto.amount,
-        details: result.details,
-      };
-
-    } catch (error) {
-      this.logger.error(`Payment verification failed for user ${user.id}:`, error.message);
-      
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      
-      throw new BadRequestException('Payment verification failed. Please try again.');
-    }
+    return this.paymentsService.verifyPayment(user.id, paymentVerifyDto);
   }
 
   @Post('refund')

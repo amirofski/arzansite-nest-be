@@ -1,10 +1,10 @@
 import { Controller, Get, Query, UseGuards, Post, Body, Put, Param, UseInterceptors } from '@nestjs/common';
 import { DomainsService } from './domains.service';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/guards/roles.guard';
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 
 @ApiTags('domains')
 @Controller('domains')
@@ -42,9 +42,31 @@ export class DomainsController {
 
   @Get('prices')
   @ApiOperation({ summary: 'Get Domain Prices' })
-  @ApiResponse({ status: 200, description: 'Domain prices retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Domain prices retrieved successfully', schema: { example: [{ "$id": "ext_ir", "extension": ".ir", "price": 50000, "available": true }] } })
   async getDomainPrices() {
     return this.domainsService.getDomainPrices();
+  }
+
+  @Post('extensions')
+  @ApiOperation({ summary: 'Create Domain Extension (Admin Only)' })
+  @ApiBody({
+    schema: {
+      example: {
+        extension: '.io',
+        price: 1200000,
+        description: 'Tech domain',
+        available: true,
+        isDefault: false
+      }
+    }
+  })
+  @ApiResponse({ status: 201, description: 'Domain extension created' })
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiSecurity('admin')
+  async createDomainExtension(@Body() body: { extension: string; price: number; description?: string; available: boolean; isDefault?: boolean }) {
+    return this.domainsService.createDomainExtension(body);
   }
 
   @Put('prices/:extensionId')

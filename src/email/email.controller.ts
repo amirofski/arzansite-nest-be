@@ -26,11 +26,16 @@ interface SendTemplateEmailDto {
   data: any;
 }
 
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { EmailOutboxService } from './email-outbox.service';
+
+@ApiTags('emails')
+@ApiBearerAuth()
 @Controller('emails')
 @UseGuards(JwtGuard, RolesGuard)
 @Roles('admin')
 export class EmailController {
-  constructor(private readonly emailService: EmailService) {}
+constructor(private readonly emailService: EmailService, private readonly outbox: EmailOutboxService) {}
 
   @Post('test')
   @HttpCode(HttpStatus.OK)
@@ -102,6 +107,11 @@ export class EmailController {
   }
 
   @Get('logs')
+  @ApiOperation({ summary: 'List email logs', description: 'Fetches logged emails with filters' })
+  @ApiQuery({ name: 'limit', required: false, example: '50' })
+  @ApiQuery({ name: 'offset', required: false, example: '0' })
+  @ApiQuery({ name: 'success', required: false, example: 'true' })
+  @ApiQuery({ name: 'template_type', required: false, example: 'welcome' })
   async getEmailLogs(
     @Query('limit') limit = '50',
     @Query('offset') offset = '0',
@@ -130,6 +140,7 @@ export class EmailController {
   }
 
   @Get('status')
+  @ApiOperation({ summary: 'SMTP service status' })
   async getEmailServiceStatus() {
     // Check SMTP connection status
     const host = process.env.SMTP_HOST;
@@ -152,5 +163,13 @@ export class EmailController {
         ? 'SMTP is properly configured and ready to send emails'
         : 'SMTP is disabled. Please configure SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables.'
     };
+  }
+  @Post('outbox/:id/resend')
+  @HttpCode(HttpStatus.OK)
+@ApiOperation({ summary: 'Re-send a failed/pending outbox email manually' })
+  @ApiParam({ name: 'id', description: 'Outbox record ID' })
+  async resendOutbox(@Body('id') id: string) {
+    await this.outbox.resetAndResend(id);
+    return { success: true };
   }
 }

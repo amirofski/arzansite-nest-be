@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
 import { ID, Query } from 'node-appwrite';
@@ -10,6 +10,11 @@ import { WalletsService } from '../wallets/wallets.service';
 import { EmailService } from '../email/email.service';
 import { TransactionType } from '../wallets/dto/wallet.dto';
 import { PaymentStatus } from './dto/order.dto';
+import { PaymentsService } from '../payments/payments.service';
+import { InvoicesService } from '../invoices/invoices.service';
+import { CreateUnifiedOrderDto, SubmitMode } from './dto/create-unified.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { InvoiceStatus } from '../invoices/dto/invoice.dto';
 
 @Injectable()
 export class OrdersService extends BaseAppwriteService {
@@ -30,6 +35,8 @@ export class OrdersService extends BaseAppwriteService {
     configService: ConfigService,
     private readonly walletsService: WalletsService,
     private readonly emailService: EmailService,
+    @Inject(forwardRef(() => PaymentsService)) private readonly paymentsService: PaymentsService,
+    @Inject(forwardRef(() => InvoicesService)) private readonly invoicesService: InvoicesService,
   ) {
     super(appwriteService, configService);
   }
@@ -180,6 +187,73 @@ export class OrdersService extends BaseAppwriteService {
       this.logger.error(`Failed to create order: ${error.message}`);
       throw new BadRequestException(`Failed to create order: ${error.message}`);
     }
+  }
+
+  async createFromUnified(userId: string, dto: CreateUnifiedOrderDto): Promise<{ orderId: string; status: string; payment?: { redirectUrl: string; id?: string; expiresAt?: string } }> {
+    const nowISO = new Date().toISOString();
+    const title = dto.title || 'Website Order';
+    const description = dto.description || 'Website order created';
+    const orderData: any = {
+      order_number: this.generateOrderNumber(),
+      title,
+      description,
+      total_amount: dto.totalAmount,
+      user_id: userId,
+      status: 'pending',
+      payment_status: 'pending',
+      site_type: dto.siteType || 'personal',
+      comments: dto.comments,
+      wizard_data: JSON.stringify(dto.wizardData || {}),
+      currency: dto.currency || 'IRR',
+      created_at: nowISO,
+      updated_at: nowISO,
+    };
+
+    const order = await this.createDocument<Order>(orderData);
+
+    // Auto-create invoice
+    try {
+      const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+      if (invoicesCollection) {
+        const invoice = await this.databases.createDocument(
+          this.databaseId,
+          invoicesCollection,
+          ID.unique(),
+          {
+            user_id: userId,
+            order_id: order.id,
+            amount: dto.totalAmount,
+            due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'pending',
+            description: `Invoice for order ${order.id}`,
+            created_at: nowISO,
+            updated_at: nowISO,
+          } as any,
+        );
+        await this.emailService.sendInvoiceCreatedEmail(userId, (invoice as any).$id, dto.totalAmount);
+      }
+    } catch (e: any) {
+      this.logger.warn(`Auto-invoice creation failed for order ${order.id}: ${e?.message || e}`);
+    }
+
+    // Email: order awaiting payment
+    try {
+      await this.sendOrderConfirmationEmail(userId, order);
+    } catch {}
+
+    if (dto.submitMode === SubmitMode.PAYMENT) {
+      // Create a payment intent and return redirect URL
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+      const resp = await this.paymentsService.requestPayment(userId, {
+        order_id: order.id,
+        amount: dto.totalAmount,
+        description: `Payment for order ${order.id}`,
+        callback_url: `${frontendUrl}/payment/callback`,
+      } as any);
+      return { orderId: order.id, status: order.status, payment: { redirectUrl: resp.paymentUrl, id: resp.authority } };
+    }
+
+    return { orderId: order.id, status: order.status };
   }
 
   async createEnhancedOrder(userId: string, createOrderDto: any): Promise<Order> {
@@ -449,5 +523,41 @@ export class OrdersService extends BaseAppwriteService {
     } catch (error) {
       this.logger.warn(`Failed to send payment status notification: ${error.message}`);
     }
+  }
+
+  async updateStatusAdmin(dto: UpdateOrderStatusDto): Promise<{ success: boolean; orderId: string; updated: any }> {
+    const order = await this.getDocument<Order>(dto.orderId);
+    if (!order) throw new NotFoundException('Order not found');
+
+    const patch: any = { updated_at: new Date().toISOString() };
+    if (dto.status) patch.status = dto.status;
+    if (dto.payment_status) patch.payment_status = dto.payment_status;
+
+    const updated = await this.updateDocument<Order>(dto.orderId, patch);
+
+    // If marked as paid/succeeded, update invoice and issue receipt
+    const paid = dto.payment_status === PaymentStatus.SUCCEEDED || dto.status === 'completed';
+    if (paid) {
+      try {
+        // Find invoice by order
+        const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+        const res = await this.databases.listDocuments(
+          this.databaseId,
+          invoicesCollection,
+          [Query.equal('order_id', dto.orderId), Query.orderDesc('created_at'), Query.limit(1)]
+        );
+        if (res.documents?.[0]) {
+          const inv: any = res.documents[0];
+          await this.invoicesService.updateInvoiceStatus(inv.$id, InvoiceStatus.PAID);
+          const refId = `ADMIN_${Date.now()}`;
+          await this.invoicesService.generateReceipt(inv.$id, refId, inv.amount);
+          await this.emailService.sendInvoicePaidEmail(order.user_id, inv.$id, inv.amount);
+        }
+      } catch (e: any) {
+        this.logger.warn(`Failed to finalize invoice/receipt for order ${dto.orderId}: ${e?.message || e}`);
+      }
+    }
+
+    return { success: true, orderId: dto.orderId, updated };
   }
 }

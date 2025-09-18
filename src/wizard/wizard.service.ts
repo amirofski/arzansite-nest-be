@@ -252,10 +252,10 @@ export class WizardService {
     return progress;
   }
 
-  async loadProgress(session_id: string): Promise<{ success: boolean; data: Record<string, unknown> }> {
+  async loadProgress(session_id: string): Promise<Record<string, unknown>> {
     const doc = await this.getProgress(session_id);
     const data = doc && (doc as any).wizard_data ? (doc as any).wizard_data : {};
-    return { success: true, data: data as any };
+    return data as any;
   }
 
   async getUserProgress(user_id: string): Promise<WizardOrderDto[]> {

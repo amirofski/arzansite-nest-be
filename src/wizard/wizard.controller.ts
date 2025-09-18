@@ -15,6 +15,7 @@ import {
   ParseEnumPipe,
   UsePipes,
   ValidationPipe,
+  GoneException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -67,21 +68,45 @@ class WizardValidationPipe extends ValidationPipe {
 
 @ApiTags('Wizard')
 @Controller('wizard')
-@UseInterceptors(TransformInterceptor)
 export class WizardController {
   constructor(private readonly wizardService: WizardService) {}
 
   @Post('save-progress')
-  @ApiOperation({ summary: 'Save Wizard Progress' })
-  @ApiResponse({ status: 201, description: 'Progress saved successfully', type: WizardOrderDto })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  async saveProgress(@Body() saveProgressDto: SaveProgressDto): Promise<WizardOrderDto> {
-    return this.wizardService.saveProgress(saveProgressDto);
+  @ApiOperation({ summary: 'Save Wizard Progress (DEPRECATED)' })
+  @ApiBody({
+    schema: {
+      example: {
+        session_id: 'wizard_1757606041806',
+        user_id: 'user_123',
+        current_step: '1',
+        is_completed: false,
+        wizard_data: {
+          siteType: 'personal',
+          branding: { primaryColor: '#8B5CF6', fontFamily: 'vazir' },
+          current_step: 1
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 410, description: 'Deprecated endpoint. Use POST /wizard/save-session instead.' })
+  async saveProgress(@Body() saveProgressDto: SaveProgressDto): Promise<never> {
+    // Log deprecated usage for short window
+    console.warn('[DEPRECATION] POST /wizard/save-progress called', { session_id: saveProgressDto?.session_id, at: new Date().toISOString() });
+    throw new GoneException('This endpoint is deprecated. Use POST /wizard/save-session instead.');
   }
 
   // New alias for frontend: POST /wizard/save-session { session_id, wizard_data }
   @Post('save-session')
   @ApiOperation({ summary: 'Save Wizard Session (alias)', description: 'Upserts wizard_data for a session_id' })
+  @ApiBody({
+    schema: {
+      example: {
+        session_id: 'wizard_1757606041806',
+        user_id: 'user_123',
+        wizard_data: { pageStructure: 'single', modules: [], current_step: 2 }
+      }
+    }
+  })
   @ApiResponse({ status: 200, description: 'Session saved successfully' })
   async saveSession(@Body() body: { session_id: string; wizard_data: Record<string, unknown>; user_id?: string }) {
     return this.wizardService.saveSession(body.session_id, body.wizard_data, body.user_id);
@@ -101,7 +126,9 @@ export class WizardController {
 
   // New alias for frontend: GET /wizard/load-progress/:session_id
   @Get('load-progress/:session_id')
-  @ApiOperation({ summary: 'Load Wizard Progress (alias)', description: 'Returns { success, data } containing saved wizard_data' })
+  @ApiOperation({ summary: 'Load Wizard Progress (alias)', description: 'Returns wizard_data object for quick hydrate' })
+  @ApiParam({ name: 'session_id', description: 'Wizard session ID' })
+  @ApiResponse({ status: 200, description: 'Wizard data retrieved', schema: { example: { siteType: 'personal', current_step: 3 } } })
   async loadProgress(@Param('session_id') session_id: string) {
     return this.wizardService.loadProgress(session_id);
   }

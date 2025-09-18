@@ -176,10 +176,17 @@ const schemas: CollectionSchema[] = [
       s('due_date', 64, true),
       s('status', 32, true),
       s('description', 1024, false),
+      s('last_reminder_sent_at', 64, false),
       s('created_at', 64, true),
       s('updated_at', 64, true),
     ],
-    indexes: [idx('user_id_idx', ['user_id']), idx('order_id_idx', ['order_id']), idx('status_idx', ['status'])],
+    indexes: [
+      idx('user_id_idx', ['user_id']),
+      idx('order_id_idx', ['order_id']),
+      idx('status_idx', ['status']),
+      idx('due_date_idx', ['due_date']),
+      idx('last_reminder_idx', ['last_reminder_sent_at'])
+    ],
   },
   {
     id: process.env.APPWRITE_COLLECTION_RECEIPTS || 'receipts',

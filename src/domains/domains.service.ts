@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { Query } from 'node-appwrite';
+import { Query, ID } from 'node-appwrite';
 
 @Injectable()
 export class DomainsService {
@@ -144,6 +144,33 @@ export class DomainsService {
         { id: '3', extension: '.org', price: 70000, available: true },
         { id: '4', extension: '.net', price: 75000, available: true },
       ];
+    }
+  }
+
+  async createDomainExtension(data: { extension: string; price: number; description?: string; available: boolean; isDefault?: boolean }): Promise<any> {
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+
+    try {
+      const created = await databases.createDocument(
+        databaseId,
+        domainExtensionsCollection,
+        ID.unique(),
+        {
+          extension: data.extension,
+          price: data.price,
+          available: data.available,
+          description: data.description || '',
+          isDefault: !!data.isDefault,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any,
+      );
+      return created;
+    } catch (error) {
+      console.error('Error creating domain extension:', error);
+      throw new BadRequestException('Failed to create domain extension');
     }
   }
 

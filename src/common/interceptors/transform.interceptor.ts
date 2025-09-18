@@ -34,11 +34,20 @@ export class TransformInterceptor<T>
     next: CallHandler,
   ): Observable<Response<T>> {
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        data,
-        timestamp: new Date().toISOString(),
-      })),
+      map((body) => {
+        const ts = new Date().toISOString();
+        // Idempotent: if already wrapped, return as-is (ensure timestamp exists)
+        if (body && typeof body === 'object') {
+          const hasSuccess = Object.prototype.hasOwnProperty.call(body as any, 'success');
+          const hasPayloadKey = ['data', 'items', 'pagination'].some((k) => Object.prototype.hasOwnProperty.call(body as any, k));
+          if (hasSuccess && hasPayloadKey) {
+            return Object.prototype.hasOwnProperty.call(body as any, 'timestamp')
+              ? (body as any)
+              : ({ ...(body as any), timestamp: ts } as any);
+          }
+        }
+        return { success: true, data: body as any, timestamp: ts } as any;
+      }),
     );
   }
 }

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { AppwriteService } from '../appwrite/appwrite.service';
+import { EmailOutboxService } from './email-outbox.service';
 import { ID, Query } from 'node-appwrite';
 
 export interface EmailOptions {
@@ -29,6 +30,7 @@ export class EmailService {
   constructor(
     private configService: ConfigService,
     private appwriteService: AppwriteService,
+    private outbox: EmailOutboxService,
   ) {
     this.initializeTransporter();
   }
@@ -324,65 +326,41 @@ export class EmailService {
   async sendWelcomeEmail(to: string, userName: string): Promise<boolean> {
     this.logger.log(`📧 Sending welcome email to ${to}`);
     const template = this.getWelcomeTemplate(userName);
-    return this.sendEmail({
-      to,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('welcome', to, { to, subject: template.subject, html: template.html, text: template.text });
+    return true;
   }
 
   async sendPasswordResetEmail(to: string, resetUrl: string, userName?: string): Promise<boolean> {
     this.logger.log(`📧 Sending password reset email to ${to}`);
     const template = this.getPasswordResetTemplate(resetUrl, userName);
-    return this.sendEmail({
-      to,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('password_reset', to, { to, subject: template.subject, html: template.html, text: template.text });
+    return true;
   }
 
   async sendMagicLinkEmail(to: string, magicUrl: string, userName?: string): Promise<boolean> {
     this.logger.log(`📧 Sending magic login link to ${to}`);
     const template = this.getMagicLinkTemplate(magicUrl, userName);
-    return this.sendEmail({
-      to,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('magic_link', to, { to, subject: template.subject, html: template.html, text: template.text });
+    return true;
   }
 
   // Legacy methods for backward compatibility
   async sendEmailVerification(to: string, verificationUrl: string, userName?: string): Promise<boolean> {
     const template = this.getEmailVerificationTemplate(verificationUrl, userName);
-    return this.sendEmail({
-      to,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('email_verification', to, { to, subject: template.subject, html: template.html, text: template.text });
+    return true;
   }
 
   async sendOrderNotification(to: string, orderData: any): Promise<boolean> {
     const template = this.getOrderNotificationTemplate(orderData);
-    return this.sendEmail({
-      to,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('order_notification', orderData?.id || to, { to, subject: template.subject, html: template.html, text: template.text });
+    return true;
   }
 
   async sendPaymentNotification(to: string, paymentData: any): Promise<boolean> {
     const template = this.getPaymentNotificationTemplate(paymentData);
-    return this.sendEmail({
-      to,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('payment_notification', paymentData?.id || to, { to, subject: template.subject, html: template.html, text: template.text });
+    return true;
   }
 
   // Template methods
@@ -751,12 +729,7 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     if (!user) return;
 
     const template = this.getWalletTopUpTemplate(amount, refId);
-    await this.sendEmail({
-      to: user.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('wallet_topup', user_id, { to: user.email, subject: template.subject, html: template.html, text: template.text });
   }
 
   async sendInvoiceCreatedEmail(user_id: string, invoiceId: string, amount: number): Promise<void> {
@@ -764,12 +737,7 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     if (!user) return;
 
     const template = this.getInvoiceCreatedTemplate(invoiceId, amount);
-    await this.sendEmail({
-      to: user.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('invoice_created', invoiceId, { to: user.email, subject: template.subject, html: template.html, text: template.text });
   }
 
   async sendInvoicePaidEmail(user_id: string, invoiceId: string, amount: number): Promise<void> {
@@ -777,12 +745,7 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     if (!user) return;
 
     const template = this.getInvoicePaidTemplate(invoiceId, amount);
-    await this.sendEmail({
-      to: user.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('invoice_paid', invoiceId, { to: user.email, subject: template.subject, html: template.html, text: template.text });
   }
 
   async sendInvoiceOverdueEmail(user_id: string, invoiceId: string, amount: number): Promise<void> {
@@ -790,12 +753,15 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     if (!user) return;
 
     const template = this.getInvoiceOverdueTemplate(invoiceId, amount);
-    await this.sendEmail({
-      to: user.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('invoice_overdue', invoiceId, { to: user.email, subject: template.subject, html: template.html, text: template.text });
+  }
+
+  async sendInvoiceReminderEmail(user_id: string, invoiceId: string, amount: number, dueDate: string, window: '7d' | '48h' | '24h'): Promise<void> {
+    const user = await this.getUserById(user_id);
+    if (!user) return;
+
+    const template = this.getInvoiceReminderTemplate(invoiceId, amount, dueDate, window);
+    await this.outbox.enqueue('invoice_reminder', invoiceId, { to: user.email, subject: template.subject, html: template.html, text: template.text });
   }
 
   async sendReceiptCreatedEmail(user_id: string, receiptId: string, amount: number): Promise<void> {
@@ -803,12 +769,7 @@ View Payment Details: https://arzansite.com/payments/${paymentData.id}
     if (!user) return;
 
     const template = this.getReceiptCreatedTemplate(receiptId, amount);
-    await this.sendEmail({
-      to: user.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    await this.outbox.enqueue('receipt_created', receiptId, { to: user.email, subject: template.subject, html: template.html, text: template.text });
   }
 
   private getWalletTopUpTemplate(amount: number, refId: string): EmailTemplate {
@@ -1011,6 +972,49 @@ Pay Now: https://arzansite.com/invoices/${invoiceId}
     };
   }
 
+  private getInvoiceReminderTemplate(invoiceId: string, amount: number, dueDate: string, window: '7d' | '48h' | '24h'): EmailTemplate {
+    const human = window === '7d' ? '7 days' : window === '48h' ? '48 hours' : '24 hours';
+    const dueDateStr = new Date(dueDate).toLocaleDateString();
+    return {
+      subject: `Payment reminder: Invoice ${invoiceId} due in ${human}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); padding: 40px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px;">Invoice Due Soon</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Your invoice is due in ${human}</p>
+          </div>
+          <div style="padding: 24px; background: #f9f9f9;">
+            <p style="color: #333;">This is a friendly reminder that your invoice will be due soon.</p>
+            <div style="background: white; padding: 16px; border-radius: 8px; margin: 16px 0;">
+              <p><strong>Invoice ID:</strong> ${invoiceId}</p>
+              <p><strong>Amount:</strong> ${amount.toLocaleString()} Rials</p>
+              <p><strong>Due date:</strong> ${dueDateStr}</p>
+            </div>
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="https://arzansite.com/invoices/${invoiceId}" style="background: #ffc107; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View & Pay Invoice</a>
+            </div>
+            <p style="color: #666; font-size: 14px;">If you have already paid this invoice, please disregard this message.</p>
+          </div>
+          <div style="background: #333; color: white; padding: 16px; text-align: center; font-size: 12px;">
+            <p>&copy; 2024 ArzanSite. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+      text: `
+Invoice reminder: Invoice ${invoiceId} due in ${human}
+
+Amount: ${amount.toLocaleString()} Rials
+Due date: ${dueDateStr}
+
+Pay here: https://arzansite.com/invoices/${invoiceId}
+
+If already paid, please ignore this message.
+
+© 2024 ArzanSite. All rights reserved.
+      `,
+    };
+  }
+
   private getReceiptCreatedTemplate(receiptId: string, amount: number): EmailTemplate {
     return {
       subject: 'Payment Receipt Created',
@@ -1061,22 +1065,38 @@ Download Receipt: https://arzansite.com/receipts/${receiptId}/download
     };
   }
 
+
   private async getUserById(user_id: string): Promise<any> {
     try {
       const databases = this.appwriteService.getDatabases();
       const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-      const profilesCollection = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
-      
-      const result = await databases.listDocuments(
-        databaseId,
-        profilesCollection,
-        [
-          Query.equal('user_id', user_id),
-          Query.limit(1),
-        ],
-      );
-      
-      return result.documents[0] || null;
+
+      // Prefer single 'users' collection per project rules, with fallback to legacy 'user_profiles'
+      const preferUsers = this.configService.get<string>('APPWRITE_COLLECTION_USERS');
+      const legacyProfiles = this.configService.get<string>('APPWRITE_COLLECTION_PROFILES');
+
+      const collectionsToTry = Array.from(new Set([preferUsers, legacyProfiles].filter(Boolean)));
+
+      for (const collectionId of collectionsToTry) {
+        try {
+          const result = await databases.listDocuments(
+            databaseId,
+            collectionId,
+            [
+              Query.equal('user_id', user_id),
+              Query.limit(1),
+            ],
+          );
+          if (result.documents?.length) {
+            return result.documents[0];
+          }
+        } catch (err) {
+          // Try next collection on error (e.g., collection missing or attribute not found)
+          continue;
+        }
+      }
+
+      return null;
     } catch (error) {
       console.error('Error getting user by ID:', error);
       return null;

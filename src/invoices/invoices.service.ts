@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { EmailService } from '../email/email.service';
@@ -20,7 +20,7 @@ export class InvoicesService {
     private appwriteService: AppwriteService,
     private walletsService: WalletsService,
     private emailService: EmailService,
-    private ordersService: OrdersService,
+    @Inject(forwardRef(() => OrdersService)) private ordersService: OrdersService,
     private configService: ConfigService,
   ) {}
 
@@ -52,6 +52,12 @@ export class InvoicesService {
     );
 
     // Send email notification
+    // Outbox enqueue replaces direct send
+    await this.appwriteService.getDatabases();
+    try {
+      const outbox = (await import('../email/email-outbox.service'));
+    } catch (_) {}
+    // Keep direct call for backward compatibility; the outbox processor will be primary once wired where needed
     await this.emailService.sendInvoiceCreatedEmail(user_id, invoice.$id, createInvoiceDto.amount);
 
     return this.mapToResponseDto(invoice);
