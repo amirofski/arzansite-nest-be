@@ -7,6 +7,7 @@ import { AppwriteModule } from '../appwrite/appwrite.module';
 import { OrdersModule } from '../orders/orders.module';
 import { WalletsModule } from '../wallets/wallets.module';
 import { InvoicesModule } from '../invoices/invoices.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
     forwardRef(() => OrdersModule),
     forwardRef(() => WalletsModule),
     forwardRef(() => InvoicesModule),
+    EmailModule,
   ],
   providers: [ZarinPalService, PaymentsService],
   controllers: [PaymentsController],

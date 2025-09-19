@@ -14,6 +14,7 @@ import {
   PaymentCancelDto,
 } from './dto/payment.dto';
 import { InvoicesService } from '../invoices/invoices.service';
+import { EmailService } from '../email/email.service';
 import { CreateInvoiceDto, InvoiceStatus } from '../invoices/dto/invoice.dto';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class PaymentsService {
     private walletsService: WalletsService,
     private zarinPalService: ZarinPalService,
     private invoicesService: InvoicesService,
+    private emailService: EmailService,
   ) {}
 
   async requestPayment(
