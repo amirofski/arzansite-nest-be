@@ -111,10 +111,4 @@ export class OrdersController {
     return this.ordersService.deleteOrder(id, user.id, isAdmin);
   }
 
-  @Get()
-  @UseGuards(RolesGuard)
-  @Roles('admin')
-  async getAllOrders() {
-    return this.ordersService.getOrders('', true);
-  }
 }
