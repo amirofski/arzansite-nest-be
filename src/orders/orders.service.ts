@@ -87,7 +87,8 @@ export class OrdersService extends BaseAppwriteService {
     }
 
     // Check ownership or admin access
-    if (!isAdmin && data.user_id !== userId) {
+    const ownerId = (data as any)?.user_id ?? (data as any)?.userId ?? (data as any)?.userid;
+    if (!isAdmin && ownerId !== userId) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -611,12 +612,13 @@ export class OrdersService extends BaseAppwriteService {
           await this.invoicesService.updateInvoiceStatus(inv.$id, InvoiceStatus.PAID);
           const refId = `ADMIN_${Date.now()}`;
           await this.invoicesService.generateReceipt(inv.$id, refId, inv.amount);
-          await this.emailService.sendInvoicePaidEmail(order.user_id, inv.$id, inv.amount);
+          const ownerId = (order as any)?.user_id ?? (order as any)?.userId ?? (order as any)?.userid;
+          await this.emailService.sendInvoicePaidEmail(ownerId, inv.$id, inv.amount);
           // Dashboard notification
           try {
             await this.notificationsService.sendOrderStatusNotification({
               order_id: dto.orderId,
-              user_id: order.user_id,
+              user_id: ownerId,
               notificationType: 'payment_success',
               message: `Payment successful for order ${dto.orderId}`,
               priority: 'high',
