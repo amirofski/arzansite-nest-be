@@ -82,6 +82,7 @@ Endpoints
 Orders
 - GET /orders?mine=true|false&admin=true|false&page=&limit=&from=&to=
 - POST /orders (create from non-wizard flows if needed)
+  Side-effects: auto-creates a pending invoice for this order.
 - GET /orders/:id
 - PATCH /orders/:id
 - DELETE /orders/:id
@@ -114,7 +115,7 @@ Order payments (user pays an order)
   Returns: { success, authority, paymentUrl }
 - POST /payments/verify
   Body: { authority, amount }
-  Returns: { success, refId, amount }
+  Returns: { success, refId, amount, authority?, orderId?, invoiceId?, receiptId? }
   Side-effects: Marks order payment succeeded, ensures invoice exists → PAID, generates receipt, logs transactions.
 
 Frontend tips
@@ -328,7 +329,7 @@ Response:
 POST /payments/verify
 Body: { "authority": "A...", "amount": 5000000 }
 Response:
-{ "success": true, "refId": "123456789", "amount": 5000000 }
+{ "success": true, "refId": "123456789", "amount": 5000000, "authority": "A...", "orderId": "order_...", "invoiceId": "invoice_...", "receiptId": "receipt_..." }
 
 4) Email Logs (model)
 { "to_email": "user@example.com", "subject": "Welcome", "success": true, "service_used": "custom_smtp", "template_type": "welcome", "sent_at": "2025-09-14T08:00:00.000Z" }

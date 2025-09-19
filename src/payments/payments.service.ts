@@ -91,18 +91,24 @@ export class PaymentsService {
   async verifyPayment(
     user_id: string,
     paymentVerifyDto: PaymentVerifyDto,
-  ): Promise<{ success: boolean; refId: string; amount: number; authority?: string }> {
+  ): Promise<{ success: boolean; refId: string; amount: number; authority?: string; orderId?: string; invoiceId?: string; receiptId?: string }> {
     const loggerPrefix = `[PaymentsService.verifyPayment] user=${user_id} authority=${paymentVerifyDto.authority}`;
     // Validate
     if (!paymentVerifyDto?.authority || !Number.isFinite(paymentVerifyDto.amount)) {
       throw new BadRequestException('Invalid verification payload');
     }
 
-    // Idempotency: if a transaction for this authority already completed, return it
+    // Idempotency: if a transaction for this authority already completed, return cached result
     const existing = await this.getPaymentTransactionByAuthority(paymentVerifyDto.authority);
     if (existing && existing.status === 'completed') {
-      console.log(`${loggerPrefix} already completed; idempotent return`);
-      return { success: true, refId: existing.zarinpal_ref_id, amount: existing.amount, authority: paymentVerifyDto.authority };
+      console.log(`${loggerPrefix} already completed; returning cached result`);
+      return {
+        success: true,
+        refId: existing.zarinpal_ref_id,
+        amount: existing.amount,
+        authority: paymentVerifyDto.authority,
+        orderId: existing.order_id,
+      };
     }
 
     // Attempt verify with gateway
@@ -115,31 +121,106 @@ export class PaymentsService {
     }
 
     const refId = paymentResponse.data.ref_id.toString();
+    let orderId: string | null = null;
+    let invoiceId: string | null = null;
+    let receiptId: string | null = null;
 
-    // Wrap state changes in a pseudo-transaction: perform deterministic sequence with idempotent writes
+    // Get critical services/collections
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const paymentsCollection = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
-    const transactionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_TRANSACTIONS');
+    const paymentsCollection = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS') || 'payments';
+    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES') || 'invoices';
+    const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS') || 'orders';
+    const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS') || 'receipts';
 
-    // 1) Upsert payments record for authority
     try {
-      const found = await databases.listDocuments(databaseId, paymentsCollection, [
-        Query.equal('zarinpal_authority', paymentVerifyDto.authority),
-        Query.limit(1),
-      ]);
-      if (found.documents?.length) {
-        const doc: any = found.documents[0];
-        await databases.updateDocument(databaseId, paymentsCollection, doc.$id, {
+      // 1) Locate the payment transaction by authority to get order_id
+      const paymentTransaction = existing || await databases.listDocuments(
+        databaseId,
+        paymentsCollection,
+        [Query.equal('zarinpal_authority', paymentVerifyDto.authority), Query.limit(1)]
+      ).then(res => res.documents?.[0]);
+      
+      orderId = paymentTransaction?.order_id;
+      console.log(`${loggerPrefix} found payment transaction for order: ${orderId}`);
+      
+      if (!orderId || orderId === 'unknown') {
+        console.warn(`${loggerPrefix} no valid order_id in payment transaction; cannot link invoice/receipt`);
+      } else {
+        // 2) Update the order payment status and ref_id
+        try {
+          await databases.updateDocument(databaseId, ordersCollection, orderId, {
+            payment_status: 'succeeded',
+            zarinpal_ref_id: refId,
+            updated_at: new Date().toISOString(),
+          });
+          console.log(`${loggerPrefix} updated order ${orderId} payment_status=succeeded`);
+        } catch (e) {
+          console.warn(`${loggerPrefix} failed to update order ${orderId}:`, (e as any)?.message || e);
+        }
+
+        // 3) Find or create invoice for this order
+        try {
+          const invoiceRes = await databases.listDocuments(databaseId, invoicesCollection, [
+            Query.equal('order_id', orderId),
+            Query.limit(1),
+          ]);
+          
+          if (invoiceRes.documents?.length) {
+            const invoice = invoiceRes.documents[0] as any;
+            invoiceId = invoice.$id;
+            
+            // Mark invoice as paid if still pending
+            if (invoice.status === 'pending') {
+              await this.invoicesService.updateInvoiceStatus(invoiceId, InvoiceStatus.PAID);
+              console.log(`${loggerPrefix} marked invoice ${invoiceId} as paid`);
+            }
+          } else {
+            // No invoice exists - create one from the order then mark it paid
+            console.warn(`${loggerPrefix} no invoice found for order ${orderId}; creating one`);
+            const order = await databases.getDocument(databaseId, ordersCollection, orderId);
+            const invoice = await databases.createDocument(databaseId, invoicesCollection, ID.unique(), {
+              user_id: (order as any).user_id,
+              order_id: orderId,
+              amount: paymentVerifyDto.amount,
+              due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: 'paid',
+              description: `Invoice for order ${orderId} (created during payment verification)`,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+            invoiceId = (invoice as any).$id;
+            console.log(`${loggerPrefix} created and marked invoice ${invoiceId} as paid`);
+          }
+
+          // 4) Generate receipt if we have an invoice
+          if (invoiceId) {
+            receiptId = await this.invoicesService.generateReceipt(invoiceId, refId, paymentVerifyDto.amount);
+            console.log(`${loggerPrefix} generated receipt ${receiptId}`);
+            
+            // Send confirmation email
+            try {
+              await this.emailService.sendInvoicePaidEmail(user_id, invoiceId, paymentVerifyDto.amount);
+            } catch (e) {
+              console.warn(`${loggerPrefix} failed to send invoice paid email:`, (e as any)?.message || e);
+            }
+          }
+        } catch (e) {
+          console.warn(`${loggerPrefix} failed to process invoice/receipt:`, (e as any)?.message || e);
+        }
+      }
+
+      // 5) Update/create payment transaction record
+      if (paymentTransaction) {
+        await databases.updateDocument(databaseId, paymentsCollection, (paymentTransaction as any).$id, {
           status: 'completed',
           zarinpal_ref_id: refId,
           amount: paymentVerifyDto.amount,
           updated_at: new Date().toISOString(),
-        } as any);
+        });
       } else {
         await databases.createDocument(databaseId, paymentsCollection, ID.unique(), {
-          order_id: 'unknown',
+          order_id: orderId || 'unknown',
           user_id,
           transaction_type: 'payment_verification',
           zarinpal_authority: paymentVerifyDto.authority,
@@ -149,53 +230,24 @@ export class PaymentsService {
           gateway_response: JSON.stringify(paymentResponse),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        } as any);
-      }
-    } catch (e) {
-      // continue; payments record is for audit
-    }
-
-    // 2) Invoice: try find by authority->order mapping; fallback using existing logic by order lookup above previously (kept minimal here)
-    try {
-      // Here, we locate invoices still pending and mark them PAID; in prior logic order_id was supplied
-      const pending = await databases.listDocuments(databaseId, invoicesCollection, [
-        Query.equal('status', 'pending'),
-        Query.orderDesc('created_at'),
-        Query.limit(1),
-      ]);
-      if (pending.documents?.length) {
-        const invId = (pending.documents[0] as any).$id;
-        await this.invoicesService.updateInvoiceStatus(invId, InvoiceStatus.PAID);
-        await this.invoicesService.generateReceipt(invId, refId, paymentVerifyDto.amount);
-      }
-    } catch (e) {
-      // non-fatal
-    }
-
-    // 3) Log transaction if none exists for this authority
-    try {
-      const existingTx = await databases.listDocuments(databaseId, transactionsCollection, [
-        Query.equal('reference_id', paymentVerifyDto.authority),
-        Query.equal('type', TransactionType.PAYMENT),
-        Query.limit(1),
-      ]);
-      if (!existingTx.documents?.length) {
-        await this.walletsService.createTransaction(user_id, {
-          type: TransactionType.PAYMENT,
-          amount: paymentVerifyDto.amount,
-          description: `Payment verified: ${refId}`,
-          referenceId: paymentVerifyDto.authority,
-          referenceType: 'zarinpal',
-          metadata: { refId },
         });
       }
-    } catch (e) {
-      // wallet write errors should be logged but not break idempotency
-      console.warn(`${loggerPrefix} failed to write wallet tx:`, (e as any)?.message || e);
+      
+      console.log(`${loggerPrefix} verification completed successfully. refId=${refId}, orderId=${orderId}, invoiceId=${invoiceId}, receiptId=${receiptId}`);
+      return {
+        success: true,
+        refId,
+        amount: paymentVerifyDto.amount,
+        authority: paymentVerifyDto.authority,
+        orderId: orderId || undefined,
+        invoiceId: invoiceId || undefined,
+        receiptId: receiptId || undefined,
+      };
+      
+    } catch (error) {
+      console.error(`${loggerPrefix} verification failed:`, (error as any)?.message || error);
+      throw new BadRequestException(`Payment verification processing failed: ${(error as any)?.message || error}`);
     }
-
-    console.log(`${loggerPrefix} verification completed. refId=${refId}`);
-    return { success: true, refId, amount: paymentVerifyDto.amount, authority: paymentVerifyDto.authority };
   }
 
   async refundPayment(
@@ -453,12 +505,12 @@ export class PaymentsService {
   }
 
   /**
-   * Get payment transaction by authority
+   * Get payment transaction by authority (exposed for internal services)
    */
-  private async getPaymentTransactionByAuthority(authority: string): Promise<any> {
+  async getPaymentTransactionByAuthority(authority: string): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
+    const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS') || 'payments';
     
     try {
       const res = await databases.listDocuments(
