@@ -21,10 +21,21 @@ export class StorageService {
     let fileUrl: string | undefined;
 
     const buffer = file.buffer ?? require('fs').readFileSync((file as any).path);
+
+    // Prepare file input for Appwrite v14.1.0
+    // Note: In Node environments, InputFile is still the supported helper for server-side uploads.
+    // We avoid deprecated browser-side patterns and prefer buffer-based upload here.
     const { InputFile } = require('node-appwrite/file');
     const inputFile = InputFile.fromBuffer(buffer, file.originalname);
 
-    const uploaded = await storage.createFile(bucket_id, ID.unique(), inputFile);
+    // Apply owner permissions when user_id is available
+    const perms = user_id ? [
+      (require('node-appwrite').Permission).read((require('node-appwrite').Role).user(user_id)),
+      (require('node-appwrite').Permission).update((require('node-appwrite').Role).user(user_id)),
+      (require('node-appwrite').Permission).delete((require('node-appwrite').Role).user(user_id)),
+    ] : undefined;
+
+    const uploaded = await storage.createFile(bucket_id, ID.unique(), inputFile, perms);
 
     // Persist metadata into project_files
     try {

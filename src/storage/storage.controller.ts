@@ -73,6 +73,7 @@ export class StorageController {
       properties: {
         file: { type: 'string', format: 'binary', description: 'File to upload' },
         order_id: { type: 'string', description: 'Optional order ID to associate the file with' },
+        description: { type: 'string', description: 'Optional description for the file' },
       },
       required: ['file']
     },
@@ -84,6 +85,7 @@ export class StorageController {
     @Param('bucket_id') bucket_id: string,
     @UploadedFile() file: any,
     @Body('order_id') order_id?: string,
+    @Body('description') description?: string,
     @Request() req?: any,
   ) {
     if (!file) throw new BadRequestException('No file provided');
@@ -98,7 +100,7 @@ export class StorageController {
     }
 
     const user_id = req?.user?.id || req?.user?.user_id || null;
-    return await this.storageService.uploadFile(bucket_id, file, order_id, user_id);
+    return await this.storageService.uploadFile(bucket_id, file, order_id, user_id, description || null);
   }
 
   @Get(':bucket_id/:file_id')
@@ -136,24 +138,40 @@ export class StorageController {
   async deleteFile(
     @Param('bucket_id') bucket_id: string,
     @Param('file_id') file_id: string,
+    @Request() req: any,
   ): Promise<{ success: boolean }> {
+    // Authorization: allow admin or owner only
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.appwriteService.getConfig().databaseId;
+    const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
+
+    const found = await databases.listDocuments(
+      databaseId,
+      collectionId,
+      [AWQuery.equal('file_id', file_id), AWQuery.limit(1)],
+    );
+    const doc: any = found.documents?.[0];
+    if (!doc) {
+      // If no record, still attempt delete but warn
+      // eslint-disable-next-line no-console
+      console.warn('project_files record not found for file:', file_id);
+    } else {
+      const user_id = req?.user?.id || req?.user?.user_id || null;
+      const isAdmin = (req?.user?.role || req?.user?.labels)?.includes?.('admin') || req?.user?.role === 'admin';
+      if (!isAdmin && doc.user_id !== user_id) {
+        throw new BadRequestException('You do not have permission to delete this file');
+      }
+    }
+
     const result = await this.appwriteService.deleteFile(bucket_id, file_id);
 
     // Mark project_files record as deleted if exists
     try {
-      const databases = this.appwriteService.getDatabases();
-      const databaseId = this.appwriteService.getConfig().databaseId;
-      const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
-      const found = await databases.listDocuments(
-        databaseId,
-        collectionId,
-        [AWQuery.equal('file_id', file_id), AWQuery.limit(1)],
-      );
-      if (found.documents?.[0]) {
+      if (doc) {
         await databases.updateDocument(
           databaseId,
           collectionId,
-          (found.documents[0] as any).$id,
+          doc.$id,
           { status: 'deleted', updated_at: new Date().toISOString() } as any,
         );
       }
@@ -198,19 +216,28 @@ export class StorageController {
   @ApiResponse({ status: 200, description: 'Order files retrieved successfully', schema: { example: { files: [{ id: 'file_abc123', bucket_id: 'project-files', filename: 'contract.pdf', original_name: 'contract.pdf', mime_type: 'application/pdf', size: 12345, url: 'https://<endpoint>/storage/buckets/project-files/files/file_abc123/view?project=<projectId>', description: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z', status: 'active' }], total: 1 } } })
   async listProjectFiles(
     @Param('order_id') order_id: string,
+    @Request() req: any,
   ) {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.appwriteService.getConfig().databaseId;
     const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
 
+    const user_id = req?.user?.id || req?.user?.user_id || null;
+    const isAdmin = (req?.user?.role || req?.user?.labels)?.includes?.('admin') || req?.user?.role === 'admin';
+
+    const filters: string[] = [
+      AWQuery.equal('order_id', order_id),
+      AWQuery.equal('status', 'active'),
+      AWQuery.orderDesc('created_at'),
+    ];
+    if (!isAdmin && user_id) {
+      filters.unshift(AWQuery.equal('user_id', user_id));
+    }
+
     const res = await databases.listDocuments(
       databaseId,
       collectionId,
-      [
-        AWQuery.equal('order_id', order_id),
-        AWQuery.equal('status', 'active'),
-        AWQuery.orderDesc('created_at'),
-      ],
+      filters,
     );
 
     const files = (res.documents || []).map((doc: any) => ({
