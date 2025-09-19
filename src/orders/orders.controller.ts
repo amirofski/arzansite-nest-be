@@ -91,6 +91,16 @@ export class OrdersController {
     return this.ordersService.updateOrder(id, user.id, updateOrderDto, isAdmin);
   }
 
+  // Optional design endpoint for legacy/derived designs
+  @Get(':id/design')
+  async getOrderDesign(
+    @User() user: UserPayload,
+    @Param('id') id: string,
+  ) {
+    const isAdmin = user.role === 'admin';
+    return this.ordersService.getOrderDesign(id, user.id, isAdmin);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteOrder(

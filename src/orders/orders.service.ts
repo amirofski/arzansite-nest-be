@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ConfigService } from '@nestjs/config';
-import { ID, Query } from 'node-appwrite';
+import { ID, Query, Permission, Role } from 'node-appwrite';
 import { Order } from '../common/types/database.types';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -15,6 +15,7 @@ import { InvoicesService } from '../invoices/invoices.service';
 import { CreateUnifiedOrderDto, SubmitMode } from './dto/create-unified.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { InvoiceStatus } from '../invoices/dto/invoice.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class OrdersService extends BaseAppwriteService {
@@ -37,6 +38,7 @@ export class OrdersService extends BaseAppwriteService {
     private readonly emailService: EmailService,
     @Inject(forwardRef(() => PaymentsService)) private readonly paymentsService: PaymentsService,
     @Inject(forwardRef(() => InvoicesService)) private readonly invoicesService: InvoicesService,
+    private readonly notificationsService: NotificationsService,
   ) {
     super(appwriteService, configService);
   }
@@ -65,8 +67,9 @@ export class OrdersService extends BaseAppwriteService {
     queries.push(Query.limit(limit));
 
     const result = await this.listDocuments<Order>(queries);
+    const items = (result.documents || []).map((doc: any) => this.parseWizardData(doc));
     return {
-      items: result.documents,
+      items,
       pagination: {
         page,
         limit,
@@ -88,7 +91,7 @@ export class OrdersService extends BaseAppwriteService {
       throw new ForbiddenException('Access denied');
     }
 
-    return data;
+    return this.parseWizardData(data as any);
   }
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
@@ -146,7 +149,12 @@ export class OrdersService extends BaseAppwriteService {
     };
 
     try {
-      const order = await this.createDocument<Order>(orderData);
+      const ownerPermissions = [
+        Permission.read(Role.user(userId)),
+        Permission.update(Role.user(userId)),
+        Permission.delete(Role.user(userId)),
+      ];
+      const order = await this.createDocument<Order>(orderData, undefined, ownerPermissions);
 
       // Auto-create invoice for the order
       try {
@@ -167,6 +175,7 @@ export class OrdersService extends BaseAppwriteService {
               created_at: new Date(now).toISOString(),
               updated_at: new Date(now).toISOString(),
             } as any,
+            ownerPermissions,
           );
           // Notify user
           await this.emailService.sendInvoiceCreatedEmail(userId, (invoice as any).$id, totalAmount);
@@ -180,6 +189,19 @@ export class OrdersService extends BaseAppwriteService {
       
       // Send order confirmation email
       await this.sendOrderConfirmationEmail(userId, order);
+      // Dashboard notification
+      try {
+        await this.notificationsService.sendOrderStatusNotification({
+          order_id: order.id,
+          user_id: userId,
+          notificationType: 'order_created',
+          message: `Order ${order.id} created and awaiting payment`,
+          priority: 'medium',
+          channels: ['dashboard'],
+        });
+      } catch (e) {
+        this.logger.warn(`Failed to create dashboard notification: ${(e as any)?.message || e}`);
+      }
       
       this.logger.log(`Order created successfully: ${order.id}`);
       return order;
@@ -209,7 +231,13 @@ export class OrdersService extends BaseAppwriteService {
       updated_at: nowISO,
     };
 
-    const order = await this.createDocument<Order>(orderData);
+    const ownerPermissions = [
+      Permission.read(Role.user(userId)),
+      Permission.update(Role.user(userId)),
+      Permission.delete(Role.user(userId)),
+    ];
+
+    const order = await this.createDocument<Order>(orderData, undefined, ownerPermissions);
 
     // Auto-create invoice
     try {
@@ -229,6 +257,7 @@ export class OrdersService extends BaseAppwriteService {
             created_at: nowISO,
             updated_at: nowISO,
           } as any,
+          ownerPermissions,
         );
         await this.emailService.sendInvoiceCreatedEmail(userId, (invoice as any).$id, dto.totalAmount);
       }
@@ -239,6 +268,19 @@ export class OrdersService extends BaseAppwriteService {
     // Email: order awaiting payment
     try {
       await this.sendOrderConfirmationEmail(userId, order);
+      // Dashboard notification
+      try {
+        await this.notificationsService.sendOrderStatusNotification({
+          order_id: order.id,
+          user_id: userId,
+          notificationType: 'order_created',
+          message: `Order ${order.id} created and awaiting payment`,
+          priority: 'medium',
+          channels: ['dashboard'],
+        });
+      } catch (e) {
+        this.logger.warn(`Failed to create dashboard notification: ${(e as any)?.message || e}`);
+      }
     } catch {}
 
     if (dto.submitMode === SubmitMode.PAYMENT) {
@@ -333,7 +375,12 @@ export class OrdersService extends BaseAppwriteService {
   ): Promise<Order> {
     // Verify order exists and user has access
     const existingOrder = await this.getOrder(orderId, userId, isAdmin);
-    
+
+    // Only allow owner to edit when pending (unless admin)
+    if (!isAdmin && existingOrder.status !== 'pending') {
+      throw new BadRequestException('Only pending orders can be edited');
+    }
+
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
@@ -345,8 +392,14 @@ export class OrdersService extends BaseAppwriteService {
     if (updateOrderDto.total_amount !== undefined) updateData.total_amount = updateOrderDto.total_amount;
     if (updateOrderDto.comments !== undefined) updateData.comments = updateOrderDto.comments;
     if (updateOrderDto.payment_status !== undefined) updateData.payment_status = updateOrderDto.payment_status;
+    if ((updateOrderDto as any).wizard_data !== undefined) {
+      // Accept both object and string
+      const wd = (updateOrderDto as any).wizard_data;
+      updateData.wizard_data = typeof wd === 'string' ? wd : JSON.stringify(wd);
+    }
 
-    return this.updateDocument<Order>(orderId, updateData);
+    const updated = await this.updateDocument<Order>(orderId, updateData);
+    return this.parseWizardData(updated as any);
   }
 
   async updateOrderPayment(
@@ -376,8 +429,12 @@ export class OrdersService extends BaseAppwriteService {
 
   async deleteOrder(orderId: string, userId: string, isAdmin: boolean = false): Promise<void> {
     // Verify order exists and user has access
-    await this.getOrder(orderId, userId, isAdmin);
+    const order = await this.getOrder(orderId, userId, isAdmin);
     
+    if (!isAdmin && order.status !== 'pending') {
+      throw new BadRequestException('Only pending orders can be deleted');
+    }
+
     await this.deleteDocument(orderId);
   }
 
@@ -501,12 +558,15 @@ export class OrdersService extends BaseAppwriteService {
 
   private async sendOrderConfirmationEmail(userId: string, order: Order): Promise<void> {
     try {
-      await this.emailService.sendOrderNotification(userId, {
-        orderId: order.id,
-        orderTitle: order.title,
-        totalAmount: order.total_amount,
-        status: order.status,
-      });
+      const email = await this.getUserEmail(userId);
+      if (email) {
+        await this.emailService.sendOrderNotification(email, {
+          id: order.id,
+          title: order.title,
+          price: order.total_amount,
+          status: order.status,
+        });
+      }
     } catch (error) {
       this.logger.warn(`Failed to send order confirmation email: ${error.message}`);
     }
@@ -552,6 +612,19 @@ export class OrdersService extends BaseAppwriteService {
           const refId = `ADMIN_${Date.now()}`;
           await this.invoicesService.generateReceipt(inv.$id, refId, inv.amount);
           await this.emailService.sendInvoicePaidEmail(order.user_id, inv.$id, inv.amount);
+          // Dashboard notification
+          try {
+            await this.notificationsService.sendOrderStatusNotification({
+              order_id: dto.orderId,
+              user_id: order.user_id,
+              notificationType: 'payment_success',
+              message: `Payment successful for order ${dto.orderId}`,
+              priority: 'high',
+              channels: ['dashboard'],
+            });
+          } catch (e) {
+            this.logger.warn(`Failed to notify dashboard: ${(e as any)?.message || e}`);
+          }
         }
       } catch (e: any) {
         this.logger.warn(`Failed to finalize invoice/receipt for order ${dto.orderId}: ${e?.message || e}`);
@@ -559,5 +632,58 @@ export class OrdersService extends BaseAppwriteService {
     }
 
     return { success: true, orderId: dto.orderId, updated };
+  }
+  private parseWizardData<T>(doc: T): T {
+    try {
+      const anyDoc = doc as any;
+      if (anyDoc && typeof anyDoc === 'object' && typeof anyDoc.wizard_data === 'string') {
+        try { anyDoc.wizard_data = JSON.parse(anyDoc.wizard_data); } catch {}
+      }
+      return doc;
+    } catch {
+      return doc;
+    }
+  }
+
+  private async getUserEmail(user_id: string): Promise<string | null> {
+    try {
+      const databases = this['databases'];
+      const databaseId = this['databaseId'];
+      const usersCollection = this['configService'].get<string>('APPWRITE_COLLECTION_USERS')
+        || this['configService'].get<string>('APPWRITE_COLLECTION_USER_PROFILES');
+      if (!usersCollection) return null;
+      const res = await databases.listDocuments(
+        databaseId,
+        usersCollection,
+        [Query.equal('user_id', user_id), Query.limit(1)],
+      );
+      const doc: any = res.documents?.[0];
+      return doc?.email || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getOrderDesign(orderId: string, userId: string, isAdmin: boolean = false): Promise<{ design: any; options?: any }> {
+    const order = await this.getOrder(orderId, userId, isAdmin);
+    // Try designs collection first
+    try {
+      const designsCollection = this['configService'].get<string>('APPWRITE_COLLECTION_DESIGNS');
+      if (designsCollection) {
+        const res = await this['databases'].listDocuments(this['databaseId'], designsCollection, [
+          Query.equal('order_id', orderId),
+          Query.limit(1),
+        ]);
+        if (res.documents?.[0]) {
+          const d: any = res.documents[0];
+          return { design: d.dynamic_design || null, options: d.options || null };
+        }
+      }
+    } catch {}
+
+    // Derive from order.wizard_data if present
+    const wd: any = (order as any).wizard_data;
+    const derived = wd?.website_framework?.dynamicDesign || wd?.websiteFramework?.dynamicDesign || null;
+    return { design: derived, options: wd?.options || wd?.branding || null };
   }
 }

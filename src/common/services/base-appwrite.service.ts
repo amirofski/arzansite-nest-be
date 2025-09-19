@@ -31,6 +31,7 @@ export abstract class BaseAppwriteService {
   protected async createDocument<T = any>(
     data: Record<string, any>,
     documentId?: string,
+    permissions?: string[],
   ): Promise<T> {
     const mappedData = mapAppwriteToDatabase(data);
     const doc = await this.databases.createDocument(
@@ -38,6 +39,7 @@ export abstract class BaseAppwriteService {
       this.collectionId,
       documentId || ID.unique(),
       mappedData,
+      permissions,
     );
     return mapDatabaseToAppwrite(doc) as T;
   }

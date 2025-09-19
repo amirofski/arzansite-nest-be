@@ -6,6 +6,7 @@ import { WalletsModule } from '../wallets/wallets.module';
 import { EmailModule } from '../email/email.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { InvoicesModule } from '../invoices/invoices.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
     EmailModule,
     forwardRef(() => PaymentsModule),
     forwardRef(() => InvoicesModule),
+    NotificationsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],
