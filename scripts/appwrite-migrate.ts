@@ -294,6 +294,26 @@ const schemas: CollectionSchema[] = [
     ],
     indexes: [idx('success_idx', ['success']), idx('template_type_idx', ['template_type']), idx('sent_at_idx', ['sent_at'], ['DESC'])],
   },
+  // Email outbox for queued email sends (used by EmailOutboxService)
+  {
+    id: process.env.APPWRITE_COLLECTION_EMAIL_OUTBOX || 'email_outbox',
+    attributes: [
+      s('type', 64, true),
+      s('entity_id', 256, true),
+      s('payload', 16384, false),
+      e('status', ['pending', 'sent', 'failed'], true),
+      i('attempts', true, false, 0),
+      s('error_message', 8192, false),
+      s('created_at', 64, true),
+      s('sent_at', 64, false),
+    ],
+    indexes: [
+      idx('type_entity_idx', ['type', 'entity_id']),
+      idx('status_idx', ['status']),
+      idx('status_created_idx', ['status', 'created_at']),
+      idx('created_at_idx', ['created_at'], ['DESC']),
+    ],
+  },
   {
     id: process.env.APPWRITE_COLLECTION_PUSH_TOKENS || 'push_tokens',
     attributes: [s('user_id', 128, true), s('token', 512, true), b('active', true), s('created_at', 64, true)],

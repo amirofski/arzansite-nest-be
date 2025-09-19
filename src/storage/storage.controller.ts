@@ -9,10 +9,14 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   Post,
   Body,
   Request,
+  Res,
   BadRequestException,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,7 +28,7 @@ import {
   ApiConsumes,
   ApiBody,
 } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { StorageService } from './storage.service';
 import { AppwriteService } from '../appwrite/appwrite.service';
@@ -101,6 +105,77 @@ export class StorageController {
 
     const user_id = req?.user?.id || req?.user?.user_id || null;
     return await this.storageService.uploadFile(bucket_id, file, order_id, user_id, description || null);
+  }
+
+  // Multi-file upload mirroring wizard flow and validations
+  @Post('upload/:bucket_id/many')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FilesInterceptor('files', 10, {
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const ALLOWED_MIME_TYPES = new Set([
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'application/pdf',
+        'text/plain'
+      ]);
+      if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+        return cb(new BadRequestException('Invalid file type'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  @ApiOperation({ summary: 'Upload multiple files', description: 'Upload multiple files to the specified bucket' })
+  @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        files: { type: 'array', items: { type: 'string', format: 'binary' }, description: 'Files to upload' },
+        order_id: { type: 'string', description: 'Optional order ID to associate the files with' },
+        description: { type: 'string', description: 'Optional description for the files' },
+      },
+      required: ['files']
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Files uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async uploadFilesMany(
+    @Param('bucket_id') bucket_id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('order_id') order_id?: string,
+    @Body('description') description?: string,
+    @Request() req?: any,
+  ) {
+    if (!files || files.length === 0) throw new BadRequestException('No files provided');
+
+    // Enforce bucket allowlist
+    const config = this.appwriteService.getConfig() as any;
+    const modern = [config.storage?.projectFiles, config.storage?.userAvatars, config.storage?.designAssets].filter(Boolean);
+    const legacy = config.buckets ? Object.values(config.buckets).filter(Boolean) : [];
+    const allowedBuckets = new Set<string>([...modern as string[], ...legacy as string[]]);
+    if (allowedBuckets.size > 0 && !allowedBuckets.has(bucket_id)) {
+      throw new BadRequestException('Bucket not allowed');
+    }
+
+    const user_id = req?.user?.id || req?.user?.user_id || null;
+
+    const results: any[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      try {
+        const res = await this.storageService.uploadFile(bucket_id, file, order_id, user_id, description || null);
+        results.push(res);
+      } catch (e: any) {
+        errors.push(e?.message || 'Upload failed');
+      }
+    }
+
+    return { success: errors.length === 0, uploaded: results, errors };
   }
 
   @Get(':bucket_id/:file_id')
@@ -207,6 +282,95 @@ export class StorageController {
         $permissions: file.$permissions,
       })),
     };
+  }
+
+  // Proxy streaming download endpoint with permission checks
+  @Get('download/:bucket_id/:file_id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Download file (proxy)', description: 'Streams a file from Appwrite Storage after permission checks' })
+  @ApiParam({ name: 'bucket_id', description: 'Bucket ID' })
+  @ApiParam({ name: 'file_id', description: 'File ID' })
+  @ApiResponse({ status: 200, description: 'File streamed successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async downloadFile(
+    @Param('bucket_id') bucket_id: string,
+    @Param('file_id') file_id: string,
+    @Request() req: any,
+    @Res() res: any,
+  ) {
+    // Enforce bucket allowlist
+    const config = this.appwriteService.getConfig() as any;
+    const modern = [config.storage?.projectFiles, config.storage?.userAvatars, config.storage?.designAssets].filter(Boolean);
+    const legacy = config.buckets ? Object.values(config.buckets).filter(Boolean) : [];
+    const allowedBuckets = new Set<string>([...modern as string[], ...legacy as string[]]);
+    if (allowedBuckets.size > 0 && !allowedBuckets.has(bucket_id)) {
+      throw new BadRequestException('Bucket not allowed');
+    }
+
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.appwriteService.getConfig().databaseId;
+    const collectionId = process.env.APPWRITE_COLLECTION_PROJECT_FILES || 'project_files';
+
+    const found = await databases.listDocuments(
+      databaseId,
+      collectionId,
+      [AWQuery.equal('file_id', file_id), AWQuery.limit(1)],
+    );
+    const doc: any = found.documents?.[0];
+
+    const user_id = req?.user?.id || req?.user?.user_id || null;
+    const isAdmin = (req?.user?.role || req?.user?.labels)?.includes?.('admin') || req?.user?.role === 'admin';
+
+    if (!doc && !isAdmin) {
+      throw new NotFoundException('File not found');
+    }
+    if (doc && !isAdmin && doc.user_id !== user_id) {
+      throw new ForbiddenException('You do not have permission to download this file');
+    }
+
+    const storage = this.appwriteService.getStorage();
+
+    // Fetch file metadata for headers
+    let fileMeta: any;
+    try {
+      fileMeta = await storage.getFile(bucket_id, file_id);
+    } catch (e: any) {
+      throw new NotFoundException('File not found');
+    }
+
+    // Download data
+    let data: any;
+    try {
+      data = await storage.getFileDownload(bucket_id, file_id);
+    } catch (e: any) {
+      throw new NotFoundException('File not found');
+    }
+
+    const filename = fileMeta?.name || 'download';
+    const mime = fileMeta?.mimeType || 'application/octet-stream';
+    const size = (fileMeta as any)?.sizeOriginal;
+
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    if (size) res.setHeader('Content-Length', String(size));
+
+    // Handle Buffer, ArrayBuffer, or stream
+    if (data && typeof (data as any).pipe === 'function') {
+      (data as any).pipe(res);
+    } else if (data instanceof ArrayBuffer) {
+      res.end(Buffer.from(data));
+    } else if (Buffer.isBuffer(data)) {
+      res.end(data);
+    } else if (data && (data as any).buffer && data.byteLength !== undefined) {
+      // Handle Uint8Array or similar
+      res.end(Buffer.from((data as any).buffer));
+    } else {
+      // Fallback: construct signed URL and redirect (should rarely happen)
+      const url = `${config.endpoint}/storage/buckets/${bucket_id}/files/${file_id}/download?project=${config.projectId}`;
+      res.redirect(url);
+    }
   }
 
   @Get('projects/:order_id/files')
