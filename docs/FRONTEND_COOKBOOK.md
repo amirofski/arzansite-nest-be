@@ -185,18 +185,35 @@ Frontend tips
 Storage (Files)
 
 - POST /storage/upload/:bucketId (multipart)
-  Form: file, order_id?
+  Form: file, order_id?, description?
   Returns: { success, file_id, name, bucket_id, order_id, user_id, url, mime_type }
+- POST /storage/upload/:bucketId/many (multipart)
+  Form: files[] (up to 10), order_id?, description?
+  Returns: { success: boolean, uploaded: Array<{ file_id, name, bucket_id, order_id, user_id, url, mime_type }>, errors: string[] }
 - GET /storage/:bucketId/:fileId
 - GET /storage/:bucketId/:fileId/url
-- DELETE /storage/:bucketId/:fileId
 - GET /storage/projects/:order_id/files → project files linked to an order
+- DELETE /storage/:bucketId/:fileId
+
+Example (multiple upload)
+```ts path=null start=null
+const form = new FormData();
+files.forEach(f => form.append('files', f));
+form.append('order_id', orderId);
+form.append('description', description ?? '');
+await fetch(`${API_BASE}/storage/upload/${PROJECT_FILES_BUCKET}/many`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${jwt}` },
+  body: form,
+});
+```
 
 Buckets used
 - APPWRITE_STORAGE_PROJECT_FILES → project files
 - APPWRITE_STORAGE_USER_AVATARS (or APPWRITE_BUCKET_AVATARS fallback) → avatars
 
 Frontend tips
+- Prefer /storage/upload/:bucketId/many for gallery-style uploads; fall back to single when needed.
 - Use presigned view URLs for images. Cache-bust with ?t=timestamp after updates.
 - For wizard file gallery: list /storage/projects/:order_id/files; allow delete with confirmation.
 

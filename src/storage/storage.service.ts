@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { AppwriteService } from '../appwrite/appwrite.service';
 import { ID } from 'node-appwrite';
 
@@ -12,6 +12,7 @@ export class StorageService {
     order_id?: string | null,
     user_id?: string | null,
     description?: string | null,
+    isAdmin?: boolean,
   ): Promise<{ success: boolean; file_id: string; name: string; bucket_id: string; order_id?: string | null; user_id?: string | null; url?: string; mime_type?: string }> {
     if (!file) throw new BadRequestException('No file provided');
 
@@ -19,6 +20,25 @@ export class StorageService {
     const databases = this.appwriteService.getDatabases();
     const config = this.appwriteService.getConfig();
     let fileUrl: string | undefined;
+
+    // Optional: verify order access like wizard flow when order_id is provided
+    if (order_id) {
+      const wizardSessionsCollection = (config as any).collections?.wizardSessions || process.env.APPWRITE_COLLECTION_WIZARD_SESSIONS || 'wizard_sessions';
+      try {
+        const orderDoc: any = await databases.getDocument(config.databaseId, wizardSessionsCollection, order_id);
+        if (!isAdmin && user_id && orderDoc?.user_id && orderDoc.user_id !== user_id) {
+          throw new ForbiddenException('Access denied for the specified order');
+        }
+      } catch (e: any) {
+        if (e?.code === 404 || e?.message?.includes('not found')) {
+          throw new NotFoundException('Order not found');
+        }
+        // If getDocument threw ForbiddenException above, rethrow
+        if (e instanceof ForbiddenException) throw e;
+        // Otherwise wrap as BadRequest
+        throw new BadRequestException(e?.message || 'Failed to verify order');
+      }
+    }
 
     const buffer = file.buffer ?? require('fs').readFileSync((file as any).path);
 

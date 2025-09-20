@@ -104,7 +104,8 @@ export class StorageController {
     }
 
     const user_id = req?.user?.id || req?.user?.user_id || null;
-    return await this.storageService.uploadFile(bucket_id, file, order_id, user_id, description || null);
+    const isAdmin = (req?.user?.role || req?.user?.labels)?.includes?.('admin') || req?.user?.role === 'admin';
+    return await this.storageService.uploadFile(bucket_id, file, order_id, user_id, description || null, isAdmin);
   }
 
   // Multi-file upload mirroring wizard flow and validations
@@ -162,13 +163,14 @@ export class StorageController {
     }
 
     const user_id = req?.user?.id || req?.user?.user_id || null;
+    const isAdmin = (req?.user?.role || req?.user?.labels)?.includes?.('admin') || req?.user?.role === 'admin';
 
     const results: any[] = [];
     const errors: string[] = [];
 
     for (const file of files) {
       try {
-        const res = await this.storageService.uploadFile(bucket_id, file, order_id, user_id, description || null);
+        const res = await this.storageService.uploadFile(bucket_id, file, order_id, user_id, description || null, isAdmin);
         results.push(res);
       } catch (e: any) {
         errors.push(e?.message || 'Upload failed');
