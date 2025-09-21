@@ -435,6 +435,13 @@ export class PaymentsService {
           metadata: { refId, source: 'zarinpal' },
         });
 
+        // Send wallet top-up confirmation email
+        try {
+          await this.emailService.sendWalletTopUpEmail(user_id, transaction.amount, refId);
+        } catch (e) {
+          console.warn(`Failed to send wallet top-up email:`, (e as any)?.message || e);
+        }
+
         // Log payment transaction
         await this.logPaymentTransaction({
           order_id: `deposit_${user_id}_${Date.now()}_${transaction.amount}`,
