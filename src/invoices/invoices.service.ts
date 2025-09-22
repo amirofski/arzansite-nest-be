@@ -27,7 +27,7 @@ export class InvoicesService {
   async createInvoice(user_id: string, createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES') || 'invoices';
 
     // Verify order exists and belongs to user
     const order = await this.ordersService.getOrder(createInvoiceDto.order_id, user_id);
@@ -73,7 +73,7 @@ export class InvoicesService {
   ): Promise<{ items: InvoiceResponseDto[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES') || 'invoices';
 
     const queries: string[] = [Query.orderDesc('created_at')];
     if (!isAdmin) {
@@ -104,7 +104,7 @@ export class InvoicesService {
   async getInvoice(invoiceId: string, user_id: string, isAdmin: boolean = false): Promise<InvoiceResponseDto> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES') || 'invoices';
 
     const invoice = await databases.getDocument(
       databaseId,
@@ -163,7 +163,7 @@ export class InvoicesService {
   async updateInvoiceStatus(invoiceId: string, status: InvoiceStatus): Promise<void> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES') || 'invoices';
 
     await databases.updateDocument(
       databaseId,
@@ -179,7 +179,19 @@ export class InvoicesService {
   async generateReceipt(invoiceId: string, refId: string, amount: number): Promise<string> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS');
+    const receiptsCollection = this.configService.get<string>('APPWRITE_COLLECTION_RECEIPTS') || 'receipts';
+    const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES') || 'invoices';
+
+    // Enrich receipt with user_id for easier querying
+    let userIdForReceipt: string | undefined = undefined;
+    try {
+      const invoiceDoc = await databases.getDocument(
+        databaseId,
+        invoicesCollection,
+        invoiceId,
+      );
+      userIdForReceipt = (invoiceDoc as any)?.user_id;
+    } catch (_) {}
 
     const receipt = await databases.createDocument(
       databaseId,
@@ -190,6 +202,7 @@ export class InvoicesService {
         ref_id: refId,
         amount,
         format: 'pdf',
+        ...(userIdForReceipt ? { user_id: userIdForReceipt } : {}),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },

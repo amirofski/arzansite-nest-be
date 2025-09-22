@@ -21,5 +21,3 @@ async function checkCollections() {
 }
 
 checkCollections();
-
-

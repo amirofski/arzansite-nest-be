@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Post, Body, Put, Param, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Post, Body, Put, Param, UseInterceptors, Delete } from '@nestjs/common';
 import { DomainsService } from './domains.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 import { JwtGuard } from '../common/guards/jwt.guard';
@@ -97,6 +97,19 @@ export class DomainsController {
       updateData.price,
       updateData.available
     );
+  }
+
+  @Delete('extensions/:extensionId')
+  @ApiOperation({ summary: 'Delete Domain Extension (Admin Only)' })
+  @ApiParam({ name: 'extensionId', description: 'Domain Extension ID' })
+  @ApiResponse({ status: 200, description: 'Domain extension deleted' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiSecurity('admin')
+  async deleteDomainExtension(@Param('extensionId') extensionId: string) {
+    return this.domainsService.deleteDomainExtension(extensionId);
   }
 
   @Get('check')

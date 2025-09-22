@@ -94,7 +94,7 @@ export class DomainsService {
     // Get available domain extensions from Appwrite
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS') || 'domain_extensions';
     
     try {
       const result = await databases.listDocuments(
@@ -123,7 +123,7 @@ export class DomainsService {
     // Get domain prices from Appwrite
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS') || 'domain_extensions';
     
     try {
       const result = await databases.listDocuments(
@@ -150,7 +150,7 @@ export class DomainsService {
   async createDomainExtension(data: { extension: string; price: number; description?: string; available: boolean; isDefault?: boolean }): Promise<any> {
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS') || 'domain_extensions';
 
     try {
       const created = await databases.createDocument(
@@ -182,7 +182,7 @@ export class DomainsService {
     // Update domain prices in Appwrite (admin only)
     const databases = this.appwriteService.getDatabases();
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
-    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS') || 'domain_extensions';
     
     try {
       const updated = await databases.updateDocument(
@@ -200,6 +200,20 @@ export class DomainsService {
     } catch (error) {
       console.error('Error updating domain prices:', error);
       throw new BadRequestException('Failed to update domain prices');
+    }
+  }
+
+  async deleteDomainExtension(extensionId: string): Promise<{ success: boolean }>{
+    const databases = this.appwriteService.getDatabases();
+    const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+    const domainExtensionsCollection = this.configService.get<string>('APPWRITE_COLLECTION_DOMAIN_EXTENSIONS') || 'domain_extensions';
+
+    try {
+      await databases.deleteDocument(databaseId, domainExtensionsCollection, extensionId);
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting domain extension:', error);
+      throw new BadRequestException('Failed to delete domain extension');
     }
   }
 }

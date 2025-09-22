@@ -73,5 +73,3 @@ async function setupDomainExtensions() {
 }
 
 setupDomainExtensions();
-
-
