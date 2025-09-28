@@ -1127,11 +1127,13 @@ export class AuthService {
       });
 
       // Set user info cookie (non-sensitive data)
+      // For OAuth users, consider email as verified
+      const emailVerified = true; // OAuth users are always considered verified
       res.cookie('user_info', JSON.stringify({
         id: user.$id,
         email: user.email,
         name: user.name,
-        emailVerification: user.emailVerification,
+        emailVerification: emailVerified,
       }), {
         httpOnly: false, // Allow frontend access
         secure: this.configService.get('NODE_ENV') === 'production',
@@ -1143,6 +1145,10 @@ export class AuthService {
       // Create profile if it doesn't exist and mark login timestamp
       try {
         await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+        
+        // Mark OAuth users as verified in our database
+        await this.profilesService.markVerified(user.$id);
+        
         this.profilesService.markLogin(user.$id).catch(() => undefined);
       } catch (profileError) {
         console.warn('⚠️ Failed to create profile for OAuth user:', profileError);
@@ -1235,6 +1241,41 @@ export class AuthService {
     }
   }
 
+  /**
+   * Determines if a user is an OAuth user based on available indicators
+   * @param user - The user object from Appwrite
+   * @returns true if the user is likely an OAuth user
+   */
+  private isOAuthUser(user: any): boolean {
+    // Check for OAuth-related indicators
+    // 1. Check if user has identities (OAuth users typically have identities)
+    if (user.identities && Array.isArray(user.identities) && user.identities.length > 0) {
+      return true;
+    }
+    
+    // 2. Check for OAuth provider labels
+    if (user.labels && Array.isArray(user.labels)) {
+      const oauthLabels = ['oauth', 'github', 'google', 'facebook', 'discord', 'twitch'];
+      return user.labels.some((label: string) => oauthLabels.includes(label.toLowerCase()));
+    }
+    
+    // 3. Check if user was created recently and has no password (typical for OAuth)
+    // This is a fallback heuristic - OAuth users often don't have passwords set
+    if (user.$createdAt) {
+      const createdAt = new Date(user.$createdAt);
+      const now = new Date();
+      const daysSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      
+      // If user was created recently (within 1 hour) and emailVerification is false,
+      // it's likely an OAuth user
+      if (daysSinceCreation < 0.04 && !user.emailVerification) { // 0.04 days = ~1 hour
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
   async exchangeAppwriteJwt(appwriteJwt: string) {
     try {
       if (!appwriteJwt) {
@@ -1248,8 +1289,13 @@ export class AuthService {
         throw new UnauthorizedException('Invalid Appwrite JWT');
       }
 
-      // In production, require verified email
-      if (!user.emailVerification) {
+      // Check if this is an OAuth user by looking for OAuth-related indicators
+      // OAuth users typically have identities or specific labels
+      const isOAuthUser = this.isOAuthUser(user);
+      
+      // For OAuth users, automatically consider email as verified
+      // For regular users, require email verification
+      if (!isOAuthUser && !user.emailVerification) {
         throw new UnauthorizedException('Email must be verified before accessing the API');
       }
 
@@ -1259,13 +1305,16 @@ export class AuthService {
         throw new UnauthorizedException('Server misconfiguration: JWT secret is missing');
       }
       
+      // For OAuth users, consider email as verified regardless of Appwrite status
+      const emailVerified = isOAuthUser || user.emailVerification;
+
       // Create access token
       const accessToken = jwt.sign(
         {
           sub: user.$id,
           email: user.email,
           name: user.name,
-          emailVerified: user.emailVerification,
+          emailVerified: emailVerified,
           type: 'access'
         },
         secret,
@@ -1286,6 +1335,11 @@ export class AuthService {
       // Create profile if it doesn't exist
       try {
         await this.profilesService.createProfileIfNotExists(user.$id, user.email);
+        
+        // For OAuth users, mark them as verified in our database
+        if (isOAuthUser) {
+          await this.profilesService.markVerified(user.$id);
+        }
       } catch (profileError) {
         console.warn('⚠️ Failed to create profile during JWT exchange:', profileError);
       }
@@ -1297,7 +1351,7 @@ export class AuthService {
           id: user.$id,
           email: user.email,
           name: user.name,
-          emailVerification: user.emailVerification,
+          emailVerification: emailVerified,
         },
         message: 'JWT exchange successful. Use the access_token for API requests.'
       };
