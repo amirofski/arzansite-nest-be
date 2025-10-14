@@ -76,6 +76,31 @@ function idx(key: string, attributes: string[], orders?: ('ASC' | 'DESC')[]): In
 
 // Define the schema per earlier audit
 const schemas: CollectionSchema[] = [
+  // Main users collection with full profile data
+  {
+    id: process.env.APPWRITE_COLLECTION_USERS || 'users',
+    attributes: [
+      s('user_id', 128, true),
+      s('email', 256, true),
+      s('full_name', 256, false),
+      s('phone', 64, false),
+      s('avatar_url', 512, false),
+      s('role', 32, false),
+      s('status', 32, false),
+      s('verification_status', 32, false),
+      s('email_verified_at', 64, false),
+      s('last_login_at', 64, false),
+      s('created_at', 64, true),
+      s('updated_at', 64, true),
+    ],
+    indexes: [
+      idx('user_id_idx', ['user_id']),
+      idx('email_idx', ['email']),
+      idx('status_idx', ['status']),
+      idx('role_idx', ['role']),
+    ],
+  },
+  // Legacy user_profiles collection (kept for backward compatibility)
   {
     id: process.env.APPWRITE_COLLECTION_USER_PROFILES || 'user_profiles',
     attributes: [s('user_id', 128, true), s('email', 256, true), s('full_name', 256, false), s('created_at', 64, true), s('updated_at', 64, true)],
@@ -254,7 +279,7 @@ const schemas: CollectionSchema[] = [
       s('status', 32, true),
       s('project_files', 16384, false), // JSON string of files or managed separately
       s('wizard_data', 16384, false),   // JSON string of the entire wizard state
-      b('is_completed', true, false, false),
+      b('is_completed', true, false),
       s('created_at', 64, true),
       s('updated_at', 64, true),
     ],
@@ -263,18 +288,6 @@ const schemas: CollectionSchema[] = [
       idx('user_id_idx', ['user_id']),
       idx('updated_at_idx', ['updated_at'], ['DESC'])
     ],
-  },
-  {
-    id: process.env.APPWRITE_COLLECTION_DESIGNS || 'designs',
-    attributes: [
-      s('order_id', 128, true),
-      s('user_id', 128, true),
-      s('dynamic_design', 16384, false),
-      s('options', 4096, false),
-      s('created_at', 64, true),
-      s('updated_at', 64, true),
-    ],
-    indexes: [idx('order_id_idx', ['order_id'])],
   },
   {
     id: process.env.APPWRITE_COLLECTION_SITE_CONFIG || 'site_config',
@@ -302,7 +315,7 @@ const schemas: CollectionSchema[] = [
       s('entity_id', 256, true),
       s('payload', 16384, false),
       e('status', ['pending', 'sent', 'failed'], true),
-      i('attempts', true, false, 0),
+      i('attempts', true, false),
       s('error_message', 8192, false),
       s('created_at', 64, true),
       s('sent_at', 64, false),
@@ -380,12 +393,21 @@ const schemas: CollectionSchema[] = [
     id: process.env.APPWRITE_COLLECTION_AUTH_TOKENS || 'auth_tokens',
     attributes: [
       s('user_id', 128, true),
+      s('email', 256, false),
       s('token', 1024, true),
+      s('token_hash', 128, false),
       s('type', 64, true),
+      b('is_used', false),
       s('expires_at', 64, true),
       s('created_at', 64, true),
+      s('updated_at', 64, false),
     ],
-    indexes: [idx('user_id_idx', ['user_id']), idx('type_idx', ['type'])],
+    indexes: [
+      idx('user_id_idx', ['user_id']),
+      idx('type_idx', ['type']),
+      idx('token_hash_idx', ['token_hash']),
+      idx('expires_at_idx', ['expires_at']),
+    ],
   },
 ];
 

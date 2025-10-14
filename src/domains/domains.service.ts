@@ -14,7 +14,7 @@ export class DomainsService {
   async checkDomainAvailability(
     domain: string,
     extension: string = '.ir',
-  ): Promise<{ available: boolean; domain: string; reason?: string }> {
+  ): Promise<{ available: boolean; domain: string; reason?: string; whoisData?: any }> {
     // Validate domain format
     if (!this.isValidDomain(domain)) {
       throw new BadRequestException('Invalid domain format');
@@ -29,17 +29,22 @@ export class DomainsService {
       
       // For now, we'll just perform the basic availability check
 
-      // Perform basic availability check (simplified)
-      // In a real implementation, you might want to use a WHOIS service
-      const isAvailable = await this.performAvailabilityCheck(fullDomain);
+      // Perform availability check using IP2WHOIS API
+      const result = await this.performAvailabilityCheckWithDetails(fullDomain);
 
       return {
-        available: isAvailable,
+        available: result.available,
         domain: fullDomain,
-        reason: isAvailable ? undefined : 'Domain appears to be registered',
+        reason: result.available ? 'Domain is available for registration' : 'Domain is already registered',
+        whoisData: result.whoisData,
       };
     } catch (error) {
       console.error('Domain availability check error:', error);
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
       return {
         available: false,
         domain: fullDomain,
@@ -54,31 +59,119 @@ export class DomainsService {
     return domainRegex.test(domain) && domain.length >= 2 && domain.length <= 63;
   }
 
-  private async performAvailabilityCheck(domain: string): Promise<boolean> {
+  private async performAvailabilityCheckWithDetails(domain: string): Promise<{ available: boolean; whoisData?: any }> {
     try {
-      // This is a simplified check - in production, you'd use a proper WHOIS service
-      // For now, we'll simulate availability based on some basic rules
+      const apiKey = this.configService.get<string>('IP2WHOIS_API_KEY');
       
-      // Check if it's a common reserved domain
-      const reservedDomains = [
-        'example.ir',
-        'test.ir',
-        'localhost.ir',
-        'admin.ir',
-        'www.ir',
-      ];
-
-      if (reservedDomains.includes(domain.toLowerCase())) {
-        return false;
+      if (!apiKey) {
+        console.warn('IP2WHOIS_API_KEY not configured, falling back to basic check');
+        return { available: this.fallbackAvailabilityCheck(domain) };
       }
 
-      // Simulate a network check (in reality, you'd use a WHOIS API)
-      // For demonstration purposes, we'll return true for most domains
-      return Math.random() > 0.3; // 70% chance of being available
+      const apiUrl = 'https://api.ip2whois.com/v2';
+      const response = await axios.get(apiUrl, {
+        params: {
+          key: apiKey,
+          domain: domain,
+          format: 'json',
+        },
+        timeout: 10000, // 10 second timeout
+      });
+
+      // If we get a successful response with domain data, the domain is registered
+      if (response.data && response.data.domain) {
+        // Check if domain has an expiry date - if it does, it's registered
+        if (response.data.expire_date) {
+          const expireDate = new Date(response.data.expire_date);
+          const now = new Date();
+          
+          // If expiry date is in the past, domain might be available
+          if (expireDate < now) {
+            return { 
+              available: true, 
+              whoisData: {
+                status: 'expired',
+                expireDate: response.data.expire_date,
+                registrar: response.data.registrar?.name,
+              }
+            };
+          }
+          
+          // Domain is registered and active
+          return { 
+            available: false,
+            whoisData: {
+              status: response.data.status,
+              createDate: response.data.create_date,
+              updateDate: response.data.update_date,
+              expireDate: response.data.expire_date,
+              domainAge: response.data.domain_age,
+              registrar: response.data.registrar,
+              nameservers: response.data.nameservers,
+            }
+          };
+        }
+        
+        // If domain exists but no expiry date, assume it's registered
+        return { 
+          available: false,
+          whoisData: {
+            status: response.data.status,
+            registrar: response.data.registrar,
+          }
+        };
+      }
+
+      // If no domain data, it's likely available
+      return { available: true };
     } catch (error) {
-      console.error('Availability check failed:', error);
+      // Check for specific API errors
+      if (axios.isAxiosError(error) && error.response) {
+        const errorData = error.response.data;
+        
+        // Error code 10006: No data found - domain is available
+        if (errorData && errorData.error && errorData.error.error_code === 10006) {
+          return { available: true };
+        }
+        
+        // Error code 10007: Invalid domain
+        if (errorData && errorData.error && errorData.error.error_code === 10007) {
+          throw new BadRequestException('Invalid domain format');
+        }
+
+        // Other API errors
+        console.error('IP2WHOIS API error:', errorData);
+      }
+      
+      console.error('IP2WHOIS API check failed:', error);
+      // Fallback to basic check on error
+      return { available: this.fallbackAvailabilityCheck(domain) };
+    }
+  }
+
+  private async performAvailabilityCheck(domain: string): Promise<boolean> {
+    const result = await this.performAvailabilityCheckWithDetails(domain);
+    return result.available;
+  }
+
+  private fallbackAvailabilityCheck(domain: string): boolean {
+    // Fallback check when API is unavailable
+    const reservedDomains = [
+      'example.ir',
+      'example.com',
+      'test.ir',
+      'test.com',
+      'localhost.ir',
+      'admin.ir',
+      'www.ir',
+    ];
+
+    if (reservedDomains.includes(domain.toLowerCase())) {
       return false;
     }
+
+    // Return true (available) by default for fallback
+    return true;
   }
 
   async searchDomains(query: string): Promise<string[]> {
