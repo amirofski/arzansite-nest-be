@@ -615,6 +615,59 @@ export class OrdersService extends BaseAppwriteService {
 
     return { success: true, orderId: dto.orderId, updated };
   }
+
+  async updateStatusUser(
+    orderId: string,
+    userId: string,
+    dto: { status?: string; payment_status?: PaymentStatus; reason?: string },
+  ): Promise<{ success: boolean; orderId: string; updated: any }> {
+    // Ensure order exists and belongs to user (or is accessible)
+    const order = await this.getOrder(orderId, userId, false);
+
+    const patch: any = { updated_at: new Date().toISOString() };
+    if (dto.status) patch.status = dto.status;
+    if (dto.payment_status) patch.payment_status = dto.payment_status;
+
+    const updated = await this.updateDocument<Order>(orderId, patch);
+
+    const paid = dto.payment_status === PaymentStatus.SUCCEEDED || dto.status === 'completed';
+    if (paid) {
+      try {
+        // Link invoice and finalize
+        const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+        const res = await this.databases.listDocuments(
+          this.databaseId,
+          invoicesCollection,
+          [Query.equal('order_id', orderId), Query.orderDesc('created_at'), Query.limit(1)]
+        );
+        if (res.documents?.[0]) {
+          const inv: any = res.documents[0];
+          await this.invoicesService.updateInvoiceStatus(inv.$id, InvoiceStatus.PAID);
+          const refId = `PAY_${Date.now()}`;
+          await this.invoicesService.generateReceipt(inv.$id, refId, inv.amount);
+          const ownerId = (order as any)?.user_id ?? (order as any)?.userId ?? (order as any)?.userid;
+          await this.emailService.sendInvoicePaidEmail(ownerId, inv.$id, inv.amount);
+          // Dashboard notification
+          try {
+            await this.notificationsService.sendOrderStatusNotification({
+              order_id: orderId,
+              user_id: ownerId,
+              notificationType: 'payment_success',
+              message: `Payment successful for order ${orderId}`,
+              priority: 'high',
+              channels: ['dashboard'],
+            });
+          } catch (e) {
+            this.logger.warn(`Failed to notify dashboard: ${(e as any)?.message || e}`);
+          }
+        }
+      } catch (e: any) {
+        this.logger.warn(`Failed to finalize invoice/receipt for order ${orderId}: ${e?.message || e}`);
+      }
+    }
+
+    return { success: true, orderId, updated };
+  }
   private parseWizardData<T>(doc: T): T {
     try {
       const anyDoc = doc as any;

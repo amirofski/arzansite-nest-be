@@ -20,6 +20,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard, Roles } from '../common/guards/roles.guard';
 import { User, UserPayload } from '../common/decorators/user.decorator';
+import { OrderStatus, PaymentStatus } from './dto/order.dto';
 
 @Controller('orders')
 @UseGuards(JwtGuard)
@@ -89,6 +90,16 @@ export class OrdersController {
   ) {
     const isAdmin = user.role === 'admin';
     return this.ordersService.updateOrder(id, user.id, updateOrderDto, isAdmin);
+  }
+
+  // Frontend payment callback: update order payment/status
+  @Patch(':id/status')
+  async updateOrderStatus(
+    @User() user: UserPayload,
+    @Param('id') id: string,
+    @Body() body: { payment_status?: PaymentStatus; status?: OrderStatus; reason?: string },
+  ) {
+    return this.ordersService.updateStatusUser(id, user.id, body as any);
   }
 
   // Optional design endpoint for legacy/derived designs
