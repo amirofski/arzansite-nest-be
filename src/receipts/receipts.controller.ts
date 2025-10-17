@@ -5,6 +5,7 @@ import {
   Query, 
   UseGuards, 
   Res,
+  Req,
   ParseIntPipe,
   DefaultValuePipe
 } from '@nestjs/common';
@@ -28,13 +29,17 @@ import { JwtGuard } from '../common/guards/jwt.guard';
 import { RolesGuard, Roles } from '../common/guards/roles.guard';
 import { ReceiptResponseDto, ReceiptFormat } from './dto/receipt.dto';
 import { User, UserPayload } from '../common/decorators/user.decorator';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Receipts')
 @ApiBearerAuth()
 @Controller('receipts')
 @UseGuards(JwtGuard)
 export class ReceiptsController {
-  constructor(private readonly receiptsService: ReceiptsService) {}
+  constructor(
+    private readonly receiptsService: ReceiptsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -149,6 +154,25 @@ export class ReceiptsController {
     res.setHeader('Content-Type', receipt.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${receipt.filename}"`);
     res.send(receipt.data);
+  }
+
+  @Get(':id/url')
+  @ApiOperation({ summary: 'Get receipt download URL', description: 'Returns a direct URL to download the receipt (PDF by default).' })
+  @ApiParam({ name: 'id', description: 'Receipt ID', example: 'receipt_123456' })
+  @ApiOkResponse({ description: 'Download URL generated', schema: { example: { url: 'https://nest.arzansite.com/api/receipts/receipt_123/download?format=pdf' } } })
+  async getReceiptUrl(
+    @Param('id') id: string,
+    @User() user: UserPayload,
+    @Req() req: any,
+    @Query('format', new DefaultValuePipe(ReceiptFormat.PDF)) format: ReceiptFormat,
+  ): Promise<{ url: string }> {
+    // Ensure user has access to this receipt
+    await this.receiptsService.getReceipt(id, user.id, user.role === 'admin');
+
+    const base = this.configService.get<string>('BACKEND_PUBLIC_URL')
+      || `${req?.protocol || 'https'}://${req?.get?.('host') || 'nest.arzansite.com'}/api`;
+    const url = `${base.replace(/\/$/, '')}/receipts/${id}/download?format=${format}`;
+    return { url };
   }
 
   @Get('admin/all')

@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { Query } from 'node-appwrite';
 import { ReceiptResponseDto, ReceiptFormat } from './dto/receipt.dto';
 import * as PDFDocument from 'pdfkit';
+import * as path from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 export class ReceiptsService {
@@ -154,24 +156,64 @@ export class ReceiptsService {
   }
 
   private async generatePDFReceipt(receipt: ReceiptResponseDto): Promise<{ data: Buffer; filename: string; contentType: string }> {
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks: Buffer[] = [];
 
     doc.on('data', (chunk) => chunks.push(chunk));
     doc.on('end', () => {});
 
-    // Generate PDF content
-    doc.fontSize(20).text('Payment Receipt', { align: 'center' });
+    // Load Persian-capable font if available
+    try {
+      const customFont = this.configService.get<string>('PDF_PERSIAN_FONT_PATH');
+      const fallback = path.join(process.cwd(), 'assets', 'fonts', 'Vazirmatn-Regular.ttf');
+      const fontPath = customFont && fs.existsSync(customFont) ? customFont : (fs.existsSync(fallback) ? fallback : null);
+      if (fontPath) {
+        doc.font(fontPath);
+      }
+    } catch (_) {}
+
+    // Header
+    doc.fontSize(20).text('رسید پرداخت', { align: 'center' });
     doc.moveDown();
-    doc.fontSize(12).text(`Receipt ID: ${receipt.id}`);
-    if (receipt.invoiceId) {
-      doc.text(`Invoice ID: ${receipt.invoiceId}`);
-    }
-    doc.text(`Reference ID: ${receipt.refId}`);
-    doc.text(`Amount: ${receipt.amount.toLocaleString()} Rials`);
-    doc.text(`Date: ${new Date(receipt.created_at).toLocaleDateString()}`);
-    doc.moveDown();
-    doc.text('Thank you for your payment!', { align: 'center' });
+    doc.fontSize(12).text(`شناسه رسید: ${receipt.id}`);
+    if (receipt.invoiceId) doc.text(`شناسه فاکتور: ${receipt.invoiceId}`);
+    doc.text(`کد پیگیری: ${receipt.refId}`);
+    doc.text(`مبلغ: ${Number(receipt.amount).toLocaleString('fa-IR')} ریال`);
+    doc.text(`تاریخ: ${new Date(receipt.created_at).toLocaleDateString('fa-IR')}`);
+
+    // Optional: order details block (if resolvable from invoice)
+    try {
+      const databases = this.appwriteService.getDatabases();
+      const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
+      const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES');
+      const ordersCollection = this.configService.get<string>('APPWRITE_COLLECTION_ORDERS');
+      if (receipt.invoiceId && databaseId && invoicesCollection && ordersCollection) {
+        const inv: any = await databases.getDocument(databaseId, invoicesCollection, receipt.invoiceId);
+        const orderId = inv?.order_id;
+        if (orderId) {
+          const order: any = await databases.getDocument(databaseId, ordersCollection, orderId);
+          const wd = typeof order?.wizard_data === 'string' ? JSON.parse(order.wizard_data) : order?.wizard_data;
+          const domains = wd?.domains?.selectedDomains || wd?.domains || [];
+          const totalPages = order?.total_pages || wd?.website_framework?.dynamicDesign?.pages?.length || 0;
+          const modules = wd?.additional_services || wd?.modules || {};
+          doc.moveDown();
+          doc.fontSize(14).text('جزئیات سفارش');
+          doc.moveDown(0.5);
+          if (Array.isArray(domains) && domains.length) doc.fontSize(12).text(`دامنه‌ها: ${domains.map((d: any)=> (d?.domain || d)).join(', ')}`);
+          if (totalPages) doc.fontSize(12).text(`تعداد صفحات: ${totalPages}`);
+          if (modules && typeof modules === 'object') {
+            const enabled = Object.keys(modules).filter(k => !!modules[k]);
+            if (enabled.length) doc.fontSize(12).text(`ماژول‌ها: ${enabled.join(', ')}`);
+          }
+          const cycle = wd?.paymentCycle || order?.payment_cycle || 'one_time';
+          const cycleFa = cycle === 'annual' ? 'سالانه' : cycle === 'monthly' ? 'ماهانه' : 'یک‌باره';
+          doc.fontSize(12).text(`نوع پرداخت: ${cycleFa}`);
+        }
+      }
+    } catch (_) {}
+
+    doc.moveDown(1);
+    doc.text('با تشکر از پرداخت شما', { align: 'center' });
 
     doc.end();
 

@@ -151,11 +151,23 @@ export class PaymentsService {
       } else {
         // 2) Update the order payment status and ref_id
         try {
-          await databases.updateDocument(databaseId, ordersCollection, orderId, {
-            payment_status: 'succeeded',
-            zarinpal_ref_id: refId,
-            updated_at: new Date().toISOString(),
-          });
+          // Also auto-transition status to in_progress if it was pending
+          try {
+            const existingOrder: any = await databases.getDocument(databaseId, ordersCollection, orderId);
+            const nextStatus = existingOrder?.status === 'pending' ? 'in_progress' : existingOrder?.status;
+            await databases.updateDocument(databaseId, ordersCollection, orderId, {
+              payment_status: 'succeeded',
+              status: nextStatus,
+              zarinpal_ref_id: refId,
+              updated_at: new Date().toISOString(),
+            });
+          } catch (_) {
+            await databases.updateDocument(databaseId, ordersCollection, orderId, {
+              payment_status: 'succeeded',
+              zarinpal_ref_id: refId,
+              updated_at: new Date().toISOString(),
+            });
+          }
           console.log(`${loggerPrefix} updated order ${orderId} payment_status=succeeded`);
         } catch (e) {
           console.warn(`${loggerPrefix} failed to update order ${orderId}:`, (e as any)?.message || e);

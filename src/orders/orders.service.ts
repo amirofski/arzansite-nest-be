@@ -573,6 +573,13 @@ export class OrdersService extends BaseAppwriteService {
     const patch: any = { updated_at: new Date().toISOString() };
     if (dto.status) patch.status = dto.status;
     if (dto.payment_status) patch.payment_status = dto.payment_status;
+    // Auto-transition: when payment succeeds, move order to in_progress if pending
+    if (dto.payment_status === PaymentStatus.SUCCEEDED && (!dto.status)) {
+      const currentStatus = (order as any).status;
+      if (currentStatus === 'pending') {
+        patch.status = 'in_progress';
+      }
+    }
 
     const updated = await this.updateDocument<Order>(dto.orderId, patch);
 
@@ -627,6 +634,13 @@ export class OrdersService extends BaseAppwriteService {
     const patch: any = { updated_at: new Date().toISOString() };
     if (dto.status) patch.status = dto.status;
     if (dto.payment_status) patch.payment_status = dto.payment_status;
+    // Auto-transition: when payment succeeds, move order to in_progress if pending
+    if (dto.payment_status === PaymentStatus.SUCCEEDED && (!dto.status)) {
+      const currentStatus = (order as any).status;
+      if (currentStatus === 'pending') {
+        patch.status = 'in_progress';
+      }
+    }
 
     const updated = await this.updateDocument<Order>(orderId, patch);
 
