@@ -298,10 +298,25 @@ export class OrdersService extends BaseAppwriteService {
         description: `Payment for order ${order.$id || order.id}`,
         callback_url: `${frontendUrl}/payment/callback`,
       } as any);
-      return { orderId: order.$id || order.id, status: order.status, payment: { redirectUrl: resp.paymentUrl, id: resp.authority } };
+      return { 
+        success: true, 
+        data: { 
+          orderId: order.$id || order.id, 
+          status: order.status, 
+          payment: { redirectUrl: resp.paymentUrl, id: resp.authority } 
+        },
+        message: 'Order created successfully'
+      };
     }
 
-    return { orderId: order.$id || order.id, status: order.status };
+    return { 
+      success: true, 
+      data: { 
+        orderId: order.$id || order.id, 
+        status: order.status 
+      },
+      message: 'Order created successfully'
+    };
   }
 
   async createEnhancedOrder(userId: string, createOrderDto: any): Promise<Order> {
