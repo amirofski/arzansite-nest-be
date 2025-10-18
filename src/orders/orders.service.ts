@@ -45,7 +45,7 @@ export class OrdersService extends BaseAppwriteService {
 
   /**
    * Create an invoice for a given order document and notify the user.
-   * Ensures we always use order.$id and consistent defaults.
+   * Ensures we always use order.$id || order.id and consistent defaults.
    */
   private async createInvoiceForOrder(order: any, amount?: number, permissions?: string[]): Promise<{ $id: string }> {
     const invoicesCollection = this.configService.get<string>('APPWRITE_COLLECTION_INVOICES') || 'invoices';
@@ -196,7 +196,7 @@ export class OrdersService extends BaseAppwriteService {
       ];
       const order = await this.createDocument<Order>(orderData, undefined, ownerPermissions);
 
-      // Auto-create invoice for the order (using unified helper and order.$id)
+      // Auto-create invoice for the order (using unified helper and order.$id || order.id)
       try {
         await this.createInvoiceForOrder(order as any, totalAmount, ownerPermissions);
       } catch (e: any) {
@@ -204,25 +204,28 @@ export class OrdersService extends BaseAppwriteService {
       }
       
       // Initialize order progress
-      await this.initializeOrderProgress(order.$id);
+      await this.initializeOrderProgress(order.$id || order.id);
       
       // Send order confirmation email
       await this.sendOrderConfirmationEmail(userId, order);
       // Dashboard notification
       try {
-        await this.notificationsService.sendOrderStatusNotification({
-          order_id: order.$id,
-          user_id: userId,
-          notificationType: 'order_created',
-          message: `Order ${order.$id} created and awaiting payment`,
-          priority: 'medium',
-          channels: ['dashboard'],
-        });
+        const orderId = order.$id || order.id || order.id;
+        if (orderId) {
+          await this.notificationsService.sendOrderStatusNotification({
+            order_id: orderId,
+            user_id: userId,
+            notificationType: 'order_created',
+            message: `Order ${orderId} created and awaiting payment`,
+            priority: 'medium',
+            channels: ['dashboard'],
+          });
+        }
       } catch (e) {
         this.logger.warn(`Failed to create dashboard notification: ${(e as any)?.message || e}`);
       }
       
-      this.logger.log(`Order created successfully: ${order.$id}`);
+      this.logger.log(`Order created successfully: ${order.$id || order.id}`);
       return order;
     } catch (error) {
       this.logger.error(`Failed to create order: ${error.message}`);
@@ -270,14 +273,17 @@ export class OrdersService extends BaseAppwriteService {
       await this.sendOrderConfirmationEmail(userId, order);
       // Dashboard notification
       try {
-        await this.notificationsService.sendOrderStatusNotification({
-          order_id: order.$id,
-          user_id: userId,
-          notificationType: 'order_created',
-          message: `Order ${order.$id} created and awaiting payment`,
-          priority: 'medium',
-          channels: ['dashboard'],
-        });
+        const orderId = order.$id || order.id || order.id;
+        if (orderId) {
+          await this.notificationsService.sendOrderStatusNotification({
+            order_id: orderId,
+            user_id: userId,
+            notificationType: 'order_created',
+            message: `Order ${orderId} created and awaiting payment`,
+            priority: 'medium',
+            channels: ['dashboard'],
+          });
+        }
       } catch (e) {
         this.logger.warn(`Failed to create dashboard notification: ${(e as any)?.message || e}`);
       }
@@ -287,15 +293,15 @@ export class OrdersService extends BaseAppwriteService {
       // Create a payment intent and return redirect URL
       const frontendUrl = this.configService.get<string>('FRONTEND_URL');
       const resp = await this.paymentsService.requestPayment(userId, {
-        order_id: order.$id,
+        order_id: order.$id || order.id,
         amount: dto.totalAmount,
-        description: `Payment for order ${order.$id}`,
+        description: `Payment for order ${order.$id || order.id}`,
         callback_url: `${frontendUrl}/payment/callback`,
       } as any);
-      return { orderId: order.$id, status: order.status, payment: { redirectUrl: resp.paymentUrl, id: resp.authority } };
+      return { orderId: order.$id || order.id, status: order.status, payment: { redirectUrl: resp.paymentUrl, id: resp.authority } };
     }
 
-    return { orderId: order.$id, status: order.status };
+    return { orderId: order.$id || order.id, status: order.status };
   }
 
   async createEnhancedOrder(userId: string, createOrderDto: any): Promise<Order> {
@@ -335,12 +341,12 @@ export class OrdersService extends BaseAppwriteService {
       }
       
       // Initialize order progress
-      await this.initializeOrderProgress(order.$id);
+      await this.initializeOrderProgress(order.$id || order.id);
       
       // Send order confirmation email
       await this.sendOrderConfirmationEmail(userId, order);
       
-      this.logger.log(`Enhanced order created successfully: ${order.$id}`);
+      this.logger.log(`Enhanced order created successfully: ${order.$id || order.id}`);
       return order;
     } catch (error) {
       this.logger.error(`Failed to create enhanced order: ${error.message}`);
@@ -542,7 +548,7 @@ export class OrdersService extends BaseAppwriteService {
       const email = await this.getUserEmail(userId);
       if (email) {
         await this.emailService.sendOrderNotification(email, {
-          id: order.$id,
+          id: order.$id || order.id,
           title: order.title,
           price: order.total_amount,
           status: order.status,
@@ -556,7 +562,7 @@ export class OrdersService extends BaseAppwriteService {
   private async sendPaymentStatusNotification(userId: string, order: Order, status: string): Promise<void> {
     try {
       await this.emailService.sendPaymentNotification(userId, {
-        orderId: order.$id,
+        orderId: order.$id || order.id,
         orderTitle: order.title,
         totalAmount: order.total_amount,
         status,

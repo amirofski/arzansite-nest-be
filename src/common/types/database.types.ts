@@ -1,4 +1,5 @@
 export interface Order {
+  $id?: string; // Appwrite document ID
   id: string;
   user_id: string;
   title: string;
