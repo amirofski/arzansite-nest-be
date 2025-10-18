@@ -33,6 +33,11 @@ export class PaymentsService {
     user_id: string,
     paymentRequestDto: PaymentRequestDto,
   ): Promise<{ success: boolean; authority: string; paymentUrl: string; invoiceId?: string }> {
+    // Validate order_id
+    if (!paymentRequestDto.order_id) {
+      throw new BadRequestException('order_id is required');
+    }
+    
     // Check if this is a wallet deposit (order_id starts with 'deposit_')
     const isWalletDeposit = paymentRequestDto.order_id.startsWith('deposit_');
     

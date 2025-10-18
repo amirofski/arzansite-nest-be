@@ -204,17 +204,17 @@ export class OrdersService extends BaseAppwriteService {
       }
       
       // Initialize order progress
-      await this.initializeOrderProgress(order.id);
+      await this.initializeOrderProgress(order.$id);
       
       // Send order confirmation email
       await this.sendOrderConfirmationEmail(userId, order);
       // Dashboard notification
       try {
         await this.notificationsService.sendOrderStatusNotification({
-          order_id: order.id,
+          order_id: order.$id,
           user_id: userId,
           notificationType: 'order_created',
-          message: `Order ${order.id} created and awaiting payment`,
+          message: `Order ${order.$id} created and awaiting payment`,
           priority: 'medium',
           channels: ['dashboard'],
         });
@@ -222,7 +222,7 @@ export class OrdersService extends BaseAppwriteService {
         this.logger.warn(`Failed to create dashboard notification: ${(e as any)?.message || e}`);
       }
       
-      this.logger.log(`Order created successfully: ${order.id}`);
+      this.logger.log(`Order created successfully: ${order.$id}`);
       return order;
     } catch (error) {
       this.logger.error(`Failed to create order: ${error.message}`);
@@ -271,10 +271,10 @@ export class OrdersService extends BaseAppwriteService {
       // Dashboard notification
       try {
         await this.notificationsService.sendOrderStatusNotification({
-          order_id: order.id,
+          order_id: order.$id,
           user_id: userId,
           notificationType: 'order_created',
-          message: `Order ${order.id} created and awaiting payment`,
+          message: `Order ${order.$id} created and awaiting payment`,
           priority: 'medium',
           channels: ['dashboard'],
         });
@@ -287,15 +287,15 @@ export class OrdersService extends BaseAppwriteService {
       // Create a payment intent and return redirect URL
       const frontendUrl = this.configService.get<string>('FRONTEND_URL');
       const resp = await this.paymentsService.requestPayment(userId, {
-        order_id: order.id,
+        order_id: order.$id,
         amount: dto.totalAmount,
-        description: `Payment for order ${order.id}`,
+        description: `Payment for order ${order.$id}`,
         callback_url: `${frontendUrl}/payment/callback`,
       } as any);
-      return { orderId: order.id, status: order.status, payment: { redirectUrl: resp.paymentUrl, id: resp.authority } };
+      return { orderId: order.$id, status: order.status, payment: { redirectUrl: resp.paymentUrl, id: resp.authority } };
     }
 
-    return { orderId: order.id, status: order.status };
+    return { orderId: order.$id, status: order.status };
   }
 
   async createEnhancedOrder(userId: string, createOrderDto: any): Promise<Order> {
@@ -335,12 +335,12 @@ export class OrdersService extends BaseAppwriteService {
       }
       
       // Initialize order progress
-      await this.initializeOrderProgress(order.id);
+      await this.initializeOrderProgress(order.$id);
       
       // Send order confirmation email
       await this.sendOrderConfirmationEmail(userId, order);
       
-      this.logger.log(`Enhanced order created successfully: ${order.id}`);
+      this.logger.log(`Enhanced order created successfully: ${order.$id}`);
       return order;
     } catch (error) {
       this.logger.error(`Failed to create enhanced order: ${error.message}`);
@@ -542,7 +542,7 @@ export class OrdersService extends BaseAppwriteService {
       const email = await this.getUserEmail(userId);
       if (email) {
         await this.emailService.sendOrderNotification(email, {
-          id: order.id,
+          id: order.$id,
           title: order.title,
           price: order.total_amount,
           status: order.status,
@@ -556,7 +556,7 @@ export class OrdersService extends BaseAppwriteService {
   private async sendPaymentStatusNotification(userId: string, order: Order, status: string): Promise<void> {
     try {
       await this.emailService.sendPaymentNotification(userId, {
-        orderId: order.id,
+        orderId: order.$id,
         orderTitle: order.title,
         totalAmount: order.total_amount,
         status,
