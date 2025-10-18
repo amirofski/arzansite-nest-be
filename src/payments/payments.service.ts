@@ -513,10 +513,16 @@ export class PaymentsService {
     const databaseId = this.configService.get<string>('APPWRITE_DATABASE_ID');
     const collectionId = this.configService.get<string>('APPWRITE_COLLECTION_PAYMENTS');
     
-    // Stringify metadata and gateway_response for Appwrite storage
+    // Prepare data for Appwrite storage (only include fields that exist in the collection schema)
     const processedData = {
-      ...transactionData,
-      metadata: transactionData.metadata ? JSON.stringify(transactionData.metadata) : null,
+      order_id: transactionData.order_id,
+      user_id: transactionData.user_id,
+      transaction_type: transactionData.transaction_type,
+      zarinpal_authority: transactionData.zarinpal_authority,
+      zarinpal_ref_id: transactionData.zarinpal_ref_id,
+      zarinpal_invoice_id: transactionData.zarinpal_invoice_id,
+      amount: transactionData.amount,
+      status: transactionData.status,
       gateway_response: transactionData.gateway_response ? JSON.stringify(transactionData.gateway_response) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
