@@ -7,14 +7,14 @@ RUN apk add --no-cache git curl
 # Set working directory
 WORKDIR /app
 
-# Clone the repository (you can also use ARG for branch selection)
-ARG REPO_URL=https://github.com/amirofski/arzansite-nest-be.git
-ARG BRANCH=main
-
-RUN git clone --branch ${BRANCH} --depth 1 ${REPO_URL} .
+# Copy package files first for better caching
+COPY package*.json ./
 
 # Install dependencies
 RUN npm ci
+
+# Copy source code
+COPY . .
 
 # Build the application
 RUN npm run build

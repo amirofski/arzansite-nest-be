@@ -4594,3 +4594,549 @@ Lines added: 587, lines removed: 1
 
 ---
 
+_**User (2025-10-18 17:39Z)**_
+
+هنوز موقع پرداخت این خطا وجود داره:
+/api/orders/create
+payload: {"submitMode":"payment","wizardData":{"websiteFramework":{"dynamicDesign":{"pages":[{"id":"main","name":"صفحه اصلی","sections":[{"id":"headers-1760812721993","sectionType":"headers","layoutId":"headers-1","order":0,"customData":{}}],"canvasDimensions":{"width":1200,"height":800}}],"currentPageId":"main"}},"branding":{"primaryColor":"#8B5CF6","fontFamily":"vazir","logo":""},"additionalServices":{},"additionalServicesList":[],"domains":{"primaryDomain":"tester","domainExtension":"ir","additionalDomains":[]},"pricing":{"additionalServices":{},"additionalServicesList":[],"customizationLevel":[3],"rushDelivery":false,"totalPrice":2500000}},"totalAmount":2500000,"currency":"IRR","title":"وب‌سایت شخصی - tester","description":"پروژه وب‌سایت شخصی با دامنه tester","comments":"پروژه شخصی - دامنه: tester","siteType":"personal","paymentCycle":"monthly"}
+response:
+{
+    "success": true,
+    "data": {
+        "orderId": "68f3df2c002b9928971a",
+        "status": "pending",
+        "payment": {
+            "redirectUrl": "https://sandbox.zarinpal.com/pg/StartPay/S00000000000000000000000000000067ewr",
+            "id": "S00000000000000000000000000000067ewr"
+        }
+    },
+    "timestamp": "2025-10-18T18:40:46.195Z"
+}
+hook.js:608 No order ID in response: 
+{orderId: undefined, status: 'pending', payment: undefined}
+hook.js:608 Error creating order: Error: شناسه سفارش در پاسخ دریافت نشد
+    at handleCompleteOrder (WizardOrderManager.tsx:203:15)
+WizardOrderManager.tsx:195 Order creation response: {orderId: undefined, status: 'pending', payment: undefined}
+hook.js:608 No order ID in response: {orderId: undefined, status: 'pending', payment: undefined}
+
+---
+
+_**Assistant (default)**_
+
+مشکل واضح است! Backend درست کار می‌کند و response صحیح برمی‌گرداند، اما Frontend انتظار format متفاوتی دارد. 
+
+## 🔍 **تحلیل مشکل:**
+
+### Backend Response (صحیح):
+```json
+{
+    "success": true,
+    "data": {
+        "orderId": "68f3df2c002b9928971a",
+        "status": "pending",
+        "payment": {
+            "redirectUrl": "https://sandbox.zarinpal.com/pg/StartPay/...",
+            "id": "S00000000000000000000000000000067ewr"
+        }
+    },
+    "timestamp": "2025-10-18T18:40:46.195Z"
+}
+```
+
+### Frontend Expectation (اشتباه):
+```javascript
+{orderId: undefined, status: 'pending', payment: undefined}
+```
+
+## 🛠️ **راه حل:**
+
+Frontend باید response را درست پردازش کند. بیایید راهنمای Frontend را به‌روزرسانی کنم:
+
+
+---
+
+Tool use: **search_replace**
+
+
+<details><summary>Edit file: FRONTEND_INTEGRATION_FIX.md</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 2
+
+```diff
+@@ -68,12 +68,17 @@
+  
+      const result = await response.json();
++     
++     console.log('Order creation response:', result); // Debug log
+      
+      // بررسی success flag
+-     if (result.success) {
++     if (result.success && result.data) {
+        console.log('Order created:', result.data);
++       
+        // هدایت به صفحه پرداخت
+-       if (result.data.payment) {
++       if (result.data.payment && result.data.payment.redirectUrl) {
+          window.location.href = result.data.payment.redirectUrl;
+        }
++       
++       return result.data; // Return the data object
+      } else {
+        throw new Error(result.message || 'Order creation failed');
+```
+
+**Chunk 2**
+Lines added: 18, lines removed: undefined
+
+```diff
+@@ -84,4 +89,22 @@
+    }
+  };
++ 
++ // استفاده در component:
++ const handleCompleteOrder = async (orderData) => {
++   try {
++     const orderResponse = await createOrder(orderData);
++     
++     // بررسی order ID
++     if (orderResponse.orderId) {
++       console.log('Order ID:', orderResponse.orderId);
++       // ادامه فرآیند...
++     } else {
++       throw new Error('شناسه سفارش در پاسخ دریافت نشد');
++     }
++   } catch (error) {
++     console.error('Error in handleCompleteOrder:', error);
++     throw error;
++   }
++ };
+  ```
+  
+```
+
+</details>
+
+---
+
+حالا بیایید یک راهنمای کامل برای رفع این مشکل خاص ایجاد کنم:
+
+
+---
+
+Tool use: **write**
+
+
+<details><summary>Edit file: ORDER_CREATION_FIX.md</summary>
+
+**Chunk 1**
+Lines added: 197, lines removed: 1
+
+```diff
+@@ -1,1 +1,197 @@
+- 
++ # راهنمای رفع مشکل Order Creation Response
++ 
++ ## 🔍 **مشکل شناسایی شده:**
++ 
++ ### Backend Response (صحیح):
++ ```json
++ {
++     "success": true,
++     "data": {
++         "orderId": "68f3df2c002b9928971a",
++         "status": "pending",
++         "payment": {
++             "redirectUrl": "https://sandbox.zarinpal.com/pg/StartPay/...",
++             "id": "S00000000000000000000000000000067ewr"
++         }
++     },
++     "timestamp": "2025-10-18T18:40:46.195Z"
++ }
++ ```
++ 
++ ### Frontend Error:
++ ```
++ No order ID in response: {orderId: undefined, status: 'pending', payment: undefined}
++ Error creating order: Error: شناسه سفارش در پاسخ دریافت نشد
++ ```
++ 
++ ## 🛠️ **راه حل Frontend:**
++ 
++ ### 1. **اصلاح WizardOrderManager.tsx**
++ ```typescript
++ // WizardOrderManager.tsx - خط 195-203
++ const handleCompleteOrder = async (orderData) => {
++   try {
++     console.log('Sending order data:', orderData);
++     
++     const response = await fetch('/api/orders/create', {
++       method: 'POST',
++       headers: {
++         'Content-Type': 'application/json',
++         'Authorization': `Bearer ${token}`
++       },
++       body: JSON.stringify(orderData)
++     });
++ 
++     const result = await response.json();
++     console.log('Order creation response:', result); // Debug log
++     
++     // بررسی success flag و data object
++     if (result.success && result.data) {
++       console.log('Order created successfully:', result.data);
++       
++       // بررسی order ID
++       if (result.data.orderId) {
++         console.log('Order ID:', result.data.orderId);
++         
++         // هدایت به صفحه پرداخت
++         if (result.data.payment && result.data.payment.redirectUrl) {
++           console.log('Redirecting to payment:', result.data.payment.redirectUrl);
++           window.location.href = result.data.payment.redirectUrl;
++         }
++         
++         return result.data; // Return the data object
++       } else {
++         throw new Error('شناسه سفارش در پاسخ دریافت نشد');
++       }
++     } else {
++       throw new Error(result.message || 'Order creation failed');
++     }
++   } catch (error) {
++     console.error('Error creating order:', error);
++     throw error;
++   }
++ };
++ ```
++ 
++ ### 2. **اصلاح Response Parsing**
++ ```typescript
++ // اگر کد قبلی شما این شکل بود:
++ const { orderId, status, payment } = result;
++ 
++ // باید به این شکل تغییر کند:
++ const { orderId, status, payment } = result.data || {};
++ ```
++ 
++ ### 3. **کد کامل اصلاح شده**
++ ```typescript
++ // WizardOrderManager.tsx
++ import React, { useState } from 'react';
++ 
++ export const WizardOrderManager = () => {
++   const [loading, setLoading] = useState(false);
++   const [error, setError] = useState('');
++ 
++   const handleCompleteOrder = async (orderData) => {
++     setLoading(true);
++     setError('');
++     
++     try {
++       console.log('Sending order data:', orderData);
++       
++       const response = await fetch('/api/orders/create', {
++         method: 'POST',
++         headers: {
++           'Content-Type': 'application/json',
++           'Authorization': `Bearer ${localStorage.getItem('token')}`
++         },
++         body: JSON.stringify(orderData)
++       });
++ 
++       if (!response.ok) {
++         throw new Error(`HTTP error! status: ${response.status}`);
++       }
++ 
++       const result = await response.json();
++       console.log('Order creation response:', result);
++       
++       // بررسی success flag و data object
++       if (result.success && result.data) {
++         console.log('Order created successfully:', result.data);
++         
++         // بررسی order ID
++         if (result.data.orderId) {
++           console.log('Order ID:', result.data.orderId);
++           
++           // هدایت به صفحه پرداخت
++           if (result.data.payment && result.data.payment.redirectUrl) {
++             console.log('Redirecting to payment:', result.data.payment.redirectUrl);
++             window.location.href = result.data.payment.redirectUrl;
++           }
++           
++           return result.data;
++         } else {
++           throw new Error('شناسه سفارش در پاسخ دریافت نشد');
++         }
++       } else {
++         throw new Error(result.message || 'Order creation failed');
++       }
++     } catch (error) {
++       console.error('Error creating order:', error);
++       setError(error.message);
++       throw error;
++     } finally {
++       setLoading(false);
++     }
++   };
++ 
++   return (
++     <div>
++       {loading && <p>در حال ایجاد سفارش...</p>}
++       {error && <p style={{color: 'red'}}>خطا: {error}</p>}
++       {/* بقیه component */}
++     </div>
++   );
++ };
++ ```
++ 
++ ## 🔧 **Debug Steps:**
++ 
++ ### 1. **بررسی Network Tab**
++ - در Developer Tools، Network tab را باز کنید
++ - درخواست `/api/orders/create` را پیدا کنید
++ - Response را بررسی کنید
++ 
++ ### 2. **بررسی Console Logs**
++ ```typescript
++ // اضافه کردن logging بیشتر
++ console.log('Request payload:', orderData);
++ console.log('Response status:', response.status);
++ console.log('Response headers:', response.headers);
++ console.log('Response body:', result);
++ ```
++ 
++ ### 3. **بررسی Response Structure**
++ ```typescript
++ // بررسی ساختار response
++ if (result.success) {
++   console.log('Success:', result.success);
++   console.log('Data:', result.data);
++   console.log('Data type:', typeof result.data);
++   console.log('Data keys:', Object.keys(result.data || {}));
++ }
++ ```
++ 
++ ## 📋 **چک‌لیست رفع مشکل:**
++ 
++ - [ ] Response format درست پردازش می‌شود
++ - [ ] `result.data` بررسی می‌شود
++ - [ ] `result.data.orderId` بررسی می‌شود
++ - [ ] Error handling پیاده‌سازی شده
++ - [ ] Console logs اضافه شده
++ - [ ] Network tab بررسی شده
++ 
++ ## 🚀 **نتیجه:**
++ 
++ با این تغییرات، Frontend درست response را پردازش خواهد کرد و خطای "شناسه سفارش در پاسخ دریافت نشد" برطرف خواهد شد.
++ 
++ **مشکل در Frontend است، نه Backend!** 🎯
+```
+
+</details>
+
+---
+
+## 🎯 **خلاصه مشکل:**
+
+### ✅ **Backend (درست کار می‌کند):**
+- Response format صحیح است
+- `success: true` برمی‌گرداند
+- `data.orderId` موجود است
+- `data.payment.redirectUrl` موجود است
+
+### ❌ **Frontend (مشکل دارد):**
+- Response را درست پردازش نمی‌کند
+- انتظار `result.orderId` دارد اما `result.data.orderId` موجود است
+- Error handling نادرست است
+
+## 🛠️ **راه حل فوری:**
+
+در `WizardOrderManager.tsx` خط 195-203 را به این شکل تغییر دهید:
+
+```typescript
+// قبل (اشتباه):
+const { orderId, status, payment } = result;
+
+// بعد (درست):
+const { orderId, status, payment } = result.data || {};
+```
+
+یا بهتر است کل function را طبق راهنمای `ORDER_CREATION_FIX.md` بازنویسی کنید.
+
+**مشکل کاملاً در Frontend است و با اصلاح response parsing حل می‌شود!** 🎉
+
+---
+
+_**User (2025-10-18 17:39Z)**_
+
+14.88 src/orders/orders.service.ts:313:7 - error TS2322: Type '{ success: boolean; data: { orderId: string; status: "pending" | "completed" | "in_progress" | "cancelled"; }; message: string; }' is not assignable to type '{ orderId: string; status: string; payment?: { redirectUrl: string; id?: string; expiresAt?: string; }; }'.
+14.88   Object literal may only specify known properties, and 'success' does not exist in type '{ orderId: string; status: string; payment?: { redirectUrl: string; id?: string; expiresAt?: string; }; }'.
+14.88
+14.88 313       success: true,
+
+---
+
+_**Assistant (default)**_
+
+مشکل TypeScript است! تابع `createFromUnified` باید return type صحیحی داشته باشد. بیایید این مشکل را حل کنم:
+
+
+---
+
+Tool use: **read_file**
+
+Read file: src/orders/orders.service.ts
+
+---
+
+مشکل این است که return type تابع `createFromUnified` با آنچه که برمی‌گرداند مطابقت ندارد. بیایید return type را اصلاح کنم:
+
+
+---
+
+Tool use: **search_replace**
+
+
+<details><summary>Edit file: src/orders/orders.service.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -234,5 +234,5 @@
+    }
+  
+-   async createFromUnified(userId: string, dto: CreateUnifiedOrderDto): Promise<{ orderId: string; status: string; payment?: { redirectUrl: string; id?: string; expiresAt?: string } }> {
++   async createFromUnified(userId: string, dto: CreateUnifiedOrderDto): Promise<{ success: boolean; data: { orderId: string; status: string; payment?: { redirectUrl: string; id?: string; expiresAt?: string } }; message: string }> {
+      const nowISO = new Date().toISOString();
+      const title = dto.title || 'Website Order';
+```
+
+</details>
+
+---
+
+حالا بیایید build کنیم تا ببینیم آیا مشکل حل شده است:
+
+
+---
+
+Tool use: **run_terminal_cmd**
+
+```bash
+npm run build
+```
+
+```
+
+> arzansite-be@1.0.0 build
+> nest build
+
+
+```
+
+---
+
+عالی! Build موفق بود. حالا بیایید linting errors را هم بررسی کنیم:
+
+
+---
+
+Tool use: **read_lints**
+
+<details>
+          <summary>Read lints for 1 file</summary>
+      
+Lint paths:
+
+- `src/orders/orders.service.ts`
+
+Lint results
+
+
+**No lint errors found**
+</details>
+
+---
+
+Tool use: **todo_write**
+
+## Todo List
+
+- [x] Fix startsWith error in orders create endpoint
+- [x] Add validation for order_id in payments service
+- [x] Fix TypeScript errors with Order.$id property
+- [x] Fix notification validation error with undefined order_id
+- [x] Fix metadata field error in payment transaction logging
+- [x] Fix TypeScript error in createFromUnified return type
+
+---
+
+## ✅ **مشکل TypeScript حل شد!**
+
+### 🔍 **علت خطا:**
+Return type تابع `createFromUnified` با آنچه که واقعاً برمی‌گرداند مطابقت نداشت.
+
+### 🛠️ **تغییر انجام شده:**
+
+#### **قبل (اشتباه):**
+```typescript
+async createFromUnified(userId: string, dto: CreateUnifiedOrderDto): Promise<{ 
+  orderId: string; 
+  status: string; 
+  payment?: { redirectUrl: string; id?: string; expiresAt?: string } 
+}>
+```
+
+#### **بعد (درست):**
+```typescript
+async createFromUnified(userId: string, dto: CreateUnifiedOrderDto): Promise<{ 
+  success: boolean; 
+  data: { 
+    orderId: string; 
+    status: string; 
+    payment?: { redirectUrl: string; id?: string; expiresAt?: string } 
+  }; 
+  message: string 
+}>
+```
+
+### 🎯 **نتیجه:**
+- ✅ TypeScript error برطرف شد
+- ✅ Build موفق است
+- ✅ Linting errors وجود ندارد
+- ✅ Return type با response format مطابقت دارد
+
+**حالا Backend کاملاً آماده است و Frontend باید طبق راهنمای `ORDER_CREATION_FIX.md` تنظیم شود!** 🎉
+
+---
+
+_**User (2025-10-18 17:39Z)**_
+
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "IP2WHOIS_API_KEY") (line 11)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "APPWRITE_API_KEY") (line 12)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "APPWRITE_COLLECTION_AUTH_TOKENS") (line 12)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "IP2WHOIS_API_KEY") (line 12)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "JWT_SECRET") (line 12)
+- UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "APPWRITE_API_KEY") (line 11)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "APPWRITE_COLLECTION_AUTH_TOKENS") (line 11)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "JWT_SECRET") (line 11)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "GITHUB_CLIENT_SECRET") (line 12)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "GITHUB_CLIENT_SECRET") (line 11)
+Dockerfile:24
+--------------------
+|     # build phase
+|     COPY . /app/.
+| >>> RUN --mount=type=cache,id=1KnvMQo2ZA-node_modules/cache,target=/app/node_modules/.cache npm run build
+
+---
+
+_**Assistant (default)**_
+
+
+
+---
+

@@ -68,18 +68,41 @@ const createOrder = async (orderData) => {
 
     const result = await response.json();
     
+    console.log('Order creation response:', result); // Debug log
+    
     // بررسی success flag
-    if (result.success) {
+    if (result.success && result.data) {
       console.log('Order created:', result.data);
+      
       // هدایت به صفحه پرداخت
-      if (result.data.payment) {
+      if (result.data.payment && result.data.payment.redirectUrl) {
         window.location.href = result.data.payment.redirectUrl;
       }
+      
+      return result.data; // Return the data object
     } else {
       throw new Error(result.message || 'Order creation failed');
     }
   } catch (error) {
     console.error('Error creating order:', error);
+    throw error;
+  }
+};
+
+// استفاده در component:
+const handleCompleteOrder = async (orderData) => {
+  try {
+    const orderResponse = await createOrder(orderData);
+    
+    // بررسی order ID
+    if (orderResponse.orderId) {
+      console.log('Order ID:', orderResponse.orderId);
+      // ادامه فرآیند...
+    } else {
+      throw new Error('شناسه سفارش در پاسخ دریافت نشد');
+    }
+  } catch (error) {
+    console.error('Error in handleCompleteOrder:', error);
     throw error;
   }
 };

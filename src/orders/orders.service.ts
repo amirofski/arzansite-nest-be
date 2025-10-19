@@ -233,7 +233,7 @@ export class OrdersService extends BaseAppwriteService {
     }
   }
 
-  async createFromUnified(userId: string, dto: CreateUnifiedOrderDto): Promise<{ orderId: string; status: string; payment?: { redirectUrl: string; id?: string; expiresAt?: string } }> {
+  async createFromUnified(userId: string, dto: CreateUnifiedOrderDto): Promise<{ success: boolean; data: { orderId: string; status: string; payment?: { redirectUrl: string; id?: string; expiresAt?: string } }; message: string }> {
     const nowISO = new Date().toISOString();
     const title = dto.title || 'Website Order';
     const description = dto.description || 'Website order created';
