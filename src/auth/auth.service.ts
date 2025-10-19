@@ -919,7 +919,17 @@ export class AuthService {
       if (e instanceof UnauthorizedException) {
         throw e; // Re-throw our custom error
       }
-      throw new UnauthorizedException('Invalid credentials');
+      
+      // Handle specific error types
+      if (e instanceof UnauthorizedException) {
+        throw e; // Re-throw authentication errors
+      } else if (e instanceof BadRequestException) {
+        throw e; // Re-throw validation errors
+      } else {
+        // Log unexpected errors for debugging
+        console.error('Unexpected error in signIn:', e);
+        throw new UnauthorizedException('Authentication failed. Please try again.');
+      }
     }
   }
 

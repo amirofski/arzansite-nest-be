@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { Client, Databases, Account, Storage, Functions, Users, Teams, ID } from 'node-appwrite';
 import { AppwriteConfig } from './appwrite.config';
 
@@ -79,7 +79,22 @@ export class AppwriteService implements OnModuleInit {
       // v14 positional signature
       return await this.account.createEmailPasswordSession(email, password);
     } catch (error: any) {
-      throw new Error(`Failed to create session: ${error.message}`);
+      // Handle Appwrite SDK errors properly
+      if (error.code === 401) {
+        throw new UnauthorizedException('Invalid email or password');
+      } else if (error.code === 429) {
+        throw new BadRequestException('Too many login attempts. Please try again later.');
+      } else if (error.code === 400) {
+        throw new BadRequestException('Invalid request parameters');
+      } else {
+        // Log the full error for debugging but don't expose internal details
+        console.error('Appwrite session creation error:', {
+          message: error.message,
+          code: error.code,
+          type: error.type
+        });
+        throw new BadRequestException('Authentication failed. Please check your credentials.');
+      }
     }
   }
 
